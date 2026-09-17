@@ -6,7 +6,7 @@ import           Data.Maybe                    (mapMaybe)
 import qualified Data.Text                     as T
 import           Test.Hspec
 
-import           Refl.Language.Agda            (applyMakeCase, replaceSpan, resultFrom)
+import           Refl.Language.Agda            (applyMakeCase, replaceSpan, resultFrom, tidyMessage)
 import           Refl.Content.Level           (LevelSources (..))
 import           Refl.Language.Agda.IOTCM
 import           Refl.Language.Agda.Response
@@ -65,6 +65,19 @@ main = hspec $ do
     it "does not solve a load with errors or unsolved-meta warnings" $ do
       verdict (complete ++ [RDisplay (DError "type error" [])]) `shouldBe` Failed
       verdict [RInteractionPoints [], RDisplay (DAllGoals [] [] [Msg "Unsolved metas" Nothing] []), RStatus False] `shouldBe` Unsolved 1
+    it "reports a type error once, without blaming the protocol" $ do
+      let rs = [RStatus False, RJumpToError 3, RDisplay (DError "type error" [])]
+      verdict rs `shouldBe` Failed
+      map diagMessage (crDiagnostics (resultFrom src "?" rs)) `shouldBe` ["type error"]
+  describe "tidyMessage" $ do
+    let file = "/tmp/s/agda-1/Tutorial/Refl.agda"
+    it "rewrites whole-file positions to user-region lines" $
+      tidyMessage file 6 (T.pack file <> ":7.16-20: error: [UnequalTerms]\nat " <> T.pack file <> ":7.16-8.1")
+        `shouldBe` "line 1.16-20: error: [UnequalTerms]\nat line 1.16-8.1"
+    it "names the prelude when the position is above the user region" $
+      tidyMessage file 6 (T.pack file <> ":3.1-2: x") `shouldBe` "the fixed prelude, line 3.1-2: x"
+    it "leaves other text alone" $
+      tidyMessage file 6 "no path here" `shouldBe` "no path here"
   describe "lean helpers" $ do
     it "theoremName" $ theoremName "theorem add_zero (n : MyNat) : n + 0 = n := by\n" `shouldBe` Just "add_zero"
     it "parseGoalText" $

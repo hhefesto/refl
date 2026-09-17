@@ -7,10 +7,12 @@ module Refl.Language.Agda
   , applyMakeCase
   , isUnsolvedWarning
   , resultFrom
+  , tidyMessage
   ) where
 
 import           Control.Exception            (SomeException, try)
 import           Control.Monad                (void)
+import           Data.Char                    (isDigit)
 import           Data.Aeson                   (Value (Null))
 import           Data.IORef
 import           Data.List                    (find)
@@ -90,7 +92,9 @@ check env src st user = do
         writeIORef (stLoaded st) Nothing
         pure (failure e)
       Right rs -> do
-        let res = resultFrom src user rs
+        let res0 = resultFrom src user rs
+            res = res0 { crDiagnostics = map tidy (crDiagnostics res0) }
+            tidy d = d { diagMessage = tidyMessage (stFile st) (T.count "\n" (lsPrefix src)) (diagMessage d) }
         if crVerdict res == Failed then pure () else
           writeIORef (stLoaded st) (Just (user, crHoles res))
         pure res
@@ -114,10 +118,15 @@ resultFrom src user rs = CheckResult
   toUser a b = let a' = a - 1 - off; b' = b - 1 - off
                in if a' >= 0 && b' <= ulen && a' <= b' then Just (Span a' b') else Nothing
   ips = concat [ x | RInteractionPoints x <- rs ]
-  (vis, invis, warns, errs) = case [ d | RDisplay d <- rs ] of
-    ds | (v, i, w, e) : _ <- [ (v, i, w, e) | DAllGoals v i w e <- ds ] -> (v, i, w, e)
-       | (m, w) : _ <- [ (m, w) | DError m w <- ds ] -> ([], [], w, [Msg m jumpPos])
-       | otherwise -> ([], [], [], [])
+  -- Every display counts: a goals report and an error display can both
+  -- appear, and each error must be reported exactly once.
+  goalsReports = [ (v, i, w, e) | RDisplay (DAllGoals v i w e) <- rs ]
+  errorDisplays = [ (m, w) | RDisplay (DError m w) <- rs ]
+  (vis, invis) = case goalsReports of
+    (v, i, _, _) : _ -> (v, i)
+    [] -> ([], [])
+  warns = concat [ w | (_, _, w, _) <- goalsReports ] ++ concat (map snd errorDisplays)
+  errs = concat [ e | (_, _, _, e) <- goalsReports ] ++ [ Msg m jumpPos | (m, _) <- errorDisplays ]
   jumpPos = case [ p | RJumpToError p <- rs ] of
     p : _ -> Just (p, p + 1)
     []    -> Nothing
@@ -125,18 +134,22 @@ resultFrom src user rs = CheckResult
           | (i, Just (a, b)) <- ips, Just sp <- [toUser a b] ]
   hls = [ HighlightSpan sp atoms
         | RHighlighting xs <- rs, HL a b atoms <- xs, not (null atoms), Just sp <- [toUser a b] ]
-  -- A prompt alone is not evidence of successful checking. Require a
-  -- complete goals report, interaction points, and a final checked status.
+  -- A prompt alone is not evidence of successful checking: a load that
+  -- reports no error must also have produced exactly one goals report, one
+  -- interaction-point list and a final status (checked, or goals left).
+  -- Agda answers a failing load with an Error display and nothing else, so
+  -- completeness is only demanded when there is no error.
   complete = case reverse [ b | RStatus b <- rs ] of
     checked : _ -> (checked || nGoals > 0)
              && length [ () | RDisplay (DAllGoals {}) <- rs ] == 1
              && length [ () | RInteractionPoints _ <- rs ] == 1
     _ -> False
   unknown = [ t | ROther t <- rs ] ++ [ t | RDisplay (DOtherInfo t _) <- rs ]
-  protocolErrors = [ Diagnostic SevError Nothing "Incomplete or unrecognized Agda load response"
-                   | not complete || not (null unknown) ]
+  protocolErrors =
+    [ Diagnostic SevError Nothing "Agda's answer to the load was incomplete; check the file again."
+    | null errs, not complete ]
+    ++ [ Diagnostic SevError Nothing ("Unrecognized Agda response: " <> T.take 300 t) | t <- unknown ]
   diags = protocolErrors ++ [ Diagnostic SevError (msgSpan m) (msgText m) | m <- errs ]
-       ++ [ Diagnostic SevError Nothing m | RDisplay (DError m _) <- rs ]
        ++ [ Diagnostic (if isUnsolvedWarning (msgText m) then SevInfo else SevError) (msgSpan m) (msgText m)
           | m <- warns ]
   msgSpan m = msgRange m >>= uncurry toUser
@@ -147,6 +160,24 @@ resultFrom src user rs = CheckResult
     | nGoals > 0 = T.pack (show nGoals) <> " open goal" <> (if nGoals == 1 then "" else "s")
     | any ((== SevError) . diagSeverity) diags = "Warnings are errors here"
     | otherwise = "All goals solved"
+
+-- | Agda names the session's absolute file path and whole-file lines in its
+-- messages; show the player lines of their own region instead.
+tidyMessage :: FilePath -> Int -> Text -> Text
+tidyMessage path prefixLines msg = case T.splitOn (T.pack path) msg of
+  [] -> msg
+  (first : rest) -> T.concat (first : map relocate rest)
+ where
+  relocate piece = case T.uncons piece of
+    Just (':', more) | (ds, after) <- T.span isDigit more, not (T.null ds) ->
+      let (rest', after') = position after
+      in location (read (T.unpack ds)) rest' <> after'
+    _ -> "the level file" <> piece
+  -- the part of a range after the line number: ".c", ".c-c'" or ".c-l'.c'"
+  position t = let (loc, after) = T.span (\c -> isDigit c || c == '.' || c == '-') t in (loc, after)
+  location l rest'
+    | l > prefixLines = "line " <> T.pack (show (l - prefixLines)) <> rest'
+    | otherwise = "the fixed prelude, line " <> T.pack (show l) <> rest'
 
 -- | Warnings Agda reports for open goals; they are already counted as goals.
 isUnsolvedWarning :: Text -> Bool

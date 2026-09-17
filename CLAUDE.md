@@ -19,7 +19,8 @@ implementations).
   `Agda/IOTCM.hs`, JSON in `Agda/Response.hs`); `Refl.Language.Lean` speaks
   LSP over stdio (`Lean/Rpc.hs`); `Refl.Server` is servant + websockets with
   one prover per connection; `Refl.Check` is the content CI and the world
-  module generator.
+  module generator; `backend/browser` is the headless-Chromium acceptance
+  test (CDP over websockets, no Node).
 - `frontend` — `App` (router shell), `Client` (XHR + websocket),
   `Widgets.Editor` (textarea + highlight overlay + input method + chords),
   `Widgets.LevelPage`, `WorldMap`, `Inventory`; `Widgets.InputTable` is
@@ -47,10 +48,23 @@ implementations).
 
 - Every Agda level runs `--safe`; `Refl.Nat`/`Refl.Eq`/`Refl.Logic` are the
   game's own so lemmas cannot be imported before they are earned. Worlds ≥ 6
-  switch to agda-stdlib.
+  switch to agda-stdlib (`Refl.Reading.Core` re-exports the vocabulary).
+  The two cannot meet in one Agda session: both bind BUILTIN EQUALITY and
+  NATURAL, and Agda rejects the duplicate. So `Refl.Everything` never
+  imports `Refl.Reading.Core`, the flake checks it in a second `agda` run,
+  and a stdlib level never imports `Refl.Nat`/`Refl.Eq`.
 - After adding Agda levels: `refl-check-levels games/refl --emit-world-modules
   languages/agda`, then check `nix build .#agdaSupport`.
 - `nix flake check` must stay green: protocol round-trips, content specs,
   backend spec, every level's solution Solved and template Unsolved, the
-  smoke test.
+  smoke test, the browser test.
+- A load is Solved only with positive evidence: one goals report, one
+  interaction-point list and a checked status. An Error display is the
+  whole answer to a failing load; do not demand the goals report then.
+- Child processes must not get a closed stdout (`NoStream`): the server
+  dies on its banner line. Inherit or redirect to /dev/null.
+- Headless Chromium in the nix sandbox needs `FONTCONFIG_FILE`
+  (`pkgs.makeFontsConf`) or its renderer aborts in Skia; it also needs a
+  settle pause after synthetic DOM events before the next DevTools command,
+  and strings must reach it as UTF-8 text, never `BL.unpack` of JSON bytes.
 - Commits: plain messages, no AI attribution trailers.

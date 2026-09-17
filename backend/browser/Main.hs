@@ -11,12 +11,14 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.IORef
 import qualified Data.Map as M
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Encoding as TLE
 import Network.URI (parseURI, uriPath, uriAuthority, uriPort)
 import qualified Network.WebSockets as WS
 import System.Directory
 import System.Environment (getArgs)
 import System.FilePath ((</>))
-import System.IO (hClose, openTempFile)
+import System.IO (IOMode (WriteMode), hClose, openFile, openTempFile)
 import System.Process
 import System.Timeout (timeout)
 
@@ -32,8 +34,10 @@ main = do
   removeFile dir
   createDirectory dir
   let launch = do
+        -- The server's output goes to ours: a closed stdout would kill it on
+        -- its first banner line, and the log is the only diagnostic in CI.
         (_, _, _, p) <- createProcess (proc site (["--port", "8124", "--data-dir", dir </> "data"] ++ extra))
-          { std_out = NoStream, std_err = Inherit }
+          { std_out = Inherit, std_err = Inherit }
         pure p
       stop p = terminateProcess p >> void (waitForProcess p)
       readyServer = await "server" $ do
@@ -43,17 +47,20 @@ main = do
   flip finally (readIORef server >>= stop) $ do
     readyServer
     bracket (do
+      devNull <- openFile "/dev/null" WriteMode
       (_, _, _, p) <- createProcess (proc chrome
         ["--headless=new", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"
         ,"--remote-debugging-port=0", "--remote-allow-origins=*", "--user-data-dir=" ++ dir </> "chrome", "about:blank"])
-        { std_out = NoStream, std_err = NoStream }
+        { std_out = UseHandle devNull, std_err = Inherit }   -- Chrome's stderr is the only clue when it dies in a sandbox
       pure p) stop $ \_ -> do
         let portFile = dir </> "chrome" </> "DevToolsActivePort"
         await "Chrome debugging port" (doesFileExist portFile)
         port <- head . lines <$> readFile portFile
         targets <- readProcess "curl" ["-fs", "http://127.0.0.1:" ++ port ++ "/json/list"] ""
         let Just (Array ts) = decode (BL.pack targets)
-            urls = [u | t <- foldr (:) [] ts, Just u <- [parseMaybe (withObject "target" (.: "webSocketDebuggerUrl")) t]]
+            -- only the page target: DevTools also lists workers and iframes
+            urls = [ u | t <- foldr (:) [] ts
+                       , Just ("page" :: T.Text, u) <- [parseMaybe (withObject "target" (\o -> (,) <$> o .: "type" <*> o .: "webSocketDebuggerUrl")) t] ]
             Just uri = parseURI (head urls)
             Just authority = uriAuthority uri
         WS.runClient "127.0.0.1" (read (drop 1 (uriPort authority))) (uriPath uri) $ \conn -> do
@@ -75,14 +82,29 @@ main = do
                   Just value -> pure value
                   Nothing -> fail ("Browser expression failed: " ++ show v)
               run expression = void (eval expression)
-              wait label expression = await label ((== Bool True) <$> eval expression)
+              -- A synthetic DOM event followed by the next command inside one
+              -- DevTools round trip outruns the app's event processing (no
+              -- human is that fast): give it a macrotask before continuing.
+              settle = void (rpc "Runtime.evaluate"
+                (object ["expression" .= ("new Promise(r => setTimeout(r, 150))" :: T.Text), "awaitPromise" .= True]))
+              wait label expression = do
+                lastV <- newIORef Null
+                await' label (do v <- readIORef lastV
+                                 snap <- eval "[document.querySelector('.session-status')?.textContent, document.querySelector('.verdict')?.textContent, [...document.querySelectorAll('.diag')].map(d => d.textContent).join(' / '), document.querySelector('.expr input')?.value, document.querySelector('textarea')?.value].join(' || ')"
+                                 pure (show v ++ "; page: " ++ show snap)) $ do
+                  v <- eval expression
+                  writeIORef lastV v
+                  pure (v == Bool True)
               js :: T.Text -> T.Text
-              js = T.pack . BL.unpack . encode
+              js = TL.toStrict . TLE.decodeUtf8 . encode   -- not BL.unpack: that would read UTF-8 bytes as Latin-1
               button label = "[...document.querySelectorAll('button')].find(b => b.textContent === " <> js label <> ")"
               click label = do
                 wait (T.unpack label ++ " enabled") ("Boolean(" <> button label <> " && !" <> button label <> ".disabled)")
                 run (button label <> ".click(); true")
-              set selector value = run ("(() => {const e=document.querySelector(" <> js selector <> "); e.focus(); e.value=" <> js value <> "; e.dispatchEvent(new Event('input',{bubbles:true})); return true;})()")
+                settle
+              set selector value = do
+                run ("(() => {const e=document.querySelector(" <> js selector <> "); e.focus(); e.value=" <> js value <> "; e.dispatchEvent(new Event('input',{bubbles:true})); return true;})()")
+                settle
               editor = set ("textarea" :: T.Text)
               expression = set (".expr input" :: T.Text)
               route n = do
@@ -141,8 +163,15 @@ main = do
           putStrLn "browser: tutorial, Unicode, goals, Give, case split, errors, drafts, navigation, failure and retry passed"
 
 await :: String -> IO Bool -> IO ()
-await label action = do
+await label = await' label (pure "")
+
+-- | Poll until the action says yes; on timeout the failure names what was
+-- last observed, so a CI log is enough to see where the page got stuck.
+await' :: String -> IO String -> IO Bool -> IO ()
+await' label lastSeen action = do
   r <- timeout 60000000 loop
-  unless (r == Just ()) (fail ("Timed out waiting for " ++ label))
+  unless (r == Just ()) $ do
+    seen <- lastSeen
+    fail ("Timed out waiting for " ++ label ++ (if null seen then "" else "; last observed: " ++ seen))
  where
   loop = action >>= \ok -> unless ok (threadDelay 100000 >> loop)

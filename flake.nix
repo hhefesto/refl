@@ -57,7 +57,8 @@
             src = ./languages/agda;
             nativeBuildInputs = [ agda ];
             AGDA_DIR = agdaDirStdlib;
-            buildPhase = "agda Refl/Everything.agda";
+            # Two sessions: the game's own builtins and agda-stdlib's clash.
+            buildPhase = "agda Refl/Everything.agda && agda Refl/Reading/Core.agda";
             installPhase = "mkdir -p $out; cp -r . $out/";
           } // locale);
           agdaDir = agdaDirWith [
@@ -207,6 +208,9 @@
             inherit website;
             browser = pkgs.runCommand "refl-browser" ({
               nativeBuildInputs = [ pkgs.chromium pkgs.curl ];
+              # Chromium's renderer aborts in Skia without a fontconfig setup
+              # (the sandbox has no /etc/fonts); give it one real font.
+              FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; };
             } // locale) ''
               export HOME=$TMPDIR
               ${backend}/bin/refl-browser-test ${pkgs.chromium}/bin/chromium \

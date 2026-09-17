@@ -15,7 +15,7 @@ content tree of Markdown + `.agda`/`.lean` files that is type-checked in CI.
 
 ```sh
 nix run                      # http://127.0.0.1:8090
-nix flake check              # builds everything and type-checks every Agda level
+nix flake check              # builds everything, type-checks every Agda level, plays the Tutorial in headless Chromium
 nix run .#check-levels       # the same, plus the Lean levels (needs /etc/localtime, which the sandbox lacks)
 ```
 
@@ -44,16 +44,25 @@ nix develop .#frontend -c cabal --project-file=cabal-frontend.project run fronte
 Lean levels in the dev shell need the support library built once:
 `(cd languages/lean && lake build)`.
 
+The browser acceptance test (`checks.browser`) drives headless Chromium over
+the DevTools protocol from Haskell, no Node or WebDriver: it plays every
+Tutorial level through the real UI, exercises Give, case split, errors,
+drafts and the retry path after a server failure. To run it by hand:
+
+```sh
+nix build .#site && cabal run refl-browser-test -- $(nix build nixpkgs#chromium --print-out-paths)/bin/chromium result/bin/refl-site games/refl
+```
+
 ## Layout
 
 ```
 common/protocol   wire types + manifest + routes (GHC and GHCJS)
 common/markdown   commonmark → sanitized HTML
 common/content    the games/ tree → manifest and per-level sources
-backend/          refl-server, refl-build-manifest, refl-check-levels, refl-gen-input-table
+backend/          refl-server, refl-build-manifest, refl-check-levels, refl-gen-input-table, refl-browser-test
 frontend/         reflex-dom SPA
 games/refl/       the content: game.md, worlds/NN-<id>/world.md, levels/NN-<id>.{md,agda,lean}, docs/
-languages/agda    Refl.Nat, Refl.Eq, Refl.Logic, Refl.Bool and the generated Refl.World.* modules
+languages/agda    Refl.Nat, Refl.Eq, Refl.Logic, Refl.Bool, Refl.Reading.Core (stdlib vocabulary for the reading levels) and the generated Refl.World.* modules
 languages/lean    the lake project with Refl.MyNat
 languages/bend2   what a Bend2 plugin has to implement
 ```

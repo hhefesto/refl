@@ -50,9 +50,6 @@ data ServerEnv = ServerEnv
   , seGame     :: LoadedGame
   , seManifest :: Manifest
   , seSources  :: SourceIndex
-  , seUnlocked :: M.Map (WorldId, LevelId) (S.Set Text)
-    -- ^ lemma names (all languages' spellings) available at each level
-  , seAllLemmas :: S.Set Text
   , seProgress :: ProgressStore
   }
 
@@ -63,9 +60,6 @@ newServerEnv cfg env game store = ServerEnv
   , seGame = game
   , seManifest = buildManifest languageInfos game
   , seSources = sourceIndex game
-  , seUnlocked = unlockedLemmas game
-  , seAllLemmas = S.fromList
-      [ n | w <- lgWorlds game, l <- lwLevels w, sp <- usLemmas (lmUnlocks (llMeta l)), n <- M.elems (lsNames sp) ]
   , seProgress = store
   }
 
