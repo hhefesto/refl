@@ -2,7 +2,8 @@
 
 Haskell, Agda, Lean and Nix only. No JavaScript sources: the client is
 reflex-dom cross-compiled with the GHC JavaScript backend; `all.js` is a build
-product. Define meanings and laws before code (the level format, the protocol
+product. Bend 2 is an upstream tool from the store (like `agda` and `lean`),
+never TypeScript written or vendored here. Define meanings and laws before code (the level format, the protocol
 types and the plugin record are the meanings; the drivers are their
 implementations).
 
@@ -41,8 +42,17 @@ implementations).
   sandbox.
 - The nix store already has Agda 2.8.0 + stdlib 2.3 (`pkgs.agda.withPackages`)
   and the reflex GHCJS set for `nixpkgs-reflex` = `59e6964…`.
-- Bend2 (github.com/bendlang/bend) is a "Coming soon" README as of
-  2026-09-16. `Refl.Language.Bend2` is a stub.
+- Bend 2.0.4 (github.com/bendlang/bend, commit 8008146, 2026-09-17) is
+  TypeScript run by Bun: no build step, no npm runtime deps, no HVM, no
+  flake upstream. The flake takes it as a non-flake input and `bend` is
+  `bun ${bend2}/bend2/main.ts` (skipping upstream's launcher, which phones
+  home and self-updates). CLI contract: `bend f.bend` checks then runs
+  `main`; exit 0 with `All terms check.` (no main) or the program output;
+  exit 1 with `Error:` on stderr. A loud hole `?name` prints
+  `- expected : <normalised goal>` / `- observed : ?name` / `Context:` /
+  `Location:` with whole-file line numbers; a quiet `?TODO` or an unproved
+  `law` gives `Error: N TODOs found.`. No JSON, LSP or REPL.
+  `Refl.Language.Bend2` is still the stub; the plugin pass parses the above.
 
 ## Rules
 

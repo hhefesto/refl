@@ -17,6 +17,7 @@ content tree of Markdown + `.agda`/`.lean` files that is type-checked in CI.
 nix run                      # http://127.0.0.1:8090
 nix flake check              # builds everything, type-checks every Agda level, plays the Tutorial in headless Chromium
 nix run .#check-levels       # the same, plus the Lean levels (needs /etc/localtime, which the sandbox lacks)
+nix run .#bend -- file.bend  # Bend 2 (checks the file, then runs its main); also `bend` in the dev shell
 ```
 
 `nix run` builds the client bundle (slow the first time: it cross-compiles
@@ -64,7 +65,7 @@ frontend/         reflex-dom SPA
 games/refl/       the content: game.md, worlds/NN-<id>/world.md, levels/NN-<id>.{md,agda,lean}, docs/
 languages/agda    Refl.Nat, Refl.Eq, Refl.Logic, Refl.Bool, Refl.Reading.Core (stdlib vocabulary for the reading levels) and the generated Refl.World.* modules
 languages/lean    the lake project with Refl.MyNat
-languages/bend2   what a Bend2 plugin has to implement
+languages/bend2   how Bend 2 is packaged and what the plugin will parse
 ```
 
 ## Authoring a level
@@ -106,5 +107,5 @@ cabal run refl-check-levels -- games/refl --emit-world-modules languages/agda
 
 Worlds 0–4 (Tutorial, Addition, Multiplication, Logic, Equality: 45 levels)
 are fully playable in Agda; the Tutorial is also playable in Lean 4. Worlds
-5–18 are planned with learning goals per level (see the map). Bend2 is a
-stub until the language is released.
+5–18 are planned with learning goals per level (see the map). Bend 2.0.4
+runs from the flake (`nix run .#bend`); the Bend2 game plugin is next.

@@ -18,6 +18,9 @@
     nixpkgs-reflex.url = "github:NixOS/nixpkgs/59e69648d345d6e8fef86158c555730fa12af9de";
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskell-flake.url = "github:srid/haskell-flake";
+    # Bend 2 (TypeScript, run by Bun; no build step, no HVM). Source only:
+    # upstream has no flake, and its repo-shape gate would reject one.
+    bend2 = { url = "github:bendlang/bend"; flake = false; };
   };
 
   outputs = inputs@{ self, nixpkgs, flake-parts, ... }:
@@ -35,6 +38,16 @@
           agda = pkgs.agda.withPackages (p: [ p.standard-library ]);
           stdlib = pkgs.agdaPackages.standard-library;
           lean = pkgs.lean4;
+          # `bend` = bun running the checked-in interpreter. main.ts finds
+          # base.bend and guide/GUIDE.md relative to itself, so the whole
+          # source tree is referenced, not copied. clang is only for `-o`.
+          # Calling main.ts directly also skips upstream's launcher, which
+          # phones home and self-updates.
+          bend = pkgs.writeShellApplication {
+            name = "bend";
+            runtimeInputs = [ pkgs.bun pkgs.clang ];
+            text = ''exec bun ${inputs.bend2}/bend2/main.ts "$@"'';
+          };
           locale = {
             LOCALE_ARCHIVE = "${pkgs.glibcLocales}/lib/locale/locale-archive";
             LC_ALL = "en_US.UTF-8";
@@ -132,7 +145,7 @@
                 haskell-language-server = hp.haskell-language-server;
               };
               mkShellArgs = {
-                nativeBuildInputs = [ agda lean pkgs.glibcLocales ];
+                nativeBuildInputs = [ agda lean bend pkgs.glibcLocales ];
                 shellHook = ''
                   export AGDA_DIR=${agdaDir}
                   export LOCALE_ARCHIVE=${pkgs.glibcLocales}/lib/locale/locale-archive
@@ -140,8 +153,9 @@
                   export REFL_AGDA=${agda}/bin/agda
                   export REFL_LEAN=${lean}/bin/lean
                   export REFL_LEAN_PATH=$PWD/languages/lean/.lake/build/lib/lean
+                  export REFL_BEND=${bend}/bin/bend
                   export REFL_GAMES=$PWD/games/refl
-                  echo "refl dev shell: agda $(agda --version | head -1 | cut -d' ' -f3), lean $(lean --version | sed -E 's/^Lean \(version ([^,]*),.*/\1/')"
+                  echo "refl dev shell: agda $(agda --version | head -1 | cut -d' ' -f3), lean $(lean --version | sed -E 's/^Lean \(version ([^,]*),.*/\1/'), $(bend --version)"
                   echo "  cabal run refl-server -- --dev --www ./frontend/static-dev   (backend on :8090)"
                   echo "  nix develop .#frontend -c cabal --project-file=cabal-frontend.project run frontend-dev   (UI on :3003)"
                   echo "  (cd languages/lean && lake build)   once, for Lean levels in the dev shell"
@@ -151,7 +165,7 @@
           };
 
           packages = {
-            inherit website agdaSupport leanSupport agdaDir;
+            inherit website agdaSupport leanSupport agdaDir bend;
             frontend-js = frontendJs;
             agda = agda;
 
@@ -192,6 +206,7 @@
           apps = {
             default = { type = "app"; program = "${self'.packages.site}/bin/refl-site"; };
             serve = { type = "app"; program = "${self'.packages.site}/bin/refl-site"; };
+            bend = { type = "app"; program = "${bend}/bin/bend"; };
             check-levels = {
               type = "app";
               program = toString (pkgs.writeShellScript "refl-check-levels-dev" ''
@@ -206,6 +221,36 @@
 
           checks = {
             inherit website;
+            # The Bend 2 contract the plugin relies on, against upstream's own
+            # test corpus: a proof by induction runs, a loud hole reports its
+            # goal, a quiet hole makes the file incomplete. No network: only
+            # `import Base`, which lives next to the interpreter.
+            bend = pkgs.runCommand "refl-bend" { nativeBuildInputs = [ bend ]; } ''
+              export HOME=$TMPDIR BEND_LIB=$TMPDIR/lib
+              t=${inputs.bend2}/tests
+              step() { echo "bend: $1"; }
+              step version;  bend --version | tee $TMPDIR/v; grep -q '^bend 2\.' $TMPDIR/v
+              step add_comm; bend $t/proof/add_comm.bend > $TMPDIR/out; grep -qx '{==}' $TMPDIR/out
+              step loud-hole; if bend $t/check/hole_named.bend > $TMPDIR/hole 2>&1; then echo "a hole must not check" >&2; exit 1; fi
+              grep -q '^- expected : {Nat.add(n, 0n) == n : Nat}' $TMPDIR/hole
+              grep -q '^- observed : ?help' $TMPDIR/hole
+              grep -q '^Context:' $TMPDIR/hole
+              step quiet-hole; if bend $t/check/hole_todo.bend > $TMPDIR/todo 2>&1; then echo "a TODO must not check" >&2; exit 1; fi
+              grep -q '^Error: 1 TODO found\.' $TMPDIR/todo
+              step level-shape
+              cat > $TMPDIR/level.bend <<'BEND'
+              import Base
+
+              law two_plus_two:
+                {Nat.add(2n, 2n) == 4n : Nat}
+
+              def two_plus_two():
+                {==}
+              BEND
+              sed -i 's/^              //' $TMPDIR/level.bend
+              bend $TMPDIR/level.bend > $TMPDIR/level.out 2>&1; grep -q 'All terms check' $TMPDIR/level.out
+              cp $TMPDIR/v $out
+            '';
             browser = pkgs.runCommand "refl-browser" ({
               nativeBuildInputs = [ pkgs.chromium pkgs.curl ];
               # Chromium's renderer aborts in Skia without a fontconfig setup
