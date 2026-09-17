@@ -1,12 +1,13 @@
 module Main (main) where
 
-import           Data.Aeson                    (decodeStrict)
+import           Data.Aeson                    (decodeStrict, Value (Null), object, (.=))
 import qualified Data.ByteString.Char8         as BC
 import           Data.Maybe                    (mapMaybe)
 import qualified Data.Text                     as T
 import           Test.Hspec
 
-import           Refl.Language.Agda            (applyMakeCase, replaceSpan)
+import           Refl.Language.Agda            (applyMakeCase, replaceSpan, resultFrom)
+import           Refl.Content.Level           (LevelSources (..))
 import           Refl.Language.Agda.IOTCM
 import           Refl.Language.Agda.Response
 import           Refl.Language.Lean            (parseGoalText, theoremName)
@@ -46,6 +47,24 @@ main = hspec $ do
     it "applyMakeCase keeps indentation and joins clauses" $
       applyMakeCase "foo : ℕ\nfoo = zero\n  where\n  bar x = ?\n" (Span 32 33) ["bar zero = ?", "bar (suc n) = ?"]
         `shouldBe` "foo : ℕ\nfoo = zero\n  where\n  bar zero = ?\n  bar (suc n) = ?\n"
+  describe "completion evidence" $ do
+    let src = LevelSources (LangId "agda") (WorldId "test") (LevelId "test") "Test" "" "" "?" "refl" [] False []
+        verdict = crVerdict . resultFrom src "?"
+        complete = [RInteractionPoints [], RDisplay (DAllGoals [] [] [] []), RStatus True]
+    it "requires all three parts of a complete successful load" $ do
+      verdict complete `shouldBe` Solved
+      mapM_ (\rs -> verdict rs `shouldBe` Failed)
+        [[], tail complete, take 2 complete, [RStatus True], complete ++ [ROther "bad JSON"]]
+    it "does not invent empty arrays for malformed goals" $ do
+      let malformed = decodeResponse (object ["kind" .= ("DisplayInfo" :: T.Text), "info" .= object ["kind" .= ("AllGoalsWarnings" :: T.Text)]])
+      verdict [RInteractionPoints [], malformed, RStatus True] `shouldBe` Failed
+      verdict [decodeResponse Null] `shouldBe` Failed
+    it "counts invisible metas and orphan interaction points" $ do
+      verdict [RInteractionPoints [], RDisplay (DAllGoals [] [GoalEntry 2 "Set"] [] []), RStatus False] `shouldBe` Unsolved 1
+      verdict [RInteractionPoints [(0, Nothing)], RDisplay (DAllGoals [] [] [] []), RStatus False] `shouldBe` Unsolved 1
+    it "does not solve a load with errors or unsolved-meta warnings" $ do
+      verdict (complete ++ [RDisplay (DError "type error" [])]) `shouldBe` Failed
+      verdict [RInteractionPoints [], RDisplay (DAllGoals [] [] [Msg "Unsolved metas" Nothing] []), RStatus False] `shouldBe` Unsolved 1
   describe "lean helpers" $ do
     it "theoremName" $ theoremName "theorem add_zero (n : MyNat) : n + 0 = n := by\n" `shouldBe` Just "add_zero"
     it "parseGoalText" $

@@ -9,10 +9,11 @@ module Client
   ) where
 
 import           Control.Lens                ((&), (.~))
-import           Data.Aeson                  (decodeStrict, encode)
+import           Data.Aeson                  (eitherDecodeStrict, encode)
 import qualified Data.ByteString.Lazy        as BL
 import           Data.Text                   (Text)
 import qualified Data.Text                   as T
+import qualified Data.Text.Encoding          as TE
 import           Language.Javascript.JSaddle (MonadJSM, fromJSVal, jsg, liftJSM, (!))
 import           Reflex.Dom.Core
 
@@ -39,21 +40,30 @@ data Conn t = Conn
   { connRecv  :: Event t ServerMsg
   , connOpen  :: Event t ()
   , connClose :: Event t ()
+  , connError :: Event t Text
   }
 
 -- | Open the websocket; messages are sent as JSON text frames.
-connect :: MonadWidget t m => Event t [ClientMsg] -> m (Conn t)
-connect sendE = do
+connect :: MonadWidget t m => Event t [ClientMsg] -> Event t () -> Event t () -> m (Conn t)
+connect sendE retryE leaveE = do
   base <- backendBase
   host <- getLocationHost
   proto <- getLocationProtocol
   let url | T.null base = (if proto == "https:" then "wss://" else "ws://") <> host <> "/ws"
           | otherwise = T.replace "http://" "ws://" (T.replace "https://" "wss://" base) <> "/ws"
-  ws <- webSocket url $ def
-    & webSocketConfig_send .~ fmap (map (BL.toStrict . encode)) sendE
-    & webSocketConfig_reconnect .~ False
+  let socket = textWebSocket url $ def
+        & webSocketConfig_send .~ fmap (map (TE.decodeUtf8 . BL.toStrict . encode)) sendE
+        & webSocketConfig_close .~ ((1000, "Leaving level") <$ leftmost [leaveE, retryE])
+        & webSocketConfig_reconnect .~ False
+  sockets <- widgetHold socket (socket <$ retryE)
+  let received = switchDyn (_webSocket_recv <$> sockets)
+      decoded = eitherDecodeStrict . TE.encodeUtf8 <$> received
   pure Conn
-    { connRecv = fmapMaybe decodeStrict (_webSocket_recv ws)
-    , connOpen = _webSocket_open ws
-    , connClose = () <$ _webSocket_close ws
+    { connRecv = fmapMaybe (either (const Nothing) Just) decoded
+    , connOpen = switchDyn (_webSocket_open <$> sockets)
+    , connClose = () <$ switchDyn (_webSocket_close <$> sockets)
+    , connError = leftmost
+        [ fmapMaybe (either (Just . ("Invalid server response: " <>) . T.pack) (const Nothing)) decoded
+        , "Connection failed. Retry when the server is available." <$ switchDyn (_webSocket_error <$> sockets)
+        ]
     }

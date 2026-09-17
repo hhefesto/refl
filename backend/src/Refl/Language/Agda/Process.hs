@@ -22,6 +22,7 @@ import           Data.IORef
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as TE
+import           Data.Text.Encoding.Error   (lenientDecode)
 import qualified Data.Text.IO               as TIO
 import           System.Environment         (getEnvironment)
 import           System.IO
@@ -61,7 +62,8 @@ startAgda logf exe extraEnv cwd = do
     ok <- timeout (60 * 1000000) (readUntilPrompt p)
     case ok of
       Nothing -> stopAgda p >> fail "agda did not print its prompt"
-      Just _  -> pure p
+      Just (Left e) -> stopAgda p >> fail (T.unpack e)
+      Just (Right _) -> pure p
   pure $ case r of
     Left (e :: SomeException) -> Left ("could not start agda: " <> T.pack (show e))
     Right p -> Right p
@@ -81,7 +83,7 @@ sendCmd p secs file cmd = withMVar (apLock p) $ \_ -> do
     Right () -> do
       res <- timeout (secs * 1000000) (readUntilPrompt p)
       pure $ case res of
-        Nothing -> Left "agda timed out"
+        Nothing -> Left "agda timed out; retry the session"
         Just (Left e) -> Left e
         Just (Right rs) -> Right rs
 
@@ -101,15 +103,16 @@ readUntilPrompt p = go []
       else do
         chunk <- BS.hGetSome (apOut p) 65536
         if BS.null chunk
-          then pure (Left ("agda exited; last output: " <> TE.decodeUtf8 (BS.take 2000 rest)))
+          then pure (Left ("agda exited; last output: " <> TE.decodeUtf8With lenientDecode (BS.take 2000 rest)))
           else modifyIORef' (apBuf p) (<> chunk) >> go acc'
   decodeLine l0 = do
     let l = stripPrompt l0
     if BS.null (BC.strip l) then pure [] else
       case eitherDecodeStrict l of
         Left err -> do
-          apLog p ("agda: unparsable line: " <> T.pack err <> ": " <> TE.decodeUtf8 (BS.take 300 l))
-          pure []
+          let message = "agda: unparsable line: " <> T.pack err <> ": " <> TE.decodeUtf8With lenientDecode (BS.take 300 l)
+          apLog p message
+          pure [ROther message]
         Right v -> do
           let r = decodeResponse v
           when False (apLog p (T.pack (show r)))

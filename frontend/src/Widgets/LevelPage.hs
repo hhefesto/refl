@@ -6,7 +6,7 @@ module Widgets.LevelPage (levelPage) where
 import           Control.Monad          (forM_, void, when)
 import           Data.List              (find)
 import qualified Data.Map               as M
-import           Data.Maybe             (fromMaybe, isJust, isNothing, listToMaybe)
+import           Data.Maybe             (listToMaybe)
 import           Data.Text              (Text)
 import qualified Data.Text              as T
 import           Reflex.Dom.Core
@@ -16,15 +16,18 @@ import           Refl.Protocol
 import           Widgets.Common
 import           Widgets.Editor
 import           Widgets.Inventory      (unlockedCommands)
-import           Widgets.WorldMap       (levelDone)
 
 data Status = Idle | Checking | Done CheckResult
 
+-- A socket being open does not imply that the prover session is ready.
+data SessionState = Connecting | Opening | Ready | Unavailable Text | Disconnected
+  deriving (Eq)
+
 levelPage :: Widget' t m
-          => Manifest -> Dynamic t Progress -> Event t () -> LangId -> WorldId -> Int -> m ()
-levelPage m progress refreshProgress lang wid idx =
+          => Manifest -> Event t () -> LangId -> WorldId -> Int -> m (Event t ())
+levelPage m leaveE lang wid idx =
   case [ (w, l) | w <- mWorlds m, wId w == wid, l <- wLevels w, lIndex l == idx ] of
-    [] -> el "p" (text "No such level.")
+    [] -> el "p" (text "No such level.") >> pure never
     ((w, l) : _) -> do
       elClass "div" "nav-row" $ do
         routeLink RWorldMap (text "World map")
@@ -38,31 +41,41 @@ levelPage m progress refreshProgress lang wid idx =
           if lg == lang then elClass "span" "pill on" (text (unLangId lg))
           else routeLinkClass "pill" (levelRoute wid l (Just lg)) (text (unLangId lg))
       case M.lookup lang (lLanguages l) of
-        Nothing -> elClass "div" "unavailable" (text "This level has no source for that language yet.")
+        Nothing -> elClass "div" "unavailable" (text "This level has no source for that language yet.") >> pure never
         Just ll -> body w l ll
  where
   body w l ll = elClass "div" "level" $ mdo
     -- session ------------------------------------------------------------
-    pb <- getPostBuild
-    conn <- connect sendE
+    conn <- connect sendE retryE leaveE
     let recv = connRecv conn
         openE = OpenSession lang wid (lId l) <$ connOpen conn
         opened = fmapMaybe (\case SessionOpened li cs t -> Just (li, cs, t); _ -> Nothing) recv
         unavailable = fmapMaybe (\case SessionUnavailable r -> Just r; _ -> Nothing) recv
-        checked = fmapMaybe (\case Checked r -> Just r; _ -> Nothing) recv
-        replaced = fmapMaybe (\case TextReplaced t r -> Just (t, r); _ -> Nothing) recv
+        checkedRaw = fmapMaybe (\case Checked r -> Just r; _ -> Nothing) recv
+        replacedRaw = fmapMaybe (\case TextReplaced t r -> Just (t, r); _ -> Nothing) recv
+        fresh = (\sent now -> sent == Just now) <$> submitted <*> eoText ed
+        checked = gate (current fresh) checkedRaw
+        replaced = gate (current fresh) replacedRaw
         goalShown = fmapMaybe (\case GoalShown g -> Just g; _ -> Nothing) recv
         info = fmapMaybe (\case Info t b -> Just (t, b); _ -> Nothing) recv
-        serverErr = fmapMaybe (\case ServerError e -> Just e; _ -> Nothing) recv
+        serverErr = leftmost [fmapMaybe (\case ServerError e -> Just e; _ -> Nothing) recv, connError conn]
         resultE = leftmost [checked, fmapMaybe snd replaced]
+        finished = leftmost [() <$ checkedRaw, () <$ replacedRaw, () <$ goalShown, () <$ info, () <$ serverErr, () <$ unavailable, connClose conn]
+    session <- holdDyn Connecting $ leftmost
+      [ Connecting <$ retryE, Opening <$ connOpen conn, Ready <$ opened
+      , Unavailable <$> unavailable, Unavailable <$> connError conn, Disconnected <$ connClose conn ]
+    busy <- holdDyn False (leftmost [False <$ finished, True <$ requestE, False <$ retryE])
+    submitted <- holdDyn Nothing (Just <$> tag (current (eoText ed)) requestE)
     langCommands <- holdDyn [] ((\(_, cs, _) -> cs) <$> opened)
     let available = [ c | c <- unlockedCommands m wid (lIndex l) ]
-        canUse c = ffor langCommands (\cs -> c `elem` cs && c `elem` available)
+        canUse c = (\cs s b mt t -> s == Ready && not b && c `elem` cs && c `elem` available
+                       && (c == CmdLoad || mt == Just t))
+                   <$> langCommands <*> session <*> busy <*> checkedText <*> eoText ed
     -- editor --------------------------------------------------------------
     -- initial text: template until the session says otherwise
     let initialText = llTemplate ll
-    lastResult <- holdDyn Nothing (Just <$> resultE)
-    checkedText <- holdDyn Nothing (leftmost [ Just <$> tag (current (eoText ed)) checked
+    lastResult <- holdDyn Nothing (leftmost [ Nothing <$ eoEdited ed, Nothing <$ retryE, Just <$> resultE ])
+    checkedText <- holdDyn Nothing (leftmost [ Nothing <$ eoEdited ed, Nothing <$ retryE, Just <$> tag (current (eoText ed)) checked
                                              , Just . fst <$> replaced ])
     let hlDyn = ffor ((,) <$> lastResult <*> checkedText) $ \(mr, mt) -> case (mr, mt) of
           (Just r, Just t) -> Just (t, crHighlight r, crHoles r)
@@ -94,11 +107,18 @@ levelPage m progress refreshProgress lang wid idx =
         pure (ed0, cmdE0, exprDyn0)
       pure (ed', cmdE', exprDyn')
     -- right column --------------------------------------------------------
-    (selectedHole, sendHoleE) <- elClass "div" "col-right" $ mdo
-      dyn_ $ ffor unavailableDyn $ \case
-        Just r -> elClass "div" "unavailable" (text r)
-        Nothing -> blank
-      unavailableDyn <- holdDyn Nothing (Just <$> unavailable)
+    (sendHoleE, retryE) <- elClass "div" "col-right" $ mdo
+      retry <- switchHold never =<< dyn (ffor session $ \s -> do
+        elClass "div" "session-status" $ text $ case s of
+          Connecting -> "Connecting…"
+          Opening -> "Opening prover session…"
+          Ready -> "Ready"
+          Unavailable reason -> reason
+          Disconnected -> "Disconnected. Retry to reconnect."
+        case s of
+          Unavailable _ -> button "Retry"
+          Disconnected -> button "Retry"
+          _ -> pure never)
       -- verdict
       dyn_ $ ffor status $ \case
         Idle -> elClass "div" "verdict idle" (text "Check the file to see goals (C-c C-l).")
@@ -161,20 +181,16 @@ levelPage m progress refreshProgress lang wid idx =
                   (_, CmdSolveAll) -> Nothing)
             ((,,) <$> current sel <*> current exprDyn <*> current (eoCursor ed)) cmdE
           target s cur = maybe (TargetPos cur) TargetHole s
-      pure (sel, holeOpE)
+      pure (holeOpE, retry)
     -- outgoing --------------------------------------------------------------
     let checkE = Check <$> tag (current (eoText ed)) (ffilter (== CmdLoad) cmdE)
-        draftE = SaveDraft <$> updated (eoText ed)
+        draftE = SaveDraft <$> eoEdited ed
     draftDebounced <- debounce 2 draftE
-    let sendE = mergeWith (++) [ (: []) <$> openE, (: []) <$> checkE, (: []) <$> sendHoleE, (: []) <$> draftDebounced ]
-    status <- holdDyn Idle (leftmost [ Checking <$ checkE, Checking <$ sendHoleE, Done <$> resultE, Idle <$ serverErr, Idle <$ goalShown, Idle <$ info ])
-    -- when solved, refresh progress
-    performEvent_ (pure () <$ ffilter ((== Solved) . crVerdict) resultE)
-    void (pure refreshProgress)
-    void (pure selectedHole)
-    void (pure pb)
-    void (pure (levelDone, isJust, isNothing, listToMaybe, fromMaybe))
-    pure ()
+    let requestE = leftmost [() <$ checkE, () <$ sendHoleE]
+        sendE = mergeWith (++) [ (: []) <$> openE, (: []) <$> checkE, (: []) <$> sendHoleE
+                              , (: []) <$> gate (current ((== Ready) <$> session)) draftDebounced ]
+    status <- holdDyn Idle (leftmost [ Idle <$ eoEdited ed, Idle <$ retryE, Done <$> resultE, Idle <$ finished, Checking <$ requestE ])
+    pure (() <$ ffilter ((== Solved) . crVerdict) resultE)
 
   liInputMethod' lg = case unLangId lg of
     "agda" -> "agda"

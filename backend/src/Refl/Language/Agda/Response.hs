@@ -153,10 +153,10 @@ parseDisplay = withObject "info" $ \o -> do
   kind <- o .: "kind"
   case kind :: Text of
     "AllGoalsWarnings" ->
-      DAllGoals <$> (o .:? "visibleGoals" .!= [] >>= mapM parseGoalEntry)
-                <*> (o .:? "invisibleGoals" .!= [] >>= mapM parseGoalEntry)
-                <*> (o .:? "warnings" .!= [] >>= pure . map parseMsg)
-                <*> (o .:? "errors" .!= [] >>= pure . map parseMsg)
+      DAllGoals <$> (o .: "visibleGoals" >>= mapM parseGoalEntry)
+                <*> (o .: "invisibleGoals" >>= mapM parseGoalEntry)
+                <*> (o .: "warnings" >>= pure . map parseMsg)
+                <*> (o .: "errors" >>= pure . map parseMsg)
     "Error" -> do
       e <- o .: "error"
       msg <- withObject "error" (\eo -> eo .: "message") e

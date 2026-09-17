@@ -6,6 +6,7 @@ module Refl.Language.Agda
   , replaceSpan
   , applyMakeCase
   , isUnsolvedWarning
+  , resultFrom
   ) where
 
 import           Control.Exception            (SomeException, try)
@@ -79,6 +80,7 @@ start env src = do
 check :: Env -> LevelSources -> St -> Text -> IO CheckResult
 check env src st user = do
   let vs = langStaticRules agda src user
+  writeIORef (stLoaded st) Nothing
   if not (null vs) then pure (rejected vs) else do
     writeFileUtf8 (stFile st) (splice src "" user)
     r <- sendCmd (stProc st) 120 (stFile st) ALoad
@@ -89,7 +91,8 @@ check env src st user = do
         pure (failure e)
       Right rs -> do
         let res = resultFrom src user rs
-        writeIORef (stLoaded st) (Just (user, crHoles res))
+        if crVerdict res == Failed then pure () else
+          writeIORef (stLoaded st) (Just (user, crHoles res))
         pure res
 
 failure :: Text -> CheckResult
@@ -122,11 +125,23 @@ resultFrom src user rs = CheckResult
           | (i, Just (a, b)) <- ips, Just sp <- [toUser a b] ]
   hls = [ HighlightSpan sp atoms
         | RHighlighting xs <- rs, HL a b atoms <- xs, not (null atoms), Just sp <- [toUser a b] ]
-  diags = [ Diagnostic SevError (msgSpan m) (msgText m) | m <- errs ]
+  -- A prompt alone is not evidence of successful checking. Require a
+  -- complete goals report, interaction points, and a final checked status.
+  complete = case reverse [ b | RStatus b <- rs ] of
+    checked : _ -> (checked || nGoals > 0)
+             && length [ () | RDisplay (DAllGoals {}) <- rs ] == 1
+             && length [ () | RInteractionPoints _ <- rs ] == 1
+    _ -> False
+  unknown = [ t | ROther t <- rs ] ++ [ t | RDisplay (DOtherInfo t _) <- rs ]
+  protocolErrors = [ Diagnostic SevError Nothing "Incomplete or unrecognized Agda load response"
+                   | not complete || not (null unknown) ]
+  diags = protocolErrors ++ [ Diagnostic SevError (msgSpan m) (msgText m) | m <- errs ]
+       ++ [ Diagnostic SevError Nothing m | RDisplay (DError m _) <- rs ]
        ++ [ Diagnostic (if isUnsolvedWarning (msgText m) then SevInfo else SevError) (msgSpan m) (msgText m)
           | m <- warns ]
   msgSpan m = msgRange m >>= uncurry toUser
-  nGoals = length vis + length invis
+  nGoals = maximum [length vis + length invis, length ips,
+                    if any (isUnsolvedWarning . msgText) warns then 1 else 0]
   status
     | not (null errs) = "Error"
     | nGoals > 0 = T.pack (show nGoals) <> " open goal" <> (if nGoals == 1 then "" else "s")

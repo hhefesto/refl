@@ -24,6 +24,7 @@ import           Refl.Content.Frontmatter     (writeFileUtf8)
 import           Refl.Language
 import           Refl.Language.Registry
 import           Refl.Protocol.Types
+import           Refl.Server                 (restrictedSources)
 
 data Outcome = Outcome
   { oWorld :: Text
@@ -37,7 +38,7 @@ checkGame :: Env -> Maybe LangId -> LoadedGame -> IO [Outcome]
 checkGame env only game = fmap concat . forM (lgWorlds game) $ \w ->
   fmap concat . forM (lwLevels w) $ \l ->
     forM [ s | (lang, s) <- M.toList (llSources l), maybe True (== lang) only ] $ \src ->
-      checkLevel env (wmId (lwMeta w)) (lmId (llMeta l)) src
+      checkLevel env (wmId (lwMeta w)) (lmId (llMeta l)) (restrictedSources game src)
 
 checkLevel :: Env -> Text -> Text -> LevelSources -> IO Outcome
 checkLevel env world level src = do

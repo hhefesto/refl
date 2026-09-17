@@ -113,3 +113,14 @@ test-suite spec
     build-depends:
         hspec
       , refl-backend
+
+executable refl-browser-test
+    import:           shared
+    hs-source-dirs:   browser
+    main-is:          Main.hs
+    build-depends:
+        network-uri
+      , process
+      , websockets
+      , refl-backend
+    ghc-options: -threaded -rtsopts

@@ -28,7 +28,7 @@ bodyW :: Widget x ()
 bodyW = mdo
   pb <- getPostBuild
   manifestE <- fetchManifest pb
-  progressE <- fetchProgress (leftmost [pb, refreshE])
+  progressE <- fetchProgress (leftmost [pb, refreshE, solvedE])
   manifestDyn <- holdDyn Nothing manifestE
   progressDyn <- holdDyn emptyProgress (fmapMaybe id progressE)
   hist <- manageHistory never
@@ -44,14 +44,14 @@ bodyW = mdo
     elClass "span" "spacer" blank
     dd <- dropdown "agda" (ffor manifestDyn (maybe (M.singleton "agda" "Agda") (M.fromList . map (\li -> (unLangId (liId li), liName li <> (if liAvailable li then "" else " (soon)"))) . mLanguages))) def
     pure (LangId <$> _dropdown_value dd)
-  el "main" $ dyn_ $ ffor ((,) <$> manifestDyn <*> routeDyn) $ \(mm, mr) ->
+  solvedE <- el "main" $ switchHold never =<< dyn (ffor ((,) <$> manifestDyn <*> routeDyn) $ \(mm, mr) ->
     case mm of
-      Nothing -> el "p" (text "Loading the game…")
+      Nothing -> el "p" (text "Loading the game…") >> pure never
       Just m -> case mr of
-        Nothing -> el "p" (text "404 — no such page.")
-        Just RWorldMap -> worldMap m progressDyn langDyn
-        Just (RWorld w) -> worldPage m progressDyn langDyn w
-        Just (RLevel w n ml) -> dyn_ $ ffor langDyn $ \lg ->
-          levelPage m progressDyn refreshE (fromMaybe lg ml) w n
-        Just RInventory -> inventoryPage m progressDyn langDyn
+        Nothing -> el "p" (text "404 — no such page.") >> pure never
+        Just RWorldMap -> worldMap m progressDyn langDyn >> pure never
+        Just (RWorld w) -> worldPage m progressDyn langDyn w >> pure never
+        Just (RLevel w n ml) -> switchHold never =<< dyn (ffor langDyn $ \lg ->
+          levelPage m (leftmost [refreshE, () <$ updated langDyn]) (fromMaybe lg ml) w n)
+        Just RInventory -> inventoryPage m progressDyn langDyn >> pure never)
   void (pure hist)

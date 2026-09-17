@@ -8,22 +8,21 @@ module Refl.Server
   , newServerEnv
   , app
   , unlockedLemmas
+  , restrictedSources
   ) where
 
 import           Control.Concurrent.MVar
 import           Control.Exception              (SomeException, finally, try)
 import           Control.Monad                  (forever, void, when)
 import           Control.Monad.IO.Class         (liftIO)
-import           Data.Aeson                     (Value, decodeStrict, encode,
+import           Data.Aeson                     (Value, eitherDecodeStrict, encode,
                                                  object, (.=))
-import qualified Data.ByteString.Lazy           as BL
 import           Data.IORef
 import qualified Data.Map                       as M
 import           Data.Maybe                     (fromMaybe)
 import qualified Data.Set                       as S
 import           Data.Text                      (Text)
 import qualified Data.Text                      as T
-import qualified Data.Text.Encoding             as TE
 import           Network.HTTP.Types             (hContentType, status200,
                                                  status404)
 import           Network.Wai                    (Application, responseFile,
@@ -91,6 +90,15 @@ unlockedLemmas game = M.fromList
     [ worldLemmas d | i <- S.toList (foldl transitive S.empty (wmDependencies (lwMeta w))), Just d <- [M.lookup i byId] ]
   earlier w l = [ lemmasOf l' | l' <- lwLevels w, lmIndex (llMeta l') <= lmIndex (llMeta l) ]
 
+-- | Both content CI and live sessions enforce the same earned vocabulary.
+restrictedSources :: LoadedGame -> LevelSources -> LevelSources
+restrictedSources game src = src { lsForbidsNames = S.toList forbids }
+ where
+  allNames = S.fromList
+    [ n | w <- lgWorlds game, l <- lwLevels w, sp <- usLemmas (lmUnlocks (llMeta l)), n <- M.elems (lsNames sp) ]
+  earned = M.findWithDefault S.empty (lsWorld src, lsLevel src) (unlockedLemmas game)
+  forbids = S.fromList (lsForbidsNames src) `S.union` (allNames `S.difference` earned)
+
 -- ---------------------------------------------------------------------------
 -- HTTP
 -- ---------------------------------------------------------------------------
@@ -152,9 +160,17 @@ wsApp se pending
  where
   loop conn sessionVar = void $ try @SomeException $ forever $ do
     raw <- WS.receiveData conn
-    case decodeStrict raw of
-      Nothing -> send conn (ServerError ("unreadable message: " <> TE.decodeUtf8 (BL.toStrict (BL.take 200 (BL.fromStrict raw)))))
-      Just msg -> handle conn sessionVar msg
+    case eitherDecodeStrict raw of
+      Left e -> send conn (ServerError ("Unreadable message: " <> T.pack e))
+      Right msg -> do
+        outcome <- try @SomeException (handle conn sessionVar msg)
+        case outcome of
+          Right () -> pure ()
+          Left e -> do
+            logMsg (seEnv se) ("Session failed: " <> T.pack (show e))
+            old <- swapMVar sessionVar Nothing
+            mapM_ (\s -> void (try @SomeException (psClose (ssProver s)))) old
+            send conn (SessionUnavailable ("Prover failed: " <> T.pack (show e) <> ". Retry the session."))
   send conn m = WS.sendTextData conn (encode m)
 
   handle conn sessionVar = \case
@@ -171,9 +187,7 @@ wsApp se pending
         (_, Nothing) -> send conn (SessionUnavailable "This level has no source for that language.")
         (Just l, Just src0) -> do
           let key = levelKey world level
-              unlocked = fromMaybe S.empty (M.lookup (world, level) (seUnlocked se))
-              forbids = S.toList (S.union (S.fromList (lsForbidsNames src0)) (seAllLemmas se `S.difference` unlocked))
-              src = src0 { lsForbidsNames = forbids }
+              src = restrictedSources (seGame se) src0
           r <- langStart l (seEnv se) src
           case r of
             Left e -> send conn (SessionUnavailable e)
@@ -201,7 +215,6 @@ wsApp se pending
           record s res
           send conn (TextReplaced new (Just res))
     SaveDraft txt -> withSession sessionVar conn $ \s -> do
-      writeIORef (ssText s) txt
       saveDraft (seProgress se) (ssKey s) (liId (langInfo (ssLang s))) txt
 
   withSession sessionVar conn k = do

@@ -45,6 +45,7 @@ data EditorConfig t = EditorConfig
 
 data EditorOut t = EditorOut
   { eoText   :: Dynamic t Text
+  , eoEdited :: Event t Text          -- ^ user input only, never server edits
   , eoCursor :: Dynamic t Int          -- ^ code points
   , eoChord  :: Event t Chord
   , eoRaw    :: TA.HTMLTextAreaElement
@@ -135,6 +136,7 @@ editor cfg = elClass "div" "editor-wrap" $ mdo
   let _ = raw ^. id
   pure EditorOut
     { eoText = textDyn
+    , eoEdited = fst <$> inputE
     , eoCursor = cursorDyn
     , eoChord = fmapMaybe id keyE
     , eoRaw = raw

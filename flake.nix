@@ -205,6 +205,14 @@
 
           checks = {
             inherit website;
+            browser = pkgs.runCommand "refl-browser" ({
+              nativeBuildInputs = [ pkgs.chromium pkgs.curl ];
+            } // locale) ''
+              export HOME=$TMPDIR
+              ${backend}/bin/refl-browser-test ${pkgs.chromium}/bin/chromium \
+                ${self'.packages.site}/bin/refl-site ${games}
+              echo ok > $out
+            '';
             check-levels = self'.packages.check-levels;
             manifest = self'.packages.manifest;
             # The server answers, serves the manifest and the client.
