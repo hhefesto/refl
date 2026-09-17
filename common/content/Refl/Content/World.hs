@@ -14,7 +14,6 @@ import           Data.Map                 (Map)
 import qualified Data.Map                 as M
 import           Data.Text                (Text)
 import qualified Data.Text                as T
-import qualified Data.Text.IO             as TIO
 import           System.Directory         (doesDirectoryExist, doesFileExist,
                                            listDirectory)
 import           System.FilePath          ((</>))
@@ -64,7 +63,7 @@ loadWorld dir = do
   let mdPath = dir </> "world.md"
   exists <- doesFileExist mdPath
   if not exists then pure (Left (T.pack mdPath <> ": missing")) else do
-    doc <- TIO.readFile mdPath
+    doc <- readFileUtf8 mdPath
     case parseFrontmatter doc of
       Left err -> pure (Left (T.pack mdPath <> ": " <> err))
       Right (meta, intro) -> do
@@ -84,7 +83,7 @@ loadWorld dir = do
 -- | Load @games/<game>/@: @game.md@, @worlds/*/@, @docs/*.md@.
 loadGame :: FilePath -> IO (Either Text LoadedGame)
 loadGame dir = do
-  doc <- TIO.readFile (dir </> "game.md")
+  doc <- readFileUtf8 (dir </> "game.md")
   case parseFrontmatter doc of
     Left err -> pure (Left (T.pack (dir </> "game.md") <> ": " <> err))
     Right (meta, intro) -> do
@@ -92,7 +91,7 @@ loadGame dir = do
       worlds <- mapM (loadWorld . ((dir </> "worlds") </>)) wdirs
       docsExist <- doesDirectoryExist (dir </> "docs")
       docFiles <- if docsExist then filter (".md" `isSuffixOf`) <$> listDirectory (dir </> "docs") else pure []
-      docs <- mapM (\f -> (,) (T.pack (take (length f - 3) f)) <$> TIO.readFile (dir </> "docs" </> f)) docFiles
+      docs <- mapM (\f -> (,) (T.pack (take (length f - 3) f)) <$> readFileUtf8 (dir </> "docs" </> f)) docFiles
       pure $ case sequence worlds of
         Left err -> Left err
         Right ws ->

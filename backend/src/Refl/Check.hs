@@ -16,11 +16,11 @@ import           Data.List              (nub)
 import qualified Data.Map               as M
 import           Data.Text              (Text)
 import qualified Data.Text              as T
-import qualified Data.Text.IO           as TIO
 import           System.Directory       (createDirectoryIfMissing)
 import           System.FilePath        ((</>))
 
 import           Refl.Content
+import           Refl.Content.Frontmatter     (writeFileUtf8)
 import           Refl.Language
 import           Refl.Language.Registry
 import           Refl.Protocol.Types
@@ -118,5 +118,5 @@ emitWorldModules game dir = do
       Nothing -> pure []
       Just src -> do
         let path = dir </> "Refl" </> "World" </> T.unpack (worldModuleName (wmId (lwMeta w))) ++ ".agda"
-        TIO.writeFile path src
+        writeFileUtf8 path src
         pure [path]

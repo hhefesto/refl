@@ -2,6 +2,8 @@
 module Refl.Content.Frontmatter
   ( splitFrontmatter
   , parseFrontmatter
+  , readFileUtf8
+  , writeFileUtf8
   ) where
 
 import           Data.Aeson      (FromJSON)
@@ -10,6 +12,13 @@ import           Data.Text       (Text)
 import qualified Data.Text       as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Yaml       as Y
+
+-- | Locale-independent UTF-8 file I/O (the nix sandbox has no UTF-8 locale).
+readFileUtf8 :: FilePath -> IO Text
+readFileUtf8 = fmap TE.decodeUtf8 . BS.readFile
+
+writeFileUtf8 :: FilePath -> Text -> IO ()
+writeFileUtf8 p = BS.writeFile p . TE.encodeUtf8
 
 -- | Split a document into (yaml, body). A document without front matter is
 -- all body with empty yaml.

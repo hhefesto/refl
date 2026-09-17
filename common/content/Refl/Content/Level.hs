@@ -21,7 +21,6 @@ import qualified Data.Map               as M
 import           Data.Maybe             (fromMaybe)
 import           Data.Text              (Text)
 import qualified Data.Text              as T
-import qualified Data.Text.IO           as TIO
 import           System.Directory       (doesFileExist)
 import           System.FilePath        ((<.>))
 
@@ -134,7 +133,7 @@ languageComment (LangId l) = case l of
 -- source file @<base>.<ext>@ for the known languages.
 loadLevel :: WorldId -> Map Text [Text] -> FilePath -> IO (Either Text LoadedLevel)
 loadLevel wid worldOptions mdPath = do
-  doc <- TIO.readFile mdPath
+  doc <- readFileUtf8 mdPath
   case parseFrontmatter doc of
     Left err -> pure (Left (T.pack mdPath <> ": " <> err))
     Right (meta, body) -> do
@@ -160,7 +159,7 @@ loadLevel wid worldOptions mdPath = do
         path = base <.> T.unpack (languageExt lid)
     exists <- doesFileExist path
     if not exists then pure (Right Nothing) else do
-      src <- TIO.readFile path
+      src <- readFileUtf8 path
       pure $ case parseRegions (languageComment lid) src of
         Left err -> Left (T.pack path <> ": " <> err)
         Right r  -> Right $ Just LevelSources

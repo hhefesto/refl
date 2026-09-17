@@ -16,7 +16,6 @@ import           Data.List                    (find)
 import           Data.Maybe                   (mapMaybe)
 import           Data.Text                    (Text)
 import qualified Data.Text                    as T
-import qualified Data.Text.IO                 as TIO
 import qualified Data.UUID                    as UUID
 import qualified Data.UUID.V4                 as UUID
 import           System.Directory             (createDirectoryIfMissing,
@@ -24,6 +23,7 @@ import           System.Directory             (createDirectoryIfMissing,
 import           System.FilePath              (takeDirectory, (<.>), (</>))
 
 import           Refl.Content.Splice
+import           Refl.Content.Frontmatter     (writeFileUtf8)
 import           Refl.Language
 import           Refl.Language.Agda.IOTCM
 import           Refl.Language.Agda.Process
@@ -54,9 +54,9 @@ start env src = do
       relPath = T.unpack (T.replace "." "/" (lsModuleName src)) <.> "agda"
       file = dir </> relPath
   createDirectoryIfMissing True (takeDirectory file)
-  TIO.writeFile (dir </> "refl-level.agda-lib")
+  writeFileUtf8 (dir </> "refl-level.agda-lib")
     "name: refl-level\ninclude: .\ndepend: standard-library refl-support\n"
-  TIO.writeFile file (splice src "" (lsTemplate src))
+  writeFileUtf8 file (splice src "" (lsTemplate src))
   let extra = [("LC_ALL", "en_US.UTF-8")] ++ maybe [] (\d -> [("AGDA_DIR", d)]) (envAgdaDir env)
   r <- startAgda (logMsg env) (envAgda env) extra dir
   case r of
@@ -80,7 +80,7 @@ check :: Env -> LevelSources -> St -> Text -> IO CheckResult
 check env src st user = do
   let vs = langStaticRules agda src user
   if not (null vs) then pure (rejected vs) else do
-    TIO.writeFile (stFile st) (splice src "" user)
+    writeFileUtf8 (stFile st) (splice src "" user)
     r <- sendCmd (stProc st) 120 (stFile st) ALoad
     case r of
       Left e -> do

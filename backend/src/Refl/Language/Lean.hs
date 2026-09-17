@@ -21,7 +21,6 @@ import           Data.List                    (isPrefixOf)
 import           Data.Maybe                   (fromMaybe, mapMaybe)
 import           Data.Text                    (Text)
 import qualified Data.Text                    as T
-import qualified Data.Text.IO                 as TIO
 import qualified Data.UUID                    as UUID
 import qualified Data.UUID.V4                 as UUID
 import qualified Data.Vector                  as V
@@ -30,6 +29,7 @@ import           System.Directory             (createDirectoryIfMissing,
 import           System.FilePath              ((</>))
 
 import           Refl.Content.Splice
+import           Refl.Content.Frontmatter     (writeFileUtf8)
 import           Refl.Language
 import           Refl.Language.Lean.Rpc
 import           Refl.Protocol.Types
@@ -76,7 +76,7 @@ start env src = case envLean env of
         uri = "file://" <> T.pack file
     createDirectoryIfMissing True dir
     let initial = splice src (suffixFor src) (lsTemplate src)
-    TIO.writeFile file initial
+    writeFileUtf8 file initial
     let extra = maybe [] (\p -> [("LEAN_PATH", p)]) (envLeanPath env)
     r <- startRpc (logMsg env) exe ["--server"] extra dir
     case r of
