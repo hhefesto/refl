@@ -15,7 +15,8 @@ content tree of Markdown + `.agda`/`.lean` files that is type-checked in CI.
 
 ```sh
 nix run                      # http://127.0.0.1:8090
-nix flake check              # builds everything and type-checks every level
+nix flake check              # builds everything and type-checks every Agda level
+nix run .#check-levels       # the same, plus the Lean levels (needs /etc/localtime, which the sandbox lacks)
 ```
 
 `nix run` builds the client bundle (slow the first time: it cross-compiles
