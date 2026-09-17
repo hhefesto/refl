@@ -10,10 +10,12 @@ unlocks:
     - name: "sym"
       agda: "sym"
       lean: "Eq.symm"
+      bend2: "Equal.sym"
       doc: "sym.md"
     - name: "trans"
       agda: "trans"
       lean: "Eq.trans"
+      bend2: "Equal.trans"
       doc: "trans.md"
 hints:
   - text: "You have `p : y ≡ x` and `q : y ≡ z` and want `x ≡ z`. `trans` needs its first argument to start at `x`: flip `p` with `sym`."

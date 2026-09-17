@@ -23,6 +23,8 @@ data Config = Config
   , cfgAgdaDir  :: Maybe FilePath
   , cfgLean     :: Maybe FilePath
   , cfgLeanPath :: Maybe FilePath
+  , cfgBend     :: Maybe FilePath
+  , cfgBendPath :: Maybe FilePath
   , cfgVerbose  :: Bool
   } deriving (Show)
 
@@ -35,6 +37,8 @@ envFromConfig cfg work = Env
   , envAgdaDir = cfgAgdaDir cfg
   , envLean = cfgLean cfg
   , envLeanPath = cfgLeanPath cfg
+  , envBend = cfgBend cfg
+  , envBendPath = cfgBendPath cfg
   , envWorkRoot = work </> "sessions"
   , envVerbose = cfgVerbose cfg
   }

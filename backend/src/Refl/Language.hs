@@ -25,6 +25,8 @@ data Env = Env
   , envAgdaDir     :: Maybe FilePath    -- ^ AGDA_DIR (libraries/defaults), if not inherited
   , envLean        :: Maybe FilePath    -- ^ lean executable
   , envLeanPath    :: Maybe FilePath    -- ^ LEAN_PATH for the support library
+  , envBend        :: Maybe FilePath    -- ^ bend executable (Bend 2)
+  , envBendPath    :: Maybe FilePath    -- ^ directory of .bend support files copied next to each level
   , envWorkRoot    :: FilePath          -- ^ where per-session directories are created
   , envVerbose     :: Bool
   }

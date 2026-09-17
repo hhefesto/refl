@@ -12,6 +12,7 @@ unlocks:
     - name: "refl"
       agda: "refl"
       lean: "rfl"
+      bend2: "{==}"
       doc: "refl.md"
 hints:
   - text: "Press **Check** (or `C-c C-l`). The hole `?` becomes a numbered goal `?0`, and the right panel tells you what it wants: `2 + 2 ≡ 4`."

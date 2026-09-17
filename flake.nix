@@ -1,5 +1,5 @@
 {
-  description = "The Refl Game — an NNG4-style proof game for Agda, Lean 4 and (later) Bend2";
+  description = "The Refl Game — an NNG4-style proof game for Agda, Lean 4 and Bend 2";
 
   nixConfig = {
     allow-import-from-derivation = true;
@@ -48,6 +48,14 @@
             runtimeInputs = [ pkgs.bun pkgs.clang ];
             text = ''exec bun ${inputs.bend2}/bend2/main.ts "$@"'';
           };
+          # The .bend support files copied next to every level (`import ./Refl.bend`).
+          # Checked once here so a broken prelude fails the build, not a session.
+          bendSupport = pkgs.runCommand "refl-bend-support" { nativeBuildInputs = [ bend ]; } ''
+            export HOME=$TMPDIR BEND_LIB=$TMPDIR/lib
+            mkdir -p $out
+            cp ${./languages/bend2}/*.bend $out/
+            for f in $out/*.bend; do bend $f; done
+          '';
           locale = {
             LOCALE_ARCHIVE = "${pkgs.glibcLocales}/lib/locale/locale-archive";
             LC_ALL = "en_US.UTF-8";
@@ -154,6 +162,7 @@
                   export REFL_LEAN=${lean}/bin/lean
                   export REFL_LEAN_PATH=$PWD/languages/lean/.lake/build/lib/lean
                   export REFL_BEND=${bend}/bin/bend
+                  export REFL_BEND_PATH=$PWD/languages/bend2
                   export REFL_GAMES=$PWD/games/refl
                   echo "refl dev shell: agda $(agda --version | head -1 | cut -d' ' -f3), lean $(lean --version | sed -E 's/^Lean \(version ([^,]*),.*/\1/'), $(bend --version)"
                   echo "  cabal run refl-server -- --dev --www ./frontend/static-dev   (backend on :8090)"
@@ -165,7 +174,7 @@
           };
 
           packages = {
-            inherit website agdaSupport leanSupport agdaDir bend;
+            inherit website agdaSupport leanSupport agdaDir bend bendSupport;
             frontend-js = frontendJs;
             agda = agda;
 
@@ -179,27 +188,29 @@
               exec ${backend}/bin/refl-server \
                 --www ${website} --games ${games} \
                 --agda ${agda}/bin/agda --agda-dir ${agdaDir} \
-                --lean ${lean}/bin/lean --lean-path ${leanSupport} "$@"
+                --lean ${lean}/bin/lean --lean-path ${leanSupport} \
+                --bend ${bend}/bin/bend --bend-path ${bendSupport} "$@"
             '';
             default = self'.packages.site;
 
             # Content CI: every level's solution must be Solved and its
             # template Unsolved, in every language that has a source.
             check-levels = pkgs.runCommand "refl-check-levels" ({
-              nativeBuildInputs = [ agda lean ];
+              nativeBuildInputs = [ agda lean bend ];
               AGDA_DIR = agdaDir;
             } // locale) ''
               export HOME=$TMPDIR
               # lean --server's watchdog opens /etc/localtime; give the sandbox one
               # if it lets us, otherwise check the Lean levels in the dev shell only.
-              langs=""
+              skip=""
               if ln -s ${pkgs.tzdata}/share/zoneinfo/UTC /etc/localtime 2>/dev/null; then :; else
                 echo "note: no writable /etc in the sandbox; Lean levels are checked by 'nix run .#check-levels' in a dev shell" >&2
-                langs="--lang agda"
+                skip="--skip lean"
               fi
-              ${backend}/bin/refl-check-levels ${games} $langs \
+              ${backend}/bin/refl-check-levels ${games} $skip \
                 --agda ${agda}/bin/agda --agda-dir ${agdaDir} \
-                --lean ${lean}/bin/lean --lean-path ${leanSupport} | tee $out
+                --lean ${lean}/bin/lean --lean-path ${leanSupport} \
+                --bend ${bend}/bin/bend --bend-path ${bendSupport} | tee $out
             '';
           };
 
@@ -214,7 +225,8 @@
                 export LOCALE_ARCHIVE=${pkgs.glibcLocales}/lib/locale/locale-archive
                 export LC_ALL=en_US.UTF-8
                 exec ${backend}/bin/refl-check-levels "''${1:-games/refl}" \
-                  --agda ${agda}/bin/agda --lean ${lean}/bin/lean --lean-path ${leanSupport} "''${@:2}"
+                  --agda ${agda}/bin/agda --lean ${lean}/bin/lean --lean-path ${leanSupport} \
+                  --bend ${bend}/bin/bend --bend-path ${bendSupport} "''${@:2}"
               '');
             };
           };
@@ -268,7 +280,8 @@
             smoke = pkgs.runCommand "refl-smoke" ({ nativeBuildInputs = [ pkgs.curl ]; } // locale) ''
               export HOME=$TMPDIR
               ${backend}/bin/refl-server --www ${website} --games ${games} \
-                --port 8123 --data-dir $TMPDIR/data --agda ${agda}/bin/agda &
+                --port 8123 --data-dir $TMPDIR/data --agda ${agda}/bin/agda \
+                --bend ${bend}/bin/bend --bend-path ${bendSupport} &
               server=$!
               trap 'kill $server 2>/dev/null || true' EXIT
               for i in $(seq 1 100); do

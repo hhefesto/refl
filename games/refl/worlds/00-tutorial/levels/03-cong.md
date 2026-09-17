@@ -11,6 +11,7 @@ unlocks:
     - name: "cong"
       agda: "cong"
       lean: "congrArg"
+      bend2: "Equal.cong"
       doc: "cong.md"
 hints:
   - text: "The hypothesis `x ≡ y` is an argument. The template names it `h`. Ask for the goal: `suc x ≡ suc y` with `h : x ≡ y` in the context."

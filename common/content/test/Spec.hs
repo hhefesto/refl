@@ -56,6 +56,13 @@ main = hspec $ do
     it "reject a top-level line" $ map vRule (leanRules srcs "theorem evil : 1 = 2 := sorry\n") `shouldSatisfy` ("indent" `elem`)
     it "reject axiom" $ map vRule (leanRules srcs "  exact (axiom_x)\n") `shouldBe` []
     it "reject set_option" $ map vRule (leanRules srcs "  set_option maxRecDepth 10 in rfl\n") `shouldBe` ["unsafe"]
+  describe "bend rules" $ do
+    it "accept a proof" $ bendRules srcs "def two_plus_two():\n  {==}\n" `shouldBe` []
+    it "reject a main" $ map vRule (bendRules srcs "def main() -> IO(Unit):\n  IO.print(\"x\")\n") `shouldBe` ["main"]
+    it "reject a law named main" $ map vRule (bendRules srcs "law main:\n  U32\n") `shouldBe` ["main"]
+    it "reject imports" $ map vRule (bendRules srcs "import ./x.bend as X\n") `shouldBe` ["import"]
+    it "reject @unsafe" $ map vRule (bendRules srcs "@unsafe\ndef loop(x: Nat) -> Nat:\n  loop(x)\n") `shouldBe` ["unsafe"]
+    it "ignore comments" $ bendRules srcs "# import main @unsafe\ndef f():\n  {==}\n" `shouldBe` []
   describe "forbidden identifiers" $ do
     it "finds a forbidden lemma" $
       map vRule (forbiddenIdentifiers "--" ["+-comm"] "lemma n = +-comm n zero\n") `shouldBe` ["forbidden"]

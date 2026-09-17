@@ -11,6 +11,8 @@ import           Refl.Content.Level           (LevelSources (..))
 import           Refl.Language.Agda.IOTCM
 import           Refl.Language.Agda.Response
 import           Refl.Language.Lean            (parseGoalText, theoremName)
+import           Refl.Language.Bend2           (BendReport (..), holesIn, parseBendReport, reportResult)
+import           System.Exit                   (ExitCode (..))
 import           Refl.Protocol.Types
 
 main :: IO ()
@@ -78,6 +80,28 @@ main = hspec $ do
       tidyMessage file 6 (T.pack file <> ":3.1-2: x") `shouldBe` "the fixed prelude, line 3.1-2: x"
     it "leaves other text alone" $
       tidyMessage file 6 "no path here" `shouldBe` "no path here"
+  describe "bend report" $ do
+    let src = LevelSources (LangId "bend2") (WorldId "t") (LevelId "t") "Level" "import Base\nimport ./Refl.bend as Refl\nlaw t:\n  {1n == 1n : Nat}\n" "law t:\n  {1n == 1n : Nat}\n" "def t():\n  ?goal\n" "def t():\n  {==}\n" [] False []
+        holeErr = "Error:\n- expected : {Refl.add(0n, x) == x : Nat}\n- observed : ?goal\nContext:\n- x : Nat\nLocation: zero_add\n 8 | def zero_add(x):\n 9>|   ?goal\n10 | \n"
+    it "recognises success" $ parseBendReport ExitSuccess "All terms check.\n" "" `shouldBe` BendOk "All terms check."
+    it "counts TODOs" $ parseBendReport (ExitFailure 1) "" "Error: 2 TODOs found.\nThe code is incomplete, and not a valid proof yet.\n" `shouldBe` BendTodos 2
+    it "reads a loud hole with its context and line" $
+      parseBendReport (ExitFailure 1) "" holeErr `shouldBe` BendHole "?goal" "{Refl.add(0n, x) == x : Nat}" [ContextEntry "x" "Nat" True] (Just 9)
+    it "reads a mismatch" $
+      parseBendReport (ExitFailure 1) "" "Error:\n- expected : 4n\n- observed : 5n\nLocation: two_plus_two\n6 | def two_plus_two():\n7>|   {==}\n8 | \n"
+        `shouldBe` BendMismatch "4n" "5n" [] (Just 7)
+    it "keeps anything else" $ parseBendReport (ExitFailure 1) "" "bend: boom\n" `shouldBe` BendOther "bend: boom"
+    it "finds holes" $ holesIn "def t():\n  ?goal\n  f(?TODO, x)\n" `shouldBe` [("?goal", Span 11 16), ("?TODO", Span 21 26)]
+    it "turns a loud hole into an Unsolved result with a typed hole" $ do
+      let r = reportResult src "def t():\n  ?goal\n" (parseBendReport (ExitFailure 1) "" holeErr)
+      crVerdict r `shouldBe` Unsolved 1
+      map holeType (crHoles r) `shouldBe` [Just "{Refl.add(0n, x) == x : Nat}"]
+    it "maps a mismatch line to the user region" $ do
+      -- prefix has 4 lines; file line 7 is user line 3 (0-based 2) = "  {==}"
+      let r = reportResult src "def t():\n  x = 1n\n  {==}\n" (BendMismatch "4n" "5n" [] (Just 7))
+      crVerdict r `shouldBe` Failed
+      map diagSpan (crDiagnostics r) `shouldBe` [Just (Span 18 24)]
+    it "is Solved on success" $ crVerdict (reportResult src "def t():\n  {==}\n" (BendOk "All terms check.")) `shouldBe` Solved
   describe "lean helpers" $ do
     it "theoremName" $ theoremName "theorem add_zero (n : MyNat) : n + 0 = n := by\n" `shouldBe` Just "add_zero"
     it "parseGoalText" $

@@ -34,10 +34,10 @@ data Outcome = Outcome
   , oNotes :: [Text]
   } deriving (Show)
 
-checkGame :: Env -> Maybe LangId -> LoadedGame -> IO [Outcome]
-checkGame env only game = fmap concat . forM (lgWorlds game) $ \w ->
+checkGame :: Env -> Maybe LangId -> [LangId] -> LoadedGame -> IO [Outcome]
+checkGame env only skip game = fmap concat . forM (lgWorlds game) $ \w ->
   fmap concat . forM (lwLevels w) $ \l ->
-    forM [ s | (lang, s) <- M.toList (llSources l), maybe True (== lang) only ] $ \src ->
+    forM [ s | (lang, s) <- M.toList (llSources l), maybe True (== lang) only, lang `notElem` skip ] $ \src ->
       checkLevel env (wmId (lwMeta w)) (lmId (llMeta l)) (restrictedSources game src)
 
 checkLevel :: Env -> Text -> Text -> LevelSources -> IO Outcome

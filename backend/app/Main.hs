@@ -18,8 +18,8 @@ import           Refl.Content                         (loadGame)
 import           Refl.Server
 import           Refl.Server.Progress
 
-opts :: Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Parser Config
-opts eGames eAgda eAgdaDir eLean eLeanPath = Config
+opts :: Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Parser Config
+opts eGames eAgda eAgdaDir eLean eLeanPath eBend eBendPath = Config
   <$> optional (strOption (long "www" <> metavar "DIR" <> help "Static site directory (index.html, all.js)"))
   <*> strOption (long "games" <> metavar "DIR" <> value (fromMaybe "games/refl" eGames) <> showDefault <> help "Game content directory")
   <*> option auto (long "port" <> value 8090 <> showDefault)
@@ -31,6 +31,8 @@ opts eGames eAgda eAgdaDir eLean eLeanPath = Config
   <*> optional (strOption (long "agda-dir" <> metavar "DIR" <> help "AGDA_DIR with libraries/defaults") <|> pure' eAgdaDir)
   <*> optional (strOption (long "lean" <> metavar "PATH") <|> pure' eLean)
   <*> optional (strOption (long "lean-path" <> metavar "DIR" <> help "LEAN_PATH of the support library") <|> pure' eLeanPath)
+  <*> optional (strOption (long "bend" <> metavar "PATH" <> help "bend executable (Bend 2)") <|> pure' eBend)
+  <*> optional (strOption (long "bend-path" <> metavar "DIR" <> help "Directory of .bend support files") <|> pure' eBendPath)
   <*> switch (long "verbose" <> short 'v')
  where
   pure' = maybe empty pure
@@ -44,7 +46,9 @@ main = do
   eAgdaDir <- lookupEnv "AGDA_DIR"
   eLean <- lookupEnv "REFL_LEAN"
   eLeanPath <- lookupEnv "REFL_LEAN_PATH"
-  cfg <- execParser (info (opts eGames eAgda eAgdaDir eLean eLeanPath <**> helper)
+  eBend <- lookupEnv "REFL_BEND"
+  eBendPath <- lookupEnv "REFL_BEND_PATH"
+  cfg <- execParser (info (opts eGames eAgda eAgdaDir eLean eLeanPath eBend eBendPath <**> helper)
            (fullDesc <> progDesc "The Refl Game server"))
   dataDir <- maybe defaultDataDir pure (cfgDataDir cfg)
   let workDir = fromMaybe (dataDir </> "work") (cfgWorkDir cfg)

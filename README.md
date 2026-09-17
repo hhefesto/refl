@@ -1,7 +1,7 @@
 # The Refl Game
 
 An [NNG4](https://adam.math.hhu.de/#/g/leanprover-community/nng4)-style game
-for learning **Agda** (and Lean 4, and Bend2 when it ships): worlds of levels,
+for learning **Agda** (and Lean 4, and Bend 2): worlds of levels,
 each a statement with a hole; you fill the hole until the checker says `refl`.
 The curriculum ends where the real code lives — Conal Elliott's `felix`, the
 ICFP 2021 language-derivatives development, and the Agda specifications in
@@ -17,7 +17,7 @@ content tree of Markdown + `.agda`/`.lean` files that is type-checked in CI.
 nix run                      # http://127.0.0.1:8090
 nix flake check              # builds everything, type-checks every Agda level, plays the Tutorial in headless Chromium
 nix run .#check-levels       # the same, plus the Lean levels (needs /etc/localtime, which the sandbox lacks)
-nix run .#bend -- file.bend  # Bend 2 (checks the file, then runs its main); also `bend` in the dev shell
+nix run .#bend -- file.bend  # Bend 2 on its own (checks the file, then runs its main); also `bend` in the dev shell
 ```
 
 `nix run` builds the client bundle (slow the first time: it cross-compiles
@@ -62,10 +62,10 @@ common/markdown   commonmark → sanitized HTML
 common/content    the games/ tree → manifest and per-level sources
 backend/          refl-server, refl-build-manifest, refl-check-levels, refl-gen-input-table, refl-browser-test
 frontend/         reflex-dom SPA
-games/refl/       the content: game.md, worlds/NN-<id>/world.md, levels/NN-<id>.{md,agda,lean}, docs/
+games/refl/       the content: game.md, worlds/NN-<id>/world.md, levels/NN-<id>.{md,agda,lean,bend}, docs/
 languages/agda    Refl.Nat, Refl.Eq, Refl.Logic, Refl.Bool, Refl.Reading.Core (stdlib vocabulary for the reading levels) and the generated Refl.World.* modules
 languages/lean    the lake project with Refl.MyNat
-languages/bend2   how Bend 2 is packaged and what the plugin will parse
+languages/bend2   Refl.bend, the prelude copied next to every Bend level; notes on the Bend 2 driver
 ```
 
 ## Authoring a level
@@ -90,7 +90,9 @@ open import Refl.World.Tutorial using (zero-+)
 ```
 
 The prelude and statement are fixed and spliced around the player's text; the
-template is what they start from; the solution is stripped from the manifest
+template is what they start from (`.lean` and `.bend` siblings use the same
+four markers with their own comment syntax; a Bend template is a `def` whose
+body is a loud hole `?goal`); the solution is stripped from the manifest
 and checked by `refl-check-levels`. Front matter declares `unlocks` (commands,
 lemmas with per-language names, syntax), `forbids`, and `hints` (with
 `hidden: true` for the ones revealed on request). Lemma names unlocked by
@@ -106,6 +108,5 @@ cabal run refl-check-levels -- games/refl --emit-world-modules languages/agda
 ## Status
 
 Worlds 0–4 (Tutorial, Addition, Multiplication, Logic, Equality: 45 levels)
-are fully playable in Agda; the Tutorial is also playable in Lean 4. Worlds
-5–18 are planned with learning goals per level (see the map). Bend 2.0.4
-runs from the flake (`nix run .#bend`); the Bend2 game plugin is next.
+are fully playable in Agda; the Tutorial is also playable in Lean 4 and in
+Bend 2. Worlds 5–18 are planned with learning goals per level (see the map).

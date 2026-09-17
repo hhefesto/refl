@@ -18,7 +18,8 @@ implementations).
 - `backend` — `Refl.Language` is the plugin record; `Refl.Language.Agda`
   drives `agda --interaction-json` (framing in `Agda/Process.hs`, commands in
   `Agda/IOTCM.hs`, JSON in `Agda/Response.hs`); `Refl.Language.Lean` speaks
-  LSP over stdio (`Lean/Rpc.hs`); `Refl.Server` is servant + websockets with
+  LSP over stdio (`Lean/Rpc.hs`); `Refl.Language.Bend2` runs `bend` per
+  check and parses its report; `Refl.Server` is servant + websockets with
   one prover per connection; `Refl.Check` is the content CI and the world
   module generator; `backend/browser` is the headless-Chromium acceptance
   test (CDP over websockets, no Node).
@@ -52,7 +53,13 @@ implementations).
   `- expected : <normalised goal>` / `- observed : ?name` / `Context:` /
   `Location:` with whole-file line numbers; a quiet `?TODO` or an unproved
   `law` gives `Error: N TODOs found.`. No JSON, LSP or REPL.
-  `Refl.Language.Bend2` is still the stub; the plugin pass parses the above.
+  `Refl.Language.Bend2` is a batch driver over that text: exit 0 → Solved,
+  `N TODOs` → Unsolved N, a loud hole → Unsolved with the hole typed, a
+  mismatch → Failed with the marked line mapped into the user region. Goal
+  on a hole re-runs bend with that hole as the only loud one. Levels must
+  not define `main` (bend would run it), import, or use `@unsafe`.
+- Bend rewrites the other way round from `rw`: `%e : P` with `e : a == b`
+  takes `P` = the goal with `_` marking `b`, and leaves `P` with `a` there.
 
 ## Rules
 

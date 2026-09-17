@@ -30,7 +30,7 @@ The game starts from nothing (its own natural numbers, its own equality) and
 ends where the real code lives: Conal Elliott's `felix` library, the ICFP 2021
 language-derivatives development, and the specifications in `formalTransformer`
 and `aanalyzer-classic`. Pick a language in the top-right corner — Agda first;
-Lean 4 is available for the early worlds, Bend2 will appear when it ships.
+Lean 4 and Bend 2 are available for the early worlds.
 
 Click a world on the map to begin. Solved levels unlock lemmas, commands and
 syntax into your **Inventory**.

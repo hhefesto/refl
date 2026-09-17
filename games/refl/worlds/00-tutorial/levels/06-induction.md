@@ -12,6 +12,7 @@ unlocks:
     - name: "zero-+"
       agda: "zero-+"
       lean: "zero_add"
+      bend2: "zero_add"
       doc: "zero-add.md"
 hints:
   - text: "Normalise `zero + x`: it is stuck, because `_+_` only computes when its **second** argument is `zero` or `suc`. So look at `x`: put `x` in the box, select the hole and press **Case split**."

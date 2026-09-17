@@ -5,6 +5,7 @@ module Refl.Content.Splice
   , userOffset
   , agdaRules
   , leanRules
+  , bendRules
   , forbiddenIdentifiers
   , stripComments
   , tokens
@@ -78,6 +79,30 @@ lineOffsets t = go 0 (T.splitOn "\n" t)
  where
   go _ [] = []
   go off (l : ls) = (off, l) : go (off + T.length l + 1) ls
+
+-- | Bend 2: the checker runs @main@ after checking, so no @main@ may be
+-- defined; @import@ (which can pull in foreign C/JS bodies or hub packages)
+-- and @\@unsafe@ (which switches off termination checking) are out.
+bendRules :: LevelSources -> Text -> [Violation]
+bendRules _ user =
+  [ Violation "main" (spanOf "main")
+      "A level may not define `main`: Bend runs it, and this is a proof, not a program."
+  | defsMain ]
+  ++
+  [ Violation "import" (spanOf "import")
+      "Imports are not allowed in a level; the fixed prelude imports Base and Refl."
+  | "import" `elem` toks ]
+  ++
+  [ Violation "unsafe" (spanOf "@unsafe")
+      "`@unsafe` is not allowed in a level: every proof must terminate."
+  | "@unsafe" `elem` toks ]
+ where
+  toks = tokens (stripComments "#" user)
+  defsMain = or [ isMain n | (k, n) <- zip toks (drop 1 toks), k `elem` ["def", "law"] ]
+  isMain n = n == "main" || n == "main:"
+  spanOf w = case T.breakOn w user of
+    (before, rest) | T.null rest -> Nothing
+                   | otherwise -> Just (Span (T.length before) (T.length before + T.length w))
 
 -- | @forbiddenIdentifiers comment forbids user@: tokens of the user region
 -- (comments stripped) that appear in the forbid list.

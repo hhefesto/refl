@@ -27,6 +27,9 @@ data Opts = Opts
   , optAgdaDir :: Maybe FilePath
   , optLean    :: Maybe FilePath
   , optLeanPath :: Maybe FilePath
+  , optBend    :: Maybe FilePath
+  , optBendPath :: Maybe FilePath
+  , optSkip    :: [String]
   , optVerbose :: Bool
   }
 
@@ -37,6 +40,8 @@ main = do
   eAgdaDir <- lookupEnv "AGDA_DIR"
   eLean <- lookupEnv "REFL_LEAN"
   eLeanPath <- lookupEnv "REFL_LEAN_PATH"
+  eBend <- lookupEnv "REFL_BEND"
+  eBendPath <- lookupEnv "REFL_BEND_PATH"
   tmp <- getTemporaryDirectory
   let work = tmp </> "refl-check"
   createDirectoryIfMissing True work
@@ -45,6 +50,8 @@ main = do
         , envAgdaDir = optAgdaDir o <|> eAgdaDir
         , envLean = optLean o <|> eLean
         , envLeanPath = optLeanPath o <|> eLeanPath
+        , envBend = optBend o <|> eBend
+        , envBendPath = optBendPath o <|> eBendPath
         , envWorkRoot = work
         , envVerbose = optVerbose o
         }
@@ -59,7 +66,7 @@ main = do
         paths <- emitWorldModules g0 dir
         forM_ paths (putStrLn . ("wrote " ++))
       when (optEmit o == Nothing || optLang o /= Nothing || True) $ do
-        outcomes <- checkGame env (LangId . T.pack <$> optLang o) g
+        outcomes <- checkGame env (LangId . T.pack <$> optLang o) (map (LangId . T.pack) (optSkip o)) g
         forM_ outcomes $ \oc -> do
           TIO.putStrLn ((if oOk oc then "ok   " else "FAIL ") <> oWorld oc <> "/" <> oLevel oc <> " [" <> oLang oc <> "]")
           forM_ (oNotes oc) (TIO.putStrLn . ("       " <>))
@@ -76,4 +83,7 @@ main = do
     <*> optional (strOption (long "agda-dir"))
     <*> optional (strOption (long "lean"))
     <*> optional (strOption (long "lean-path"))
+    <*> optional (strOption (long "bend"))
+    <*> optional (strOption (long "bend-path"))
+    <*> many (strOption (long "skip" <> metavar "LANG" <> help "Do not check this language (repeatable)"))
     <*> switch (long "verbose" <> short 'v')
