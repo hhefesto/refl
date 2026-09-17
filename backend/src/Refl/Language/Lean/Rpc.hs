@@ -63,11 +63,16 @@ startRpc logf exe args extraEnv cwd = do
     Left (e :: SomeException) -> Left ("could not start lean: " <> T.pack (show e))
     Right rpc -> Right rpc
 
-writeMessage :: Rpc -> Value -> IO ()
+-- | Write one message; a dead server (closed pipe) is reported, not thrown.
+writeMessage :: Rpc -> Value -> IO (Either Text ())
 writeMessage rpc v = withMVar (rWrite rpc) $ \_ -> do
   let body = BL.toStrict (encode v)
-  BS.hPut (rIn rpc) (BC.pack ("Content-Length: " ++ show (BS.length body) ++ "\r\n\r\n") <> body)
-  hFlush (rIn rpc)
+  r <- try $ do
+    BS.hPut (rIn rpc) (BC.pack ("Content-Length: " ++ show (BS.length body) ++ "\r\n\r\n") <> body)
+    hFlush (rIn rpc)
+  pure $ case r of
+    Left (e :: SomeException) -> Left ("lean: cannot write to the server: " <> T.pack (show e))
+    Right () -> Right ()
 
 readMessage :: Handle -> IO (Maybe BS.ByteString)
 readMessage h = do
@@ -117,7 +122,7 @@ readerLoop rpc = void $ try @SomeException $ forever $ do
         Nothing -> pure ()
     (Just i, Just _) ->
       -- a server→client request: answer null
-      writeMessage rpc (object ["jsonrpc" .= ("2.0" :: Text), "id" .= i, "result" .= Null])
+      void (writeMessage rpc (object ["jsonrpc" .= ("2.0" :: Text), "id" .= i, "result" .= Null]))
     (Nothing, Just (String "textDocument/publishDiagnostics")) ->
       case KM.lookup "params" o of
         Just p@(Object po) | Just (String uri) <- KM.lookup "uri" po ->
@@ -131,8 +136,10 @@ request rpc secs method params = do
   i <- atomicModifyIORef' (rNext rpc) (\n -> (n + 1, n))
   mv <- newEmptyMVar
   modifyMVar_ (rPending rpc) (pure . M.insert i mv)
-  writeMessage rpc (object ["jsonrpc" .= ("2.0" :: Text), "id" .= i, "method" .= method, "params" .= params])
-  r <- timeout (secs * 1000000) (takeMVar mv)
+  w <- writeMessage rpc (object ["jsonrpc" .= ("2.0" :: Text), "id" .= i, "method" .= method, "params" .= params])
+  r <- case w of
+    Left e -> modifyMVar_ (rPending rpc) (pure . M.delete i) >> pure (Just (object ["error" .= e]))
+    Right () -> timeout (secs * 1000000) (takeMVar mv)
   case r of
     Nothing -> do
       modifyMVar_ (rPending rpc) (pure . M.delete i)
@@ -144,7 +151,7 @@ request rpc secs method params = do
 
 notify :: Rpc -> Text -> Value -> IO ()
 notify rpc method params =
-  writeMessage rpc (object ["jsonrpc" .= ("2.0" :: Text), "method" .= method, "params" .= params])
+  void (writeMessage rpc (object ["jsonrpc" .= ("2.0" :: Text), "method" .= method, "params" .= params]))
 
 latestDiagnostics :: Rpc -> Text -> IO (Maybe Value)
 latestDiagnostics rpc uri = M.lookup uri <$> readIORef (rDiags rpc)

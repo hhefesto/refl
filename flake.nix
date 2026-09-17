@@ -38,6 +38,7 @@
           locale = {
             LOCALE_ARCHIVE = "${pkgs.glibcLocales}/lib/locale/locale-archive";
             LC_ALL = "en_US.UTF-8";
+            TZ = "UTC";   # lean --server reads /etc/localtime otherwise, which the sandbox lacks
           };
 
           # A private AGDA_DIR so ~/.agda/libraries (stale on this machine) is
@@ -200,7 +201,7 @@
             check-levels = self'.packages.check-levels;
             manifest = self'.packages.manifest;
             # The server answers, serves the manifest and the client.
-            smoke = pkgs.runCommand "refl-smoke" { nativeBuildInputs = [ pkgs.curl ]; } ''
+            smoke = pkgs.runCommand "refl-smoke" ({ nativeBuildInputs = [ pkgs.curl ]; } // locale) ''
               export HOME=$TMPDIR
               ${backend}/bin/refl-server --www ${website} --games ${games} \
                 --port 8123 --data-dir $TMPDIR/data --agda ${agda}/bin/agda &
