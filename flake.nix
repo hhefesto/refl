@@ -175,7 +175,14 @@
               AGDA_DIR = agdaDir;
             } // locale) ''
               export HOME=$TMPDIR
-              ${backend}/bin/refl-check-levels ${games} \
+              # lean --server's watchdog opens /etc/localtime; give the sandbox one
+              # if it lets us, otherwise check the Lean levels in the dev shell only.
+              langs=""
+              if ln -s ${pkgs.tzdata}/share/zoneinfo/UTC /etc/localtime 2>/dev/null; then :; else
+                echo "note: no writable /etc in the sandbox; Lean levels are checked by 'nix run .#check-levels' in a dev shell" >&2
+                langs="--lang agda"
+              fi
+              ${backend}/bin/refl-check-levels ${games} $langs \
                 --agda ${agda}/bin/agda --agda-dir ${agdaDir} \
                 --lean ${lean}/bin/lean --lean-path ${leanSupport} | tee $out
             '';
@@ -211,10 +218,12 @@
                 curl -fs http://127.0.0.1:8123/api/health >/dev/null 2>&1 && break
                 sleep 0.2
               done
-              curl -fs http://127.0.0.1:8123/api/health | grep -q '"ok":true'
-              curl -fs http://127.0.0.1:8123/manifest.json | grep -q '"mWorlds"'
-              curl -fs http://127.0.0.1:8123/ | grep -q '<script'
-              curl -fs http://127.0.0.1:8123/all.js | head -c 100 >/dev/null
+              step() { echo "smoke: $1"; }
+              step health;   curl -fsS http://127.0.0.1:8123/api/health   -o $TMPDIR/health.json;   grep -q '"ok":true' $TMPDIR/health.json
+              step manifest; curl -fsS http://127.0.0.1:8123/manifest.json -o $TMPDIR/manifest.json; grep -q '"mWorlds"' $TMPDIR/manifest.json
+              step index;    curl -fsS http://127.0.0.1:8123/              -o $TMPDIR/index.html;    grep -q '<script' $TMPDIR/index.html
+              step bundle;   curl -fsS http://127.0.0.1:8123/all.js        -o $TMPDIR/all.js;        test -s $TMPDIR/all.js
+              step fallback; curl -fsS http://127.0.0.1:8123/w/tutorial    -o $TMPDIR/deep.html;     grep -q '<script' $TMPDIR/deep.html
               echo ok > $out
             '';
           };
