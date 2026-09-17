@@ -1,0 +1,1 @@
+A clause `f ()` with the absurd pattern has no right-hand side: the argument's type has no constructors. Case split on a `⊥` (or `zero ≡ suc n`) to get one. `λ ()` is the anonymous form. Lean: `nomatch h` / `cases h`.

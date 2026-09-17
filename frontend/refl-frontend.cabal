@@ -1,0 +1,70 @@
+cabal-version:      2.4
+name:               refl-frontend
+version:            0.1.0.0
+synopsis:           The Refl Game SPA (reflex-dom, GHC JavaScript backend)
+author:             hhefesto
+maintainer:         hhefesto@rdataa.com
+build-type:         Simple
+
+common fe
+    default-language: Haskell2010
+    default-extensions:
+        OverloadedStrings
+        ConstraintKinds
+        FlexibleContexts
+        RecursiveDo
+        ScopedTypeVariables
+        LambdaCase
+        TupleSections
+        TypeFamilies
+        GADTs
+    build-depends:
+        base               >= 4.14 && < 5
+      , aeson
+      , bytestring
+      , containers
+      , data-default
+      , ghcjs-dom
+      , jsaddle
+      , lens
+      , network-uri
+      , reflex
+      , reflex-dom-core
+      , text
+      , refl-protocol
+    ghc-options: -Wall -O
+
+library
+    import:           fe
+    hs-source-dirs:   src
+    exposed-modules:
+        App
+        Client
+        Style
+        Widgets.Common
+        Widgets.Editor
+        Widgets.InputMethod
+        Widgets.InputTable
+        Widgets.Inventory
+        Widgets.LevelPage
+        Widgets.WorldMap
+
+executable refl-frontend
+    import:           fe
+    hs-source-dirs:   app
+    main-is:          Main.hs
+    build-depends:    refl-frontend
+    if !arch(javascript)
+        buildable: False
+    if arch(javascript)
+        ghc-options: -optl-sEXPORTED_RUNTIME_METHODS=HEAP8,HEAPU8
+
+executable frontend-dev
+    import:           fe
+    hs-source-dirs:   dev
+    main-is:          Main.hs
+    build-depends:
+        refl-frontend
+      , jsaddle-warp
+    if arch(javascript)
+        buildable: False

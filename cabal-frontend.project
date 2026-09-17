@@ -1,0 +1,7 @@
+-- Frontend project: reflex-dom SPA. The real bundle is built by the flake via
+-- callCabal2nix on pkgsCross.ghcjs (nix build .#website). This project file is
+-- for the native jsaddle-warp dev runner:
+--   nix develop .#frontend -c cabal --project-file=cabal-frontend.project run frontend-dev
+packages:
+  ./common/protocol
+  ./frontend

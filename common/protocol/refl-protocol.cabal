@@ -1,0 +1,52 @@
+cabal-version:      2.4
+name:               refl-protocol
+version:            0.1.0.0
+synopsis:           Wire types shared by The Refl Game backend and reflex frontend
+description:
+  Language-agnostic client/server protocol, the game manifest served to the
+  browser, and the hash-fragment route codec. TH-free and pure so it builds on
+  both native GHC and the GHC JavaScript backend.
+author:             hhefesto
+maintainer:         hhefesto@rdataa.com
+build-type:         Simple
+
+library
+    exposed-modules:
+        Refl.Protocol
+        Refl.Protocol.Types
+        Refl.Protocol.Manifest
+        Refl.Protocol.Route
+        Refl.Protocol.Graph
+    hs-source-dirs:   .
+    default-language: Haskell2010
+    default-extensions:
+        OverloadedStrings
+        DeriveGeneric
+        DeriveAnyClass
+        DerivingStrategies
+        GeneralizedNewtypeDeriving
+        LambdaCase
+    build-depends:
+        base       >= 4.14 && < 5
+      , aeson
+      , containers
+      , text
+    ghc-options: -Wall
+
+test-suite round-trip
+    type:             exitcode-stdio-1.0
+    main-is:          RoundTrip.hs
+    hs-source-dirs:   test
+    default-language: Haskell2010
+    default-extensions: OverloadedStrings, LambdaCase
+    build-depends:
+        base
+      , aeson
+      , containers
+      , hspec
+      , QuickCheck
+      , text
+      , refl-protocol
+    ghc-options: -Wall
+    if arch(javascript)
+        buildable: False

@@ -1,0 +1,55 @@
+cabal-version:      2.4
+name:               refl-content
+version:            0.1.0.0
+synopsis:           Parser for the games/ content tree (worlds, levels, sources, docs)
+description:
+  Reads the authored content tree into the public manifest plus the private
+  per-level sources (prelude/statement/template/solution regions). Shared by
+  the server, the manifest builder and the level checker. Native only.
+author:             hhefesto
+maintainer:         hhefesto@rdataa.com
+build-type:         Simple
+
+library
+    exposed-modules:
+        Refl.Content
+        Refl.Content.Regions
+        Refl.Content.Frontmatter
+        Refl.Content.Level
+        Refl.Content.World
+        Refl.Content.Splice
+    hs-source-dirs:   .
+    default-language: Haskell2010
+    default-extensions:
+        OverloadedStrings
+        LambdaCase
+        DeriveGeneric
+        DeriveAnyClass
+        DerivingStrategies
+    build-depends:
+        base       >= 4.14 && < 5
+      , aeson
+      , bytestring
+      , containers
+      , directory
+      , filepath
+      , text
+      , yaml
+      , refl-protocol
+      , refl-markdown
+    ghc-options: -Wall
+
+test-suite content-spec
+    type:             exitcode-stdio-1.0
+    main-is:          Spec.hs
+    hs-source-dirs:   test
+    default-language: Haskell2010
+    default-extensions: OverloadedStrings, LambdaCase
+    build-depends:
+        base
+      , containers
+      , hspec
+      , text
+      , refl-protocol
+      , refl-content
+    ghc-options: -Wall

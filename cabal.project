@@ -1,0 +1,8 @@
+-- Native project (GHC 9.10): shared wire types, markdown, content parser, backend.
+-- The frontend cross-builds through cabal-frontend.project / the flake's jsPkgs.
+-- NOTE: haskell-flake's parser needs the packages stanza first.
+packages:
+  ./common/protocol
+  ./common/markdown
+  ./common/content
+  ./backend

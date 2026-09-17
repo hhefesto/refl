@@ -1,0 +1,115 @@
+cabal-version:      2.4
+name:               refl-backend
+version:            0.1.0.0
+synopsis:           The Refl Game server: prover sessions over websockets, static SPA, content tools
+author:             hhefesto
+maintainer:         hhefesto@rdataa.com
+build-type:         Simple
+data-files:         golden/agda/*.jsonl
+
+common shared
+    default-language: Haskell2010
+    default-extensions:
+        OverloadedStrings
+        LambdaCase
+        ScopedTypeVariables
+        TupleSections
+        DeriveGeneric
+        DeriveAnyClass
+        DerivingStrategies
+        DataKinds
+        TypeOperators
+        TypeApplications
+    ghc-options: -Wall
+    build-depends:
+        base       >= 4.14 && < 5
+      , aeson
+      , async
+      , bytestring
+      , containers
+      , directory
+      , filepath
+      , mtl
+      , stm
+      , text
+      , time
+      , uuid
+      , vector
+      , refl-protocol
+      , refl-markdown
+      , refl-content
+
+library
+    import:           shared
+    hs-source-dirs:   src
+    exposed-modules:
+        Refl.Language
+        Refl.Language.Registry
+        Refl.Language.Agda
+        Refl.Language.Agda.IOTCM
+        Refl.Language.Agda.Response
+        Refl.Language.Agda.Process
+        Refl.Language.Lean
+        Refl.Language.Lean.Rpc
+        Refl.Language.Bend2
+        Refl.Verify
+        Refl.Server
+        Refl.Server.Progress
+        Refl.Config
+        Refl.Check
+        Refl.InputTable
+    build-depends:
+        http-types
+      , process
+      , servant
+      , servant-server
+      , wai
+      , wai-app-static
+      , wai-extra
+      , wai-websockets
+      , warp
+      , websockets
+
+executable refl-server
+    import:           shared
+    hs-source-dirs:   app
+    main-is:          Main.hs
+    build-depends:
+        optparse-applicative
+      , wai-extra
+      , warp
+      , refl-backend
+    ghc-options: -threaded -rtsopts "-with-rtsopts=-N"
+
+executable refl-build-manifest
+    import:           shared
+    hs-source-dirs:   app-manifest
+    main-is:          Main.hs
+    build-depends:
+        optparse-applicative
+      , refl-backend
+
+executable refl-check-levels
+    import:           shared
+    hs-source-dirs:   app-check
+    main-is:          Main.hs
+    build-depends:
+        optparse-applicative
+      , refl-backend
+    ghc-options: -threaded -rtsopts "-with-rtsopts=-N"
+
+executable refl-gen-input-table
+    import:           shared
+    hs-source-dirs:   app-inputmethod
+    main-is:          Main.hs
+    build-depends:
+        refl-backend
+
+test-suite spec
+    import:           shared
+    type:             exitcode-stdio-1.0
+    main-is:          Main.hs
+    hs-source-dirs:   test
+    build-depends:
+        hspec
+      , refl-backend

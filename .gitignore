@@ -1,0 +1,9 @@
+dist-newstyle/
+result
+result-*
+.direnv/
+_build/
+*.agdai
+.lake/
+frontend/static-dev/all.js*
+/games/refl/manifest.json
