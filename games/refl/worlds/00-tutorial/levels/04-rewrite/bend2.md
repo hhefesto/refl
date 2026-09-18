@@ -1,28 +1,26 @@
 ---
+learning_goals:
+  - "`%h : P` rewrites the goal with `h : {a == b : T}`: `P` is the goal with `_` marking `b`, and the goal becomes `P` with `a` there."
+  - "To rewrite the other way, flip the equation with `Equal.sym`."
+hints:
+  - text: "The goal is `{Refl.add(x, 2n) == 5n : Nat}` and `h : {x == 3n : Nat}`. Mark where `3n` sits in the goal: `5n` is `2n+3n`."
+  - text: "Write `%h : {Refl.add(x, 2n) == 2n+_ : Nat}` on its own line. The goal becomes `{Refl.add(x, 2n) == 2n+x : Nat}`, which computes to `{2n+x == 2n+x : Nat}`."
+    hidden: true
+  - text: "Then `{==}` on the next line. Two lines, both indented under the `def`."
+    hidden: true
 example_explanation: |-
   1. View `5n` as `1n+4n`.
   2. The transport motive marks that `4n` endpoint with `_`, reducing the goal to `Refl.add(n, 1n) == 1n+n`.
   3. Both sides compute alike, so `{==}` closes it. Transfer the motive construction using the exercise's own constants.
-hints:
-- hidden: false
-  text: An equality lets a proof move through a type that depends on its endpoint.
-- hidden: true
-  text: 'Bend transport is `%h : P`. The underscore in `P` marks the equation''s right
-    endpoint; transport turns that occurrence back into the left endpoint.'
-- hidden: true
-  text: 'Begin `%h : {Refl.add(x, 2n) == 2n+_ : Nat}`, then inspect the equality that
-    remains before filling its proof.'
-learning_goals:
-- An equality lets a proof move through a type that depends on its endpoint.
-- 'Bend transport is `%h : P`. The underscore in `P` marks the equation''s right endpoint;
-  transport turns that occurrence back into the left endpoint.'
-title: Transport before computation
 ---
-An equality lets a proof move through a type that depends on its endpoint.
+`%h : P` is a rewrite along the equation `h : {a == b : T}`. You write `P`,
+the goal with `_` marking the occurrences of the **right-hand** side `b`; Bend
+checks that `P` with `b` is the current goal, and continues with `P` with `a`.
 
-Bend transport is `%h : P`. The underscore in `P` marks the equation's right endpoint; transport turns that occurrence back into the left endpoint.
-
-Keep the `law` declaration in the fixed statement and edit the matching `def` below it. **Check** (`C-c C-l`) finds named holes such as `?goal`. Select a hole and use **Goal** (`C-c C-,`). Enter a Bend expression in the expression box and press **Give** (`C-c C-SPC`), or edit the definition directly.
+Here `b` is `3n`, which hides inside `5n` (`5n` is `2n+3n`), so the motive is
+`{Refl.add(x, 2n) == 2n+_ : Nat}`. Afterwards `Refl.add(x, 2n)` and `2n+x`
+compute to the same term and `{==}` finishes.
 
 <!-- @conclusion -->
-You have used this principle in Bend: An equality lets a proof move through a type that depends on its endpoint. Keep the technique from the worked example in mind when the surrounding expressions change.
+Note the direction: `%h` replaces the marked *right* side of `h` by its left
+side. If you need the other direction, rewrite with `Equal.sym(T, a, b, h)`.

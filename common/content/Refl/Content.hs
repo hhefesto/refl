@@ -54,12 +54,14 @@ buildManifest langs g = Manifest
   }
  where
   docs = lgDocs g
+  -- one rendered doc per language that has it (docs/<lang>/<name>.md)
   docHtml :: Maybe Text -> Map LangId Text
   docHtml Nothing = M.empty
   docHtml (Just d) = M.fromList
     [ (LangId lang, renderMarkdownOrText md)
     | lang <- knownLanguages
     , Just md <- [M.lookup (lang <> "/" <> T.replace ".md" "" d) docs] ]
+  nonEmpty t = if T.null (T.strip t) then Nothing else Just t
   world w = World
     { wId = WorldId (wmId (lwMeta w))
     , wTitle = wmTitle (lwMeta w)
@@ -73,63 +75,68 @@ buildManifest langs g = Manifest
       { lId = LevelId (lmId m)
       , lIndex = lmIndex m
       , lTitle = lmTitle m
-      , lIntroHtml = if M.null (llSources l) then renderMarkdownOrText (llIntro l) else ""
-      , lConclusionHtml = ""
-      , lLearningGoals = []
+      , lIntroHtml = renderMarkdownOrText (llIntro l)
+      , lConclusionHtml = renderMarkdownOrText (llConclusion l)
+      , lLearningGoals = map renderMarkdownOrText (lmLearningGoals m)
       , lUnlocks = unlocks (lmUnlocks m)
       , lForbids = lmForbids m
-      , lHints = []
-      , lLanguages = M.intersectionWith levelLang (llSources l) (llTeaching l)
+      , lHints = hints (lmHints m)
+      , lLanguages = M.mapWithKey (\lang s -> levelLang l s (M.lookup lang (llTeaching l))) (llSources l)
       , lSkeleton = M.null (llSources l)
       }
-  levelLang s t = LevelLang
+  hints hs = [ Hint (renderMarkdownOrText (hsText h)) (hsHidden h) | h <- hs ]
+  -- the level's own text, overridden field by field by the language page
+  levelLang l s mt = LevelLang
     { llTemplate = lsTemplate s
     , llStatement = lsStatement s
     , llAllowImports = lsAllowImports s
-    , llTitle = tmTitle (tMeta t)
-    , llIntroHtml = renderMarkdownOrText (tIntro t)
-    , llConclusionHtml = renderMarkdownOrText (tConclusion t)
-    , llLearningGoals = tmGoals (tMeta t)
-    , llHints = [Hint (renderMarkdownOrText (hsText h)) (hsHidden h) | h <- tmHints (tMeta t)]
-    , llExampleCode = lsPrefix (tExample t) <> lsSolution (tExample t)
-    , llExampleHtml = renderMarkdownOrText (tmExample (tMeta t))
+    , llTitle = fromMaybe (lmTitle m) (mt >>= tmTitle . tMeta)
+    , llIntroHtml = renderMarkdownOrText (fromMaybe (llIntro l) (mt >>= nonEmpty . tIntro))
+    , llConclusionHtml = renderMarkdownOrText (fromMaybe (llConclusion l) (mt >>= nonEmpty . tConclusion))
+    , llLearningGoals = map renderMarkdownOrText (fromMaybe (lmLearningGoals m) (mt >>= tmGoals . tMeta))
+    , llHints = hints (fromMaybe (lmHints m) (mt >>= tmHints . tMeta))
+    , llExampleCode = maybe "" (\e -> lsPrefix e <> lsSolution e) (mt >>= tExample)
+    , llExampleHtml = maybe "" renderMarkdownOrText (mt >>= tmExample . tMeta)
     }
+   where m = llMeta l
   unlocks u =
     [ InventoryItem ItemCommand c (docHtml (Just ("cmd-" <> c))) M.empty (commandIdFromName c)
     | c <- usCommands u ]
     ++
-    [ InventoryItem ItemLemma (lsName l) (docHtml (Just (fromMaybe (lsName l) (lsDoc l)))) (M.mapKeys LangId (lsNames l)) Nothing
+    [ InventoryItem ItemLemma (lsName l) (docHtml (lsDoc l)) (M.mapKeys LangId (lsNames l)) Nothing
     | l <- usLemmas u ]
     ++
     [ InventoryItem ItemSyntax (ssName s) (docHtml (ssDoc s)) (M.mapKeys LangId (ssNames s)) Nothing
     | s <- usSyntax u ]
 
--- | Authoring laws: playable versions have complete teaching, and references
--- resolve within the chosen language. A missing translation is never Agda.
-teachingProblems :: LoadedGame -> [Text]
-teachingProblems g = concat
-  [ missingPages l ++ concat [checkPage l lang t | (lang, t) <- M.toList (llTeaching l)]
-  | w <- lgWorlds g, l <- lwLevels w ]
+-- | Authoring laws for the lesson a language actually shows: its prose may
+-- not mention commands that prover does not offer, and a worked example
+-- must be a different problem from the exercise.
+teachingProblems :: [LangInfo] -> LoadedGame -> [Text]
+teachingProblems langs g = concat
+  [ checkLang l lang s (M.lookup lang (llTeaching l))
+  | w <- lgWorlds g, l <- lwLevels w, (lang, s) <- M.toList (llSources l) ]
  where
-  missingPages l = [T.pack (llPath l) <> ": missing teaching page for " <> unLangId lang
-                   | lang <- M.keys (llSources l), M.notMember lang (llTeaching l)]
-  checkPage l lang t =
-    let u = lmUnlocks (llMeta l)
-        referenced = ["cmd-" <> c | c <- usCommands u, Just cmd <- [commandIdFromName c], cmd `elem` supportedCommands lang]
-          ++ [fromMaybe (lsName s) (lsDoc s) | s <- usLemmas u]
-          ++ [fromMaybe (ssName s) (ssDoc s) | s <- usSyntax u]
-        prose = T.unlines (tIntro t : tConclusion t : tmExample (tMeta t) : tmGoals (tMeta t) ++ map hsText (tmHints (tMeta t)))
+  commandsOf lang = concat [ liCommands li | li <- langs, liId li == lang ]
+  checkLang l lang s mt =
+    let m = llMeta l
+        nonEmpty t = if T.null (T.strip t) then Nothing else Just t
+        prose = T.unlines $
+          [ fromMaybe (llIntro l) (mt >>= nonEmpty . tIntro)
+          , fromMaybe (llConclusion l) (mt >>= nonEmpty . tConclusion)
+          , maybe "" id (mt >>= tmExample . tMeta) ]
+          ++ fromMaybe (lmLearningGoals m) (mt >>= tmGoals . tMeta)
+          ++ map hsText (fromMaybe (lmHints m) (mt >>= tmHints . tMeta))
         commandRefs = [(CmdGive, "Give", "C-c C-SPC"), (CmdRefine, "Refine", "C-c C-r")
           , (CmdCase, "Case split", "C-c C-c"), (CmdAuto, "Auto", "C-c C-a")
           , (CmdInfer, "Infer", "C-c C-d"), (CmdNormalise, "Normalise", "C-c C-n")]
         prefix = T.pack (llPath l) <> " [" <> unLangId lang <> "]: "
-    in [prefix <> "missing inventory translation: " <> d | d <- referenced
-       , M.notMember (unLangId lang <> "/" <> T.replace ".md" "" d) (lgDocs g)]
-       ++ [prefix <> "unsupported command reference: " <> label | (cmd, label, shortcut) <- commandRefs
-          , cmd `notElem` supportedCommands lang
-          , any (`T.isInfixOf` prose) ["**" <> label <> "**", shortcut]]
-       ++ [prefix <> "worked example repeats the exercise statement"
-          | Just s <- [M.lookup lang (llSources l)], T.strip (lsStatement s) == T.strip (lsStatement (tExample t))]
+    in [ prefix <> "unsupported command reference: " <> label
+       | (cmd, label, shortcut) <- commandRefs
+       , cmd `notElem` commandsOf lang
+       , any (`T.isInfixOf` prose) ["**" <> label <> "**", shortcut] ]
+       ++ [ prefix <> "worked example repeats the exercise statement"
+          | Just e <- [mt >>= tExample], T.strip (lsStatement s) == T.strip (lsStatement e) ]
 
 -- | (world, level, language) → sources, for the server and the checker.
 type SourceIndex = Map (WorldId, LevelId, LangId) LevelSources

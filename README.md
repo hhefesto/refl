@@ -15,7 +15,7 @@ content tree of Markdown + `.agda`/`.lean` files that is type-checked in CI.
 
 ```sh
 nix run                      # http://127.0.0.1:8090
-nix flake check              # builds everything, type-checks every Agda level, plays the Tutorial in headless Chromium
+nix flake check              # builds everything, checks every level and worked example, plays the Tutorial in headless Chromium
 nix run .#check-levels       # the same, plus the Lean levels (needs /etc/localtime, which the sandbox lacks)
 nix run .#bend -- file.bend  # Bend 2 on its own (checks the file, then runs its main); also `bend` in the dev shell
 ```
@@ -97,6 +97,28 @@ and checked by `refl-check-levels`. Front matter declares `unlocks` (commands,
 lemmas with per-language names, syntax), `forbids`, and `hints` (with
 `hidden: true` for the ones revealed on request). Lemma names unlocked by
 later levels are automatically forbidden in earlier ones.
+
+Docs live per language under `docs/agda/`, `docs/lean/`, `docs/bend2/`: a
+`doc: "refl.md"` in the front matter resolves to `docs/<lang>/refl.md` for
+each language, and an inventory item without a doc for the current language
+shows a placeholder. Lemma and syntax items carry per-language spellings
+(`agda:`, `lean:`, `bend2:`).
+
+A level may add a directory `levels/NN-<id>/` with, per language, an optional
+lesson page `<lang>.md` and an optional worked example
+`<lang>-example.<ext>`. The page's fields (`title`, `learning_goals`, `hints`,
+the intro, `<!-- @conclusion -->` and the conclusion) each override the
+level's own when present, so a language whose mechanics differ (Lean tactics,
+Bend `match`) gets its own text and hints while the level file stays the
+source for the rest. The example is a *similar problem worked out*: a full
+source file with the same four regions, shown collapsed in the lesson with the
+page's `example_explanation` (which should say how to start the exercise).
+`refl-check-levels` type-checks every example with the vocabulary earned at
+that level, and refuses a lesson that names a command its language does not
+offer, or an example that restates the exercise.
+
+The client has a dark and a light theme (button in the header; the choice is
+remembered in the browser when storage allows).
 
 After adding Agda levels, regenerate the world support modules so later
 levels can `open import Refl.World.<World>`:

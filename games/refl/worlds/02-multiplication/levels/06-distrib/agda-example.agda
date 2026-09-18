@@ -1,15 +1,15 @@
 -- @prelude
 {-# OPTIONS --safe --without-K #-}
 module Example where
+
 open import Refl.Nat
 open import Refl.Eq
-open import Refl.Logic
-open import Refl.Bool
+open import Refl.World.Tutorial using (zero-+)
+open import Refl.World.Addition using (+-comm; +-assoc; +-right-comm; +-swap)
+open import Refl.World.Multiplication using (*-distribˡ-+)
 -- @statement
-open import Refl.World.Addition using (+-assoc)
-
-example : ∀ a b c → suc ((a + b) + c) ≡ suc (a + (b + c))
+example : ∀ (x y z : ℕ) → x * (y + z) + x ≡ x * y + (x * z + x)
 -- @template
 -- The complete worked proof is below.
 -- @solution
-example a b c = cong suc (+-assoc a b c)
+example x y z = trans (cong (λ n → n + x) (*-distribˡ-+ x y z)) (+-assoc (x * y) (x * z) x)

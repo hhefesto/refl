@@ -36,12 +36,14 @@ import           Refl.Verify
 
 agda :: Language
 agda = Language
-  { langInfo = LangInfo (LangId "agda") "Agda" "agda" "agda" True
-  , langCommands = supportedCommands (LangId "agda")
+  { langInfo = LangInfo (LangId "agda") "Agda" "agda" "agda" True commands
+  , langCommands = commands
   , langStaticRules = \src user ->
       agdaRules src user ++ forbiddenIdentifiers "--" (lsForbidsNames src) user
   , langStart = start
   }
+ where
+  commands = [CmdLoad, CmdGoal, CmdGive, CmdRefine, CmdCase, CmdAuto, CmdInfer, CmdNormalise, CmdSolveAll]
 
 data St = St
   { stProc   :: AgdaProc

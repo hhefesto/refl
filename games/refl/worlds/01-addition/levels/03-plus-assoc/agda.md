@@ -1,28 +1,7 @@
 ---
 example_explanation: |-
-  1. Split the recursive input into `zero` and `suc n`.
-  2. The base equation computes.
-  3. In the step, `example n` proves the smaller equation; `cong suc` lifts it. Transfer the choice of recursion variable and the lifted induction hypothesis to the exercise.
-hints:
-- hidden: false
-  text: Associativity changes parentheses while preserving the order of summands.
-- hidden: true
-  text: 'Choose `z`: it is the outer right argument on both sides. The successor case
-    exposes matching constructors.'
-- hidden: true
-  text: Use `+-assoc x y (suc z) = cong suc …`.
-learning_goals:
-- A proof by induction where every case is `refl` or `cong suc`.
-- 'Reading parentheses: `x + y + z` means `(x + y) + z` because `_+_` is `infixl 6`.'
-title: +-assoc
+  1. Three variables, but `_+_` only computes on its second argument, and `z` is the innermost second argument on both sides: split `z`.
+  2. `z = zero`: `y + zero` and `(x + y) + zero` both compute away; `refl`.
+  3. `z = suc z`: both sides become `suc (…)`, so `cong suc` of the recursive call.
+  The exercise is the mirror image: same split, same two clauses.
 ---
-Associativity changes parentheses while preserving the order of summands.
-
-Associativity. Choose the induction variable so that both sides compute one
-`suc` per step.
-
-
-<!-- @conclusion -->
-
-`_+_` was declared `infixl 6`, so `x + y + z` parses as `(x + y) + z`. The
-standard library's `+-assoc` has exactly this statement.

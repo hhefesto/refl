@@ -1,29 +1,24 @@
 ---
+learning_goals:
+  - "A `def` returning a function (`t => …`) and a `law` with one more argument describe the same thing."
+  - "`{==}` sees through definitions: both sides unfold to `h(xs(Refl.add(t, d)))`."
+hints:
+  - text: "Two holes: first give `analog1_` a body, then prove the equation."
+  - text: "`analog1_(d, h, xs, t)` should compute what `analog1(d, h, xs)(t)` computes: `h(xs(Refl.add(t, d)))`."
+    hidden: true
+  - text: "With that body in place, the two sides of `analog_same` unfold to the same term, and `{==}` proves it."
+    hidden: true
 example_explanation: |-
   1. `shifted(k)` returns a lambda.
   2. The explicit version takes the lambda argument as its second parameter.
   3. Both compute to the same addition, proved by `{==}`. The exercise wraps this time shift in two further function calls.
-hints:
-- hidden: false
-  text: Returning a function and accepting its argument explicitly describe the same
-    computation.
-- hidden: true
-  text: 'The first hole defines the version with explicit `t`. Preserve the order:
-    shift time, sample `xs`, then apply `h`.'
-- hidden: true
-  text: Start the first body with `h(xs(…))`. After defining it, compare the two sides
-    of the equality by computation.
-learning_goals:
-- Returning a function and accepting its argument explicitly describe the same computation.
-- 'The first hole defines the version with explicit `t`. Preserve the order: shift
-  time, sample `xs`, then apply `h`.'
-title: Reading a function-valued definition
 ---
-Returning a function and accepting its argument explicitly describe the same computation.
-
-The first hole defines the version with explicit `t`. Preserve the order: shift time, sample `xs`, then apply `h`.
-
-Keep the `law` declaration in the fixed statement and edit the matching `def` below it. **Check** (`C-c C-l`) finds named holes such as `?goal`. Select a hole and use **Goal** (`C-c C-,`). Enter a Bend expression in the expression box and press **Give** (`C-c C-SPC`), or edit the definition directly.
+The reading level, in Bend. `analog1` returns a function `t => …`;
+`analog1_` is declared by a `law` with one more argument and you write its
+`def`. Once its body is the same expression, applying `analog1(d, h, xs)` to
+`t` and calling `analog1_(d, h, xs, t)` unfold to the same term, and the
+equation is `{==}`. Function types are written `Nat -> Nat`.
 
 <!-- @conclusion -->
-You have used this principle in Bend: Returning a function and accepting its argument explicitly describe the same computation. Keep the technique from the worked example in mind when the surrounding expressions change.
+Definitions unfold; `{==}` checks the result. That is the Tutorial in Bend:
+`{==}`, `%` rewriting, `Equal.cong/sym/trans`, `match`, and reading.

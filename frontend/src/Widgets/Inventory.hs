@@ -38,8 +38,9 @@ inventoryPage m progress langDyn = do
   el "p" $ elClass "span" "muted" (text "Everything unlocked by the levels you have completed, in the order you met it.")
   elClass "div" "inventory" $ dyn_ $ ffor ((,) <$> progress <*> langDyn) $ \(p, lang) -> do
     let doneKeys = S.fromList (M.findWithDefault [] lang (prCompleted p))
+        supported = concat [ liCommands li | li <- mLanguages m, liId li == lang ]
         items = [ (w, l, i) | w <- mWorlds m, l <- wLevels w, levelKey (wId w) (lId l) `S.member` doneKeys, i <- lUnlocks l
-                , M.member lang (iiDocHtml i), maybe True (`elem` supportedCommands lang) (iiCommand i) ]
+                , maybe True (`elem` supported) (iiCommand i) ]
     if null items then el "p" (text "Nothing yet. Solve the first level!") else
       forM_ [minBound .. maxBound] $ \kind -> do
         let here = [ x | x@(_, _, i) <- items, iiKind i == kind ]
@@ -49,7 +50,9 @@ inventoryPage m progress langDyn = do
             el "summary" $ do
               elClass "code" "mono" (text (displayName lang i))
               elClass "span" "pill" (text (wTitle w <> " · " <> maybe (lTitle l) llTitle (M.lookup lang (lLanguages l))))
-            elClass "div" "prose" $ rawHtml (M.findWithDefault "" lang (iiDocHtml i))
+            elClass "div" "prose" $ case M.lookup lang (iiDocHtml i) of
+              Just h -> rawHtml h
+              Nothing -> elClass "span" "muted" (text ("No documentation yet for " <> unLangId lang <> "."))
  where
   kindTitle = \case
     ItemCommand -> "Commands"

@@ -1,19 +1,14 @@
 -- @prelude
 {-# OPTIONS --safe --without-K #-}
 module Example where
+
 open import Refl.Nat
 open import Refl.Eq
-open import Refl.Logic
-open import Refl.Bool
--- @statement
+open import Refl.World.Addition using (+-comm; +-assoc)
 open ≡-Reasoning
-
-example : ∀ {a b c : ℕ} → a ≡ b → b ≡ c → suc a ≡ suc c
+-- @statement
+example : ∀ (x y z : ℕ) → (x + y) + z ≡ (y + x) + z
 -- @template
 -- The complete worked proof is below.
 -- @solution
-example {a} {b} {c} p q =
-  begin
-    suc a ≡⟨ cong suc p ⟩
-    suc b ≡⟨ cong suc q ⟩
-    suc c ∎
+example x y z = cong (λ n → n + z) (+-comm x y)

@@ -37,12 +37,14 @@ import           Refl.Verify
 
 lean :: Language
 lean = Language
-  { langInfo = LangInfo (LangId "lean") "Lean 4" "lean" "lean" True
-  , langCommands = supportedCommands (LangId "lean")
+  { langInfo = LangInfo (LangId "lean") "Lean 4" "lean" "lean" True commands
+  , langCommands = commands
   , langStaticRules = \src user ->
       leanRules src user ++ forbiddenIdentifiers "--" (lsForbidsNames src) user
   , langStart = start
   }
+ where
+  commands = [CmdLoad, CmdGoal]
 
 data St = St
   { stRpc     :: Rpc

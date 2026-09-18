@@ -1,28 +1,23 @@
 ---
+learning_goals:
+  - "`rw [h]` replaces the left side of `h` by its right side in the goal."
+  - "`rw [← h]` rewrites in the other direction."
+hints:
+  - text: "The goal is `x + 2 = 5` and `h : x = 3`. Make the goal about `3` instead of `x`."
+  - text: "`rw [h]` turns the goal into `3 + 2 = 5`. `rw` then tries `rfl` on its own; if a goal remains, finish with `rfl`."
+    hidden: true
+  - text: "The proof is two lines: `  rw [h]` then `  rfl` (the second is harmless if the first already closed the goal)."
+    hidden: true
 example_explanation: |-
   1. Rewrite `n` to `4`.
   2. The resulting equality is `4 + 1 = 5`.
   3. `rfl` computes the addition. Transfer this sequence using the exercise's own hypothesis and constants.
-hints:
-- hidden: false
-  text: An equality hypothesis can expose an arithmetic computation.
-- hidden: true
-  text: Use `h` to substitute the numeral for `x`. Inspect the remaining goal after
-    that substitution.
-- hidden: true
-  text: Begin with `rw […]`; if arithmetic remains, follow with the reflexivity tactic
-    on a new indented line.
-learning_goals:
-- An equality hypothesis can expose an arithmetic computation.
-- Use `h` to substitute the numeral for `x`. Inspect the remaining goal after that
-  substitution.
-title: Substitution before computation
 ---
-An equality hypothesis can expose an arithmetic computation.
-
-Use `h` to substitute the numeral for `x`. Inspect the remaining goal after that substitution.
-
-Edit the indented proof directly in the editor. **Check** (`C-c C-l`) checks your current text. Put the cursor on the proof and use **Goal** (`C-c C-,`) to inspect the local context. Replace `sorry` with proof steps; a proof containing `sorry` is unfinished.
+`rw [h]` rewrites with an equation `h : a = b`: every `a` in the goal becomes
+`b`. With `h : x = 3` the goal `x + 2 = 5` becomes `3 + 2 = 5`, and `3 + 2`
+computes to `5`. `rw` finishes by trying `rfl`, so the goal often closes in the
+same step. To rewrite right-to-left, write `rw [← h]`.
 
 <!-- @conclusion -->
-You have used this principle in Lean: An equality hypothesis can expose an arithmetic computation. Keep the technique from the worked example in mind when the surrounding expressions change.
+Rewriting is the workhorse of tactic proofs: `rw [h₁, h₂]` chains several
+equations left to right.

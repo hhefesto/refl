@@ -1,13 +1,14 @@
 -- @prelude
 {-# OPTIONS --safe --without-K #-}
 module Example where
+
 open import Refl.Nat
 open import Refl.Eq
-open import Refl.Logic
-open import Refl.Bool
+open import Refl.World.Tutorial using (zero-+)
+open import Refl.World.Addition using (suc-+)
 -- @statement
-example : ∀ {a b c : ℕ} → a ≡ b → c ≡ b → a ≡ c
+example : ∀ (x : ℕ) → x + 1 ≡ 1 + x
 -- @template
 -- The complete worked proof is below.
 -- @solution
-example p q = trans p (sym q)
+example x = sym (trans (suc-+ zero x) (cong suc (zero-+ x)))

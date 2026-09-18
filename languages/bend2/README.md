@@ -64,7 +64,7 @@ def zero_add(x):
 
 The `law` is the fixed statement, the `def` is the player's. `{==}` is refl,
 `Equal.cong`/`Equal.sym`/`Equal.trans` live in Base, `%e : P` rewrites (see
-`docs/rewrite.md` for the direction), a recursive call is the induction
+`games/refl/docs/bend2/rewrite.md` for the direction), a recursive call is the induction
 hypothesis. Quantities: `-x` erased (only in types), bare `x` used at most
 once, `+x` reusable. Lemma spellings go in the level front matter as
 `bend2: "…"`.

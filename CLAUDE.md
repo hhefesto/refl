@@ -27,8 +27,11 @@ implementations).
   `Widgets.Editor` (textarea + highlight overlay + input method + chords),
   `Widgets.LevelPage`, `WorldMap`, `Inventory`; `Widgets.InputTable` is
   generated.
-- `games/refl` — content. `languages/agda` — the game's own library plus
-  generated `Refl/World/*.agda`.
+- `games/refl` — content: `docs/<lang>/` per-language inventory docs;
+  `levels/NN-id/<lang>.md` optional lesson pages (each field overrides the
+  level's) and `<lang>-example.<ext>` worked examples; the level `.md` stays
+  the source of the shared prose and of the Agda hints. `languages/agda` —
+  the game's own library plus generated `Refl/World/*.agda`.
 
 ## Verified facts (do not re-derive)
 
@@ -84,4 +87,11 @@ implementations).
   (`pkgs.makeFontsConf`) or its renderer aborts in Skia; it also needs a
   settle pause after synthetic DOM events before the next DevTools command,
   and strings must reach it as UTF-8 text, never `BL.unpack` of JSON bytes.
+- What a prover can do lives in the plugin (`langCommands`) and travels in
+  `LangInfo.liCommands`; nothing else hard-codes language ids for commands.
+- A lesson must not mention a command its language lacks (`teachingProblems`
+  fails CI); a worked example is a different statement, type-checked with the
+  earned vocabulary. Hidden hints are offered only after a failed Check.
+- The dropdown only rewrites the hash on a level page; the route owns the
+  language, so a switch mounts the page once and opens one prover session.
 - Commits: plain messages, no AI attribution trailers.

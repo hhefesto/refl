@@ -1,28 +1,23 @@
 ---
+learning_goals:
+  - "Numerals compute: `(x + 2) + 1` and `x + 3` unfold to the same `succ (succ (succ x))`."
+  - "When both sides compute to the same term, `rfl` is the whole proof."
+hints:
+  - text: "Ask for the **Goal** and think about what `x + 3` unfolds to, step by step, by the definition of `+`."
+  - text: "`+` recurses on its second argument, so `x + 3` is `succ (x + 2)`, which is `succ (succ (x + 1))`, and so on. `(x + 2) + 1` unfolds to the same."
+    hidden: true
+  - text: "`  rfl` closes it: no rewriting needed."
+    hidden: true
 example_explanation: |-
   1. Expand the two additions on their numeric right arguments.
   2. Both sides become `succ (succ n)`.
   3. `rfl` checks this directly. The exercise has a longer numeral but uses the same rule.
-hints:
-- hidden: false
-  text: The definitions can establish equality even when a variable remains.
-- hidden: true
-  text: MyNat addition computes on its second argument. Reduce the numerals on the
-    right of each addition.
-- hidden: true
-  text: Compare the two normal forms, then replace `sorry` with the tactic for definitional
-    equality.
-learning_goals:
-- The definitions can establish equality even when a variable remains.
-- MyNat addition computes on its second argument. Reduce the numerals on the right
-  of each addition.
-title: Computation under nested addition
 ---
-The definitions can establish equality even when a variable remains.
-
-MyNat addition computes on its second argument. Reduce the numerals on the right of each addition.
-
-Edit the indented proof directly in the editor. **Check** (`C-c C-l`) checks your current text. Put the cursor on the proof and use **Goal** (`C-c C-,`) to inspect the local context. Replace `sorry` with proof steps; a proof containing `sorry` is unfinished.
+Nothing here needs a lemma. `MyNat` addition recurses on its second argument,
+so any expression whose second summand is a numeral unfolds all the way to
+successors. Both sides of `(x + 2) + 1 = x + 3` become `succ (succ (succ x))`,
+and `rfl` sees it.
 
 <!-- @conclusion -->
-You have used this principle in Lean: The definitions can establish equality even when a variable remains. Keep the technique from the worked example in mind when the surrounding expressions change.
+Before reaching for a lemma, ask what computes. `rfl` checks definitional
+equality, and numerals on the right of `+` always compute.

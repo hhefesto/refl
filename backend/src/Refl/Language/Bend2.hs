@@ -45,12 +45,14 @@ import           Refl.Verify
 
 bend2 :: Language
 bend2 = Language
-  { langInfo = LangInfo (LangId "bend2") "Bend 2" "bend" "none" True
-  , langCommands = supportedCommands (LangId "bend2")
+  { langInfo = LangInfo (LangId "bend2") "Bend 2" "bend" "none" True commands
+  , langCommands = commands
   , langStaticRules = \src user ->
       bendRules src user ++ forbiddenIdentifiers "#" (lsForbidsNames src) user
   , langStart = start
   }
+ where
+  commands = [CmdLoad, CmdGoal, CmdGive]
 
 data St = St
   { stDir  :: FilePath

@@ -37,7 +37,7 @@ main = do
 
 validate :: LoadedGame -> [T.Text]
 validate g =
-  teachingProblems g ++ [ "duplicate world id " <> i | i <- dups (map (wmId . lwMeta) ws) ]
+  teachingProblems languageInfos g ++ [ "duplicate world id " <> i | i <- dups (map (wmId . lwMeta) ws) ]
   ++ [ "world " <> wmId (lwMeta w) <> " depends on unknown world " <> d
      | w <- ws, d <- wmDependencies (lwMeta w), d `S.notMember` ids ]
   ++ [ "world " <> wmId (lwMeta w) <> ": duplicate level id " <> i
@@ -46,9 +46,9 @@ validate g =
      | w <- ws, i <- dups (map (lmIndex . llMeta) (lwLevels w)) ]
   ++ [ "world " <> wmId (lwMeta w) <> " level " <> lmId (llMeta l) <> ": unknown command unlock " <> c
      | w <- ws, l <- lwLevels w, c <- usCommands (lmUnlocks (llMeta l)), commandIdFromName c == Nothing ]
-  ++ [ "world " <> wmId (lwMeta w) <> " level " <> lmId (llMeta l) <> ": doc not found: " <> d
+  ++ [ "world " <> wmId (lwMeta w) <> " level " <> lmId (llMeta l) <> ": doc not found in any docs/<lang>/: " <> d
      | w <- ws, l <- lwLevels w, sp <- usLemmas (lmUnlocks (llMeta l)), Just d <- [lsDoc sp]
-     , ".md" `T.isSuffixOf` d, ("agda/" <> T.replace ".md" "" d) `M.notMember` lgDocs g ]
+     , ".md" `T.isSuffixOf` d, null [ () | lang <- knownLanguages, (lang <> "/" <> T.replace ".md" "" d) `M.member` lgDocs g ] ]
   ++ [ "world " <> wmId (lwMeta w) <> " has no levels" | w <- ws, null (lwLevels w) ]
  where
   ws = lgWorlds g

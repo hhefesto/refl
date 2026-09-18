@@ -12,6 +12,4 @@ theorem example_copy (n : MyNat) : copy n = n := by
 -- @solution
   induction n with
   | zero => rfl
-  | succ k ih =>
-    change succ (copy k) = succ k
-    rw [ih]
+  | succ k ih => rw [copy, ih]

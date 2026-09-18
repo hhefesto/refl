@@ -1,27 +1,6 @@
 ---
 example_explanation: |-
-  1. Normalize the outer additions into successors.
-  2. `zero-+ n` handles the inner expression that is stuck.
-  3. Lift that equation through `suc`. In the exercise normalize first, then identify the existing lemma that matches the remaining goal.
-hints:
-- hidden: false
-  text: Unfolding a definition can reduce a new theorem to an older one.
-- hidden: true
-  text: The numeral one is a successor of zero. Unfold multiplication to see an addition
-    with zero on the left.
-- hidden: true
-  text: Keep `*-one x = …` and find the inventory lemma about that addition.
-learning_goals:
-- 'Unfold a definition by hand: `x * 1` is `x * zero + x`, which is `zero + x`.'
-- Reuse `zero-+`.
-title: '*-one'
+  1. Unfold: `x * 2` is `x * suc 1`, which computes to `x * 1 + x`, then to `(x * zero + x) + x`, then to `(zero + x) + x`.
+  2. `zero + x` is stuck, but `zero-+ x` proves it equals `x`; `cong (λ n → n + x)` places that under the outer `+ x`.
+  For the exercise, `x * 1` unfolds one step less, to `zero + x`, so `zero-+` alone finishes it.
 ---
-Unfolding a definition can reduce a new theorem to an older one.
-
-`1` is `suc zero`, so `x * 1 = x * zero + x = zero + x`. One inventory
-lemma finishes it. No induction.
-
-
-<!-- @conclusion -->
-
-`x * zero ≡ zero` is `refl` and never needs a lemma, just like `x + zero`.

@@ -97,7 +97,7 @@ main = do
               wait label expression = do
                 lastV <- newIORef Null
                 await' label (do v <- readIORef lastV
-                                 snap <- eval "[document.querySelector('.session-status')?.textContent, document.querySelector('.verdict')?.textContent, [...document.querySelectorAll('.diag')].map(d => d.textContent).join(' / '), document.querySelector('.expr input')?.value, document.querySelector('textarea')?.value].join(' || ')"
+                                 snap <- eval "[document.querySelector('.session-status')?.textContent, document.querySelector('.verdict')?.textContent, [...document.querySelectorAll('.diag')].map(d => d.textContent).join(' / '), document.querySelector('.expr input')?.value, document.querySelector('textarea')?.value, 'hash=' + location.hash, 'select=' + document.querySelector('#language')?.value, 'theme=' + document.documentElement.dataset.theme, 'stored=' + (() => { try { return localStorage.getItem('refl-theme'); } catch (e) { return 'ERR'; } })(), document.querySelector('#theme-toggle')?.outerHTML].join(' || ')"
                                  body <- eval "document.body.innerText.slice(0,1200)"
                                  pure (show v ++ "; page: " ++ show snap ++ "; body: " ++ show body)) $ do
                   v <- eval expression
@@ -123,7 +123,7 @@ main = do
                 unless (skipLean && lang == "lean") ready
               route = routeLang "agda"
               choose lang = do
-                run ("const s=document.querySelector('#language'); s.value=" <> js lang <> "; s.dispatchEvent(new Event('change',{bubbles:true})); true")
+                run ("(() => { const s=document.querySelector('#language'); s.value=" <> js lang <> "; s.dispatchEvent(new Event('change',{bubbles:true})); })(); true")
                 wait "header navigates" ("location.hash.endsWith('/" <> lang <> "') && document.querySelector('.pill.on')?.textContent === " <> js lang)
                 unless (skipLean && lang == "lean") ready
               tab lang = do
@@ -140,24 +140,33 @@ main = do
                 let Just bytes = parseMaybe (withObject "reply" (\o -> o .: "result" >>= withObject "result" (.: "data"))) reply :: Maybe T.Text
                 raw <- either fail pure (B64.decode (TE.encodeUtf8 bytes))
                 BS.writeFile (out </> name ++ ".png") raw
+              -- a fresh document: mark the old one and wait until the mark is gone
               reload = do
+                run "window.__reflOld = true; true"
                 void (rpc "Page.reload" (object []))
-                settle
+                await "new document after reload" ((== Bool True) <$> eval "typeof window.__reflOld === 'undefined' && document.readyState === 'complete'")
                 ready
+              -- reveal one more hidden hint (revealed ones carry .revealed)
               hint = do
+                before <- eval "document.querySelectorAll('.hints .hint.revealed').length"
                 run "[...document.querySelectorAll('.hints button')][0].click(); true"
-                wait "hint revealed" "document.querySelectorAll('.hints .hint').length === 2"
+                wait "hint revealed" ("document.querySelectorAll('.hints .hint.revealed').length === " <> T.pack (show (asInt before + 1)))
+              asInt v = case v of Number n -> (round n :: Int); _ -> 0
               verdict cls = wait ("verdict " ++ cls) ("Boolean(document.querySelector('.verdict." <> T.pack cls <> "'))")
           void (rpc "Runtime.enable" (object []))
+          -- Page.addScriptToEvaluateOnNewDocument is honoured only with Page events enabled
+          void (rpc "Page.enable" (object []))
           void (rpc "Page.navigate" (object ["url" .= ("http://127.0.0.1:8124/#/w/tutorial/l/1/agda" :: T.Text)]))
           wait "first Check enabled" ("Boolean(" <> button ("Check" :: T.Text) <> " && !" <> button ("Check" :: T.Text) <> ".disabled)")
           theme "dark"
           contrast
           wait "default dark colors" "getComputedStyle(document.body).backgroundColor === 'rgb(21, 25, 31)'"
           wait "example collapsed" "document.querySelector('.worked-example')?.open === false"
+          click "Check"
+          verdict "unsolved"
           hint
           editor "two-plus-two = ?\n-- retained help\n"
-          wait "edits retain hints" "document.querySelectorAll('.hints .hint').length === 2"
+          wait "edits retain hints" "document.querySelectorAll('.hints .hint.revealed').length === 1"
           run "document.querySelector('.worked-example summary').click(); true"
           wait "example source is a different problem" "document.querySelector('.worked-example code').textContent.includes('3 + 1') && !document.querySelector('.worked-example code').textContent.includes('two-plus-two')"
           snapshot "dark-help"
@@ -169,6 +178,7 @@ main = do
           reload
           theme "light"
           click "Theme: Light"
+          theme "dark"
           reload
           theme "dark"
           run "localStorage.setItem('refl-theme','invalid'); true"
@@ -207,9 +217,11 @@ main = do
           wait "Unicode draft restored" "document.querySelector('textarea').value.includes('λ → ℕ 😀')"
           choose "lean"
           wait "Lean instructions and commands" "document.querySelector('.col-left').textContent.includes('rfl') && !document.querySelector('.expr') && [...document.querySelectorAll('.commands button')].map(b => b.textContent).join(',') === 'Check,Goal'"
-          wait "language change resets help" "document.querySelectorAll('.hints .hint').length === 1 && !document.querySelector('.worked-example').open"
-          hint
+          wait "language change resets help" "document.querySelectorAll('.hints .hint.revealed').length === 0 && !document.querySelector('.worked-example').open"
           unless skipLean $ do
+            click "Check"
+            verdict "unsolved"
+            hint
             reload
             wait "Lean deep link synchronizes header" "document.querySelector('#language')?.value === 'lean' && document.querySelector('.col-left')?.textContent.includes('rfl') === true"
           unless skipLean $ do
@@ -217,7 +229,7 @@ main = do
             click "Check"
             verdict "unsolved"
             snapshot "lean-goal"
-            run "const t=document.querySelector('textarea'); t.focus(); t.setSelectionRange(2,2); t.dispatchEvent(new Event('keyup',{bubbles:true})); true"
+            run "(() => { const t=document.querySelector('textarea'); t.focus(); t.setSelectionRange(2,2); t.dispatchEvent(new Event('keyup',{bubbles:true})); })(); true"
             settle
             click "Goal"
             wait "Lean goal shown" "Boolean(document.querySelector('.goal .ty'))"
@@ -254,8 +266,11 @@ main = do
           wait "Bend inventory" "document.querySelector('.inventory')?.textContent.includes('{==}') === true && !document.querySelector('.inventory').textContent.includes('Refine')"
           run "document.querySelectorAll('.inventory details').forEach(d => d.open=true); true"
           snapshot "dark-inventory"
-          run "const s=document.querySelector('#language'); s.value='lean'; s.dispatchEvent(new Event('change',{bubbles:true})); true"
-          unless skipLean $ wait "Lean inventory" "document.querySelector('.inventory')?.textContent.includes('rfl') === true && !document.querySelector('.inventory').textContent.includes('{==}')"
+          run "(() => { const s=document.querySelector('#language'); s.value='lean'; s.dispatchEvent(new Event('change',{bubbles:true})); })(); true"
+          -- the app must have taken the selection before the next navigation,
+          -- or it will follow the selector instead of the hash
+          wait "inventory follows the selector" "!document.querySelector('.inventory').textContent.includes('{==}')"
+          unless skipLean $ wait "Lean inventory" "document.querySelector('.inventory')?.textContent.includes('rfl') === true"
           route 1
           Right game <- loadGame games
           let tutorial = head [w | w <- lgWorlds game, wmId (lwMeta w) == "tutorial"]

@@ -55,7 +55,7 @@ instance Arbitrary HoleOp where
     , OpCase <$> txt, pure OpAuto, OpInfer <$> arbitrary <*> txt
     , OpNormalise <$> txt, OpHelperType <$> txt ]
 instance Arbitrary CommandId where arbitrary = elements [minBound .. maxBound]
-instance Arbitrary LangInfo where arbitrary = LangInfo <$> arbitrary <*> txt <*> slug <*> slug <*> arbitrary
+instance Arbitrary LangInfo where arbitrary = LangInfo <$> arbitrary <*> txt <*> slug <*> slug <*> arbitrary <*> arbitrary
 instance Arbitrary Progress where
   arbitrary = Progress <$> (M.fromList <$> listOf ((,) <$> arbitrary <*> listOf txt))
                        <*> (M.fromList <$> listOf ((,) <$> txt <*> (M.fromList <$> listOf ((,) <$> arbitrary <*> txt))))

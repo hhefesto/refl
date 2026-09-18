@@ -1,18 +1,17 @@
 -- @prelude
 {-# OPTIONS --safe --without-K #-}
 module Example where
+
 open import Refl.Nat
 open import Refl.Eq
-open import Refl.Logic
-open import Refl.Bool
 -- @statement
-zeros : ℕ → ℕ
-zeros zero = zero
-zeros (suc n) = zeros n + zero
+count : ℕ → ℕ
+count zero = zero
+count (suc n) = count n + 1
 
-example : ∀ n → zeros n ≡ zero
+count-id : ∀ (n : ℕ) → count n ≡ n
 -- @template
 -- The complete worked proof is below.
 -- @solution
-example zero = refl
-example (suc n) = example n
+count-id zero = refl
+count-id (suc n) = cong suc (count-id n)

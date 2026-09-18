@@ -1,25 +1,7 @@
 ---
 example_explanation: |-
-  1. Draw the endpoints: `a → b` and `c → b`.
-  2. Reverse the second edge to obtain `b → c`.
-  3. Compose with `trans`. The exercise reverses a different edge; match endpoints before composing.
-hints:
-- hidden: false
-  text: A theorem can follow by composition, without a new induction.
-- hidden: true
-  text: First commute `1 * x`, then use the right identity theorem.
-- hidden: true
-  text: Use `trans … …` with the intermediate term `x * 1`.
-learning_goals:
-- Chaining two inventory lemmas.
-title: one-*
+  1. `2 * x` is `suc 1 * x`, which is stuck; `suc-* 1 x` rewrites it to `1 * x + x`.
+  2. Inside, `one-* x` turns `1 * x` into `x`; `cong (λ n → n + x)` applies it under `+ x`.
+  3. `trans` chains the two steps.
+  For the exercise, `1 * x` is `suc zero * x`: apply `suc-*` once and then `zero-*` inside, the same two-step shape.
 ---
-A theorem can follow by composition, without a new induction.
-
-A one-liner from `*-comm` and `*-one`.
-
-
-<!-- @conclusion -->
-
-When a lemma follows from others without induction, it does not need a case
-split — reach for `trans`.

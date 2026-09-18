@@ -1,28 +1,27 @@
 ---
+title: "Induction with `induction`"
+learning_goals:
+  - "`induction x with | zero => … | succ n ih => …` splits into base and step, naming the induction hypothesis."
+  - "`add_succ` unfolds `a + succ b` to `succ (a + b)`."
+hints:
+  - text: "`0 + x` does not compute (the variable is on the right). Induct on `x`."
+  - text: "`induction x with` gives two goals. Base: `0 + 0 = 0` is `rfl`. Step: with `ih : 0 + n = n`, the goal `0 + succ n = succ n` unfolds by `add_succ` to `succ (0 + n) = succ n`."
+    hidden: true
+  - text: "Step case: `rw [add_succ, ih]`. Full proof:\n\n```lean\n  induction x with\n  | zero => rfl\n  | succ n ih => rw [add_succ, ih]\n```"
+    hidden: true
 example_explanation: |-
   1. Define `copy` by zero/successor recursion.
   2. The zero branch computes.
-  3. In the successor branch expose the recursive expression with `change`, then rewrite with `ih`. In the exercise expose addition's recursive equation with `add_succ`.
-hints:
-- hidden: false
-  text: A universal arithmetic law follows the recursive structure of natural numbers.
-- hidden: true
-  text: Addition is stuck on `x`. Use `induction x with` to get a zero branch and
-    a successor branch with a smaller proof.
-- hidden: true
-  text: Start `induction x with`, followed by `| zero => …` and `| succ n ih => …`.
-    In the step, rewrite with `add_succ` and the induction hypothesis.
-learning_goals:
-- A universal arithmetic law follows the recursive structure of natural numbers.
-- Addition is stuck on `x`. Use `induction x with` to get a zero branch and a successor
-  branch with a smaller proof.
-title: Induction on a natural number
+  3. In the successor branch, `rw [copy]` unfolds one step of the definition, then `rw [ih]` finishes. In the exercise the unfolding lemma is `add_succ` instead of `copy`.
 ---
-A universal arithmetic law follows the recursive structure of natural numbers.
+`0 + x` is stuck: addition recurses on its second argument and `x` is a
+variable. The way through is induction. `induction x with` opens one branch per
+constructor; in the `succ n ih` branch, `ih` is the statement for `n`, the
+induction hypothesis.
 
-Addition is stuck on `x`. Use `induction x with` to get a zero branch and a successor branch with a smaller proof.
-
-Edit the indented proof directly in the editor. **Check** (`C-c C-l`) checks your current text. Put the cursor on the proof and use **Goal** (`C-c C-,`) to inspect the local context. Replace `sorry` with proof steps; a proof containing `sorry` is unfinished.
+In the step, rewrite `0 + succ n` to `succ (0 + n)` with the lemma `add_succ`
+from the prelude, then `ih` turns it into `succ n = succ n`.
 
 <!-- @conclusion -->
-You have used this principle in Lean: A universal arithmetic law follows the recursive structure of natural numbers. Keep the technique from the worked example in mind when the surrounding expressions change.
+Induction is recursion: the `succ` branch may use the statement for `n`.
+`zero_add` is in your inventory.

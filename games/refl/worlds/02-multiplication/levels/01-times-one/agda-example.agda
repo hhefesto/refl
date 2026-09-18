@@ -1,15 +1,14 @@
 -- @prelude
 {-# OPTIONS --safe --without-K #-}
 module Example where
+
 open import Refl.Nat
 open import Refl.Eq
-open import Refl.Logic
-open import Refl.Bool
--- @statement
 open import Refl.World.Tutorial using (zero-+)
-
-example : ∀ n → (zero + n) + 1 ≡ n + 1
+open import Refl.World.Addition using (+-comm; +-assoc; +-right-comm; +-swap)
+-- @statement
+example : ∀ (x : ℕ) → x * 2 ≡ x + x
 -- @template
 -- The complete worked proof is below.
 -- @solution
-example n = cong suc (zero-+ n)
+example x = cong (λ n → n + x) (zero-+ x)

@@ -21,7 +21,6 @@ import           System.FilePath        ((</>))
 
 import           Refl.Content
 import           Refl.Content.Frontmatter     (writeFileUtf8)
-import           Refl.Content.Splice          (forbiddenIdentifiers)
 import           Refl.Language
 import           Refl.Language.Registry
 import           Refl.Protocol.Types
@@ -36,15 +35,19 @@ data Outcome = Outcome
   } deriving (Show)
 
 checkGame :: Env -> Maybe LangId -> [LangId] -> LoadedGame -> IO [Outcome]
-checkGame _ _ _ game | not (null (teachingProblems game)) =
-  pure [Outcome "content" "teaching" "all" False (teachingProblems game)]
-checkGame env only skip game = fmap concat . forM (lgWorlds game) $ \w ->
-  fmap concat . forM (lwLevels w) $ \l ->
-    fmap concat $ forM [ s | (lang, s) <- M.toList (llSources l), maybe True (== lang) only, lang `notElem` skip ] $ \src -> do
-      exercise <- checkLevel True env (wmId (lwMeta w)) (lmId (llMeta l)) (restrictedSources game src)
-      example <- checkLevel False env (wmId (lwMeta w)) (lmId (llMeta l) <> " / worked example")
-        (restrictedSources game (tExample (llTeaching l M.! lsLang src)))
-      pure [exercise, example]
+checkGame env only skip game
+  | not (null problems) = pure [Outcome "content" "teaching" "all" False problems]
+  | otherwise = fmap concat . forM (lgWorlds game) $ \w ->
+      fmap concat . forM (lwLevels w) $ \l ->
+        fmap concat $ forM [ s | (lang, s) <- M.toList (llSources l), maybe True (== lang) only, lang `notElem` skip ] $ \src -> do
+          exercise <- checkLevel True env (wmId (lwMeta w)) (lmId (llMeta l)) (restrictedSources game src)
+          -- a worked example is a solved level in its own right: its solution
+          -- must check with the same earned vocabulary
+          examples <- forM [ e | Just t <- [M.lookup (lsLang src) (llTeaching l)], Just e <- [tExample t] ] $ \e ->
+            checkLevel False env (wmId (lwMeta w)) (lmId (llMeta l) <> " / worked example") (restrictedSources game e)
+          pure (exercise : examples)
+ where
+  problems = teachingProblems languageInfos game
 
 checkLevel :: Bool -> Env -> Text -> Text -> LevelSources -> IO Outcome
 checkLevel exercise env world level src = do
@@ -71,8 +74,7 @@ checkLevel exercise env world level src = do
                 Solved -> ["template is already solved"]
                 v -> ["template does not load cleanly: " <> T.pack (show v) <> "; " <> crStatus tpl]
                      ++ map diagMessage (crDiagnostics tpl)
-              notes = solNotes ++ if exercise then tplNotes else
-                map vMessage (forbiddenIdentifiers (languageComment lang) (lsForbidsNames src) (lsStatement src))
+              notes = solNotes ++ (if exercise then tplNotes else [])
           pure (out (null notes) notes)
 
 -- ---------------------------------------------------------------------------

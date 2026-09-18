@@ -20,7 +20,8 @@ themeToggle = mdo
     ("document.documentElement.dataset.theme='" <> name t <> "'; try { localStorage.setItem('refl-theme','" <> name t <> "'); } catch (_) {}" :: Text)
   (b, _) <- elDynAttr' "button" (ffor theme $ \t ->
     "id" =: "theme-toggle" <> "type" =: "button"
-    <> "aria-label" =: "Dark mode" <> "aria-pressed" =: (if t == Dark then "true" else "false"))
+    <> "aria-label" =: (if t == Dark then "Switch to the light theme" else "Switch to the dark theme")
+    <> "aria-pressed" =: (if t == Dark then "true" else "false"))
     (dynText ((\t -> if t == Dark then "Theme: Dark" else "Theme: Light") <$> theme))
   let clicked = domEvent Click b
   pure ()

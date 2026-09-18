@@ -178,7 +178,7 @@
             frontend-js = frontendJs;
             agda = agda;
 
-            manifest = pkgs.runCommand "refl-manifest" { } ''
+            manifest = pkgs.runCommand "refl-manifest" locale ''
               mkdir -p $out
               ${backend}/bin/refl-build-manifest ${games} -o $out/manifest.json
             '';
@@ -265,12 +265,13 @@
             '';
             browser = pkgs.runCommand "refl-browser" ({
               nativeBuildInputs = [ pkgs.chromium pkgs.curl ];
-              REFL_BROWSER_SKIP_LEAN = "1";
               # Chromium's renderer aborts in Skia without a fontconfig setup
               # (the sandbox has no /etc/fonts); give it one real font.
               FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; };
             } // locale) ''
               export HOME=$TMPDIR
+              # lean --server needs /etc/localtime; skip its sessions only where the sandbox refuses
+              if ln -s ${pkgs.tzdata}/share/zoneinfo/UTC /etc/localtime 2>/dev/null; then :; else export REFL_BROWSER_SKIP_LEAN=1; fi
               ${backend}/bin/refl-browser-test ${pkgs.chromium}/bin/chromium \
                 ${self'.packages.site}/bin/refl-site ${games}
               echo ok > $out
