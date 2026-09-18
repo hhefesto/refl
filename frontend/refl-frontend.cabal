@@ -41,6 +41,7 @@ library
         App
         Client
         Style
+        Theme
         Widgets.Common
         Widgets.Editor
         Widgets.InputMethod

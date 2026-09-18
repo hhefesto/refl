@@ -1,0 +1,1 @@
+**Give** (`C-c C-SPC`) checks the Bend expression from the expression field at the selected hole. For reflexivity enter `{==}`. If it checks, the prover replaces that hole and checks the file again.

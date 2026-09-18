@@ -1,0 +1,1 @@
+**Check** (`C-c C-l`) checks the current editor text. Replace `sorry` by editing the indented Lean proof. A remaining `sorry` is unfinished.

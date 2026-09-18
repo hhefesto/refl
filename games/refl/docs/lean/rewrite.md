@@ -1,0 +1,1 @@
+`rw [h]` substitutes using a local equation. `rw [← h]` reverses its direction; `rw [h, k]` chains substitutions. Write these tactics directly beneath `by`.

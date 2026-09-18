@@ -8,6 +8,8 @@ module Refl.Content.Level
   , HintSpec (..)
   , LevelSources (..)
   , LoadedLevel (..)
+  , Teaching (..)
+  , TeachingMeta (..)
   , loadLevel
   , languageComment
   , languageExt
@@ -22,7 +24,7 @@ import           Data.Maybe             (fromMaybe)
 import           Data.Text              (Text)
 import qualified Data.Text              as T
 import           System.Directory       (doesFileExist)
-import           System.FilePath        ((<.>))
+import           System.FilePath        ((<.>), (</>))
 
 import           Refl.Content.Frontmatter
 import           Refl.Content.Regions
@@ -76,10 +78,15 @@ instance FromJSON LemmaSpec where
 data SyntaxSpec = SyntaxSpec
   { ssName :: Text
   , ssDoc  :: Maybe Text
+  , ssNames :: Map Text Text
   } deriving (Eq, Show)
 
 instance FromJSON SyntaxSpec where
-  parseJSON = withObject "syntax" $ \o -> SyntaxSpec <$> o .: "name" <*> o .:? "doc"
+  parseJSON = withObject "syntax" $ \o -> do
+    name <- o .: "name"
+    doc <- o .:? "doc"
+    names <- M.fromList . concat <$> mapM (\l -> maybe [] (\v -> [(l, v)]) <$> o .:? K.fromText l) knownLanguages
+    pure (SyntaxSpec name doc names)
 
 data HintSpec = HintSpec
   { hsText   :: Text
@@ -112,6 +119,28 @@ data LoadedLevel = LoadedLevel
   , llConclusion :: Text                     -- ^ markdown
   , llSources    :: Map LangId LevelSources  -- ^ one per language file present
   , llPath       :: FilePath                 -- ^ the .md path, for messages
+  , llTeaching   :: Map LangId Teaching
+  } deriving (Eq, Show)
+
+-- | A playable language has its own teaching and independently checked example.
+-- No translation fallback: missing pages are authoring errors.
+data TeachingMeta = TeachingMeta
+  { tmTitle :: Text
+  , tmGoals :: [Text]
+  , tmHints :: [HintSpec]
+  , tmExample :: Text
+  } deriving (Eq, Show)
+
+instance FromJSON TeachingMeta where
+  parseJSON = withObject "teaching" $ \o ->
+    TeachingMeta <$> o .: "title" <*> o .: "learning_goals"
+                 <*> o .: "hints" <*> o .: "example_explanation"
+
+data Teaching = Teaching
+  { tMeta :: TeachingMeta
+  , tIntro :: Text
+  , tConclusion :: Text
+  , tExample :: LevelSources
   } deriving (Eq, Show)
 
 knownLanguages :: [Text]
@@ -140,16 +169,46 @@ loadLevel wid worldOptions mdPath = do
       let (intro, conclusion) = splitConclusion body
           base = take (length mdPath - 3) mdPath
       srcs <- mapM (loadSource meta base) knownLanguages
-      case sequence srcs of
+      pages <- mapM (\(lang, result) -> case result of
+        Right (Just s) -> fmap (fmap (\t -> Just (LangId lang, t))) (loadTeaching base lang s)
+        _ -> pure (Right Nothing)) (zip knownLanguages srcs)
+      case (,) <$> sequence srcs <*> sequence pages of
         Left err -> pure (Left (T.pack mdPath <> ": " <> err))
-        Right ms -> pure $ Right LoadedLevel
+        Right (ms, ts) -> pure $ Right LoadedLevel
           { llMeta = meta
           , llIntro = intro
           , llConclusion = conclusion
           , llSources = M.fromList [ (LangId l, s) | (l, Just s) <- zip knownLanguages ms ]
           , llPath = mdPath
+          , llTeaching = M.fromList [t | Just t <- ts]
           }
  where
+  loadTeaching base lang src = do
+    let page = base </> T.unpack lang <.> "md"
+        example = base </> T.unpack lang <> "-example" <.> T.unpack (languageExt (lsLang src))
+    exists <- doesFileExist page
+    exampleExists <- doesFileExist example
+    if not exists then pure (Left ("missing teaching page: " <> T.pack page))
+    else if not exampleExists then pure (Left ("missing worked example: " <> T.pack example))
+    else do
+      doc <- readFileUtf8 page
+      code <- readFileUtf8 example
+      pure $ do
+        (meta, body) <- parseFrontmatter doc
+        r <- parseRegions (languageComment (lsLang src)) code
+        let (intro, conclusion) = splitConclusion body
+        if T.null intro || T.null conclusion || null (tmGoals meta)
+           || null [h | h <- tmHints meta, not (hsHidden h)]
+           || length [h | h <- tmHints meta, hsHidden h] < 2
+           || T.null (tmExample meta)
+          then Left ("incomplete teaching page: " <> T.pack page)
+          else Right (Teaching meta intro conclusion src
+            { lsModuleName = fromMaybe "Example" (moduleNameOf (rPrelude r))
+            , lsPrefix = rPrelude r <> rStatement r
+            , lsStatement = rStatement r
+            , lsTemplate = rTemplate r
+            , lsSolution = rSolution r
+            })
   splitConclusion body =
     case T.breakOn "<!-- @conclusion -->" body of
       (intro, rest) | T.null rest -> (intro, "")

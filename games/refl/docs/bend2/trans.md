@@ -1,0 +1,1 @@
+`Equal.trans(A, x, y, z, p, q)` composes `p : {x == y : A}` and `q : {y == z : A}`.

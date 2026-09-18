@@ -63,7 +63,7 @@ editor cfg = elClass "div" "editor-wrap" $ mdo
     & textAreaElementConfig_initialValue .~ ecInitial cfg
     & textAreaElementConfig_elementConfig . elementConfig_initialAttributes .~
         ("spellcheck" =: "false" <> "autocomplete" =: "off" <> "autocapitalize" =: "off"
-         <> "wrap" =: "off" <> "rows" =: "14")
+         <> "wrap" =: "off" <> "rows" =: "14" <> "aria-label" =: "Proof editor")
   let raw = _textAreaElement_raw ta
   overlayEl <- pure ()  -- overlay is the first child; scroll sync below finds it by DOM
   chordRef <- liftIO (newIORef False)

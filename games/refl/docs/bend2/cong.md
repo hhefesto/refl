@@ -1,0 +1,1 @@
+`Equal.cong(A, B, f, x, y, h)` lifts `h : {x == y : A}` to `{f(x) == f(y) : B}`. Supply the input and output types explicitly.

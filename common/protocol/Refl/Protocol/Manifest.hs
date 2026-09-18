@@ -46,6 +46,13 @@ data LevelLang = LevelLang
   { llTemplate     :: Text
   , llStatement    :: Text   -- ^ display only; the real one is spliced server-side
   , llAllowImports :: Bool
+  , llTitle        :: Text
+  , llIntroHtml    :: Text
+  , llConclusionHtml :: Text
+  , llLearningGoals :: [Text]
+  , llHints        :: [Hint]
+  , llExampleCode  :: Text
+  , llExampleHtml  :: Text
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
 
@@ -62,7 +69,7 @@ data ItemKind = ItemCommand | ItemLemma | ItemSyntax
 data InventoryItem = InventoryItem
   { iiKind      :: ItemKind
   , iiName      :: Text
-  , iiDocHtml   :: Text
+  , iiDocHtml   :: Map LangId Text
   , iiLangNames :: Map LangId Text   -- ^ per-language spelling of a lemma
   , iiCommand   :: Maybe CommandId   -- ^ for 'ItemCommand'
   } deriving stock (Eq, Show, Generic)

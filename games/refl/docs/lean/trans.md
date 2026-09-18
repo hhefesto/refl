@@ -1,0 +1,1 @@
+`Eq.trans p q` composes `p : a = b` and `q : b = c` into `a = c`. The intermediate endpoints must match.

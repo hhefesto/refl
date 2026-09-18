@@ -21,6 +21,7 @@ import           System.FilePath        ((</>))
 
 import           Refl.Content
 import           Refl.Content.Frontmatter     (writeFileUtf8)
+import           Refl.Content.Splice          (forbiddenIdentifiers)
 import           Refl.Language
 import           Refl.Language.Registry
 import           Refl.Protocol.Types
@@ -35,13 +36,18 @@ data Outcome = Outcome
   } deriving (Show)
 
 checkGame :: Env -> Maybe LangId -> [LangId] -> LoadedGame -> IO [Outcome]
+checkGame _ _ _ game | not (null (teachingProblems game)) =
+  pure [Outcome "content" "teaching" "all" False (teachingProblems game)]
 checkGame env only skip game = fmap concat . forM (lgWorlds game) $ \w ->
   fmap concat . forM (lwLevels w) $ \l ->
-    forM [ s | (lang, s) <- M.toList (llSources l), maybe True (== lang) only, lang `notElem` skip ] $ \src ->
-      checkLevel env (wmId (lwMeta w)) (lmId (llMeta l)) (restrictedSources game src)
+    fmap concat $ forM [ s | (lang, s) <- M.toList (llSources l), maybe True (== lang) only, lang `notElem` skip ] $ \src -> do
+      exercise <- checkLevel True env (wmId (lwMeta w)) (lmId (llMeta l)) (restrictedSources game src)
+      example <- checkLevel False env (wmId (lwMeta w)) (lmId (llMeta l) <> " / worked example")
+        (restrictedSources game (tExample (llTeaching l M.! lsLang src)))
+      pure [exercise, example]
 
-checkLevel :: Env -> Text -> Text -> LevelSources -> IO Outcome
-checkLevel env world level src = do
+checkLevel :: Bool -> Env -> Text -> Text -> LevelSources -> IO Outcome
+checkLevel exercise env world level src = do
   let lang = lsLang src
       out ok notes = Outcome world level (unLangId lang) ok notes
   case lookupLanguage lang of
@@ -54,7 +60,7 @@ checkLevel env world level src = do
         Right (Left e) -> pure (out False ["could not start prover: " <> e])
         Right (Right prover) -> do
           sol <- psCheck prover (lsSolution src)
-          tpl <- psCheck prover (lsTemplate src)
+          tpl <- if exercise then psCheck prover (lsTemplate src) else pure sol
           psClose prover
           let solNotes = case crVerdict sol of
                 Solved -> []
@@ -65,7 +71,8 @@ checkLevel env world level src = do
                 Solved -> ["template is already solved"]
                 v -> ["template does not load cleanly: " <> T.pack (show v) <> "; " <> crStatus tpl]
                      ++ map diagMessage (crDiagnostics tpl)
-              notes = solNotes ++ tplNotes
+              notes = solNotes ++ if exercise then tplNotes else
+                map vMessage (forbiddenIdentifiers (languageComment lang) (lsForbidsNames src) (lsStatement src))
           pure (out (null notes) notes)
 
 -- ---------------------------------------------------------------------------

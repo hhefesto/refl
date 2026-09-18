@@ -3,7 +3,7 @@
 -- websocket session for the level.
 module Widgets.LevelPage (levelPage) where
 
-import           Control.Monad          (forM_, void, when)
+import           Control.Monad          (forM_, when)
 import           Data.List              (find)
 import qualified Data.Map               as M
 import           Data.Maybe             (listToMaybe)
@@ -34,7 +34,7 @@ levelPage m leaveE lang wid idx =
         text "›"
         routeLink (RWorld wid) (text (wTitle w))
         text "›"
-        text (lTitle l)
+        text (maybe (lTitle l) llTitle (M.lookup lang (lLanguages l)))
         elClass "span" "spacer" blank
         -- language switcher: only languages this level has
         forM_ (M.keys (lLanguages l)) $ \lg ->
@@ -83,12 +83,18 @@ levelPage m leaveE lang wid idx =
     -- left column ---------------------------------------------------------
     (ed, cmdE, exprDyn) <- mdo
       elClass "div" "col-left" $ do
-        el "h2" (text (lTitle l))
-        elClass "div" "card prose" $ rawHtml (lIntroHtml l)
-        hintsW l lastResult
+        el "h2" (text (llTitle ll))
+        elClass "div" "card prose" $ do
+          rawHtml (llIntroHtml ll)
+          el "ul" $ forM_ (llLearningGoals ll) $ \g -> el "li" (text g)
+        hintsW ll
+        elClass "details" "worked-example prose card" $ do
+          el "summary" (text "Worked example")
+          el "pre" $ el "code" (text (llExampleCode ll))
+          rawHtml (llExampleHtml ll)
         dyn_ $ ffor lastResult $ \mr -> case mr of
           Just r | crVerdict r == Solved -> elClass "div" "conclusion prose" $ do
-            rawHtml (lConclusionHtml l)
+            rawHtml (llConclusionHtml ll)
             nextLink w l
           _ -> blank
       -- middle column
@@ -100,10 +106,12 @@ levelPage m leaveE lang wid idx =
           , ecHighlight = hlDyn
           , ecInputMethod = liInputMethod' lang
           }
-        (cmdE0, exprDyn0) <- commandsW canUse ed0
+        (cmdE0, exprDyn0) <- commandsW lang available canUse ed0
         elClass "div" "editor-status" $ do
           dynText (ffor status $ \case Checking -> "checking…"; _ -> "")
-          elClass "span" "im" $ text (if liInputMethod' lang == "none" then "" else "\\ input: \\to → \\bN ℕ \\Gl λ \\== ≡ \\all ∀ \\_1 ₁ · C-c C-l check · C-c C-, goal · C-c C-SPC give · C-c C-c case")
+          elClass "span" "im" $ text (if lang == LangId "lean"
+            then "Edit the proof directly. C-c C-l check · C-c C-, goal at cursor"
+            else "C-c C-l check · C-c C-, goal · C-c C-SPC give")
         pure (ed0, cmdE0, exprDyn0)
       pure (ed', cmdE', exprDyn')
     -- right column --------------------------------------------------------
@@ -145,7 +153,7 @@ levelPage m leaveE lang wid idx =
       elClass "div" "goals-title" (text "Goal")
       goalDyn <- holdDyn Nothing (leftmost [ Just . Left <$> goalShown, Just . Right <$> info, Nothing <$ resultE ])
       dyn_ $ ffor goalDyn $ \case
-        Nothing -> elClass "div" "goal muted" (text "Select a hole and press Goal (C-c C-,).")
+        Nothing -> elClass "div" "goal muted" (text (if lang == LangId "lean" then "Place the cursor in the proof and press Goal (C-c C-,)." else "Select a hole and press Goal (C-c C-,)."))
         Just (Left g) -> elClass "div" "goal" $ do
           forM_ (goalContext g) $ \ce ->
             elClass "div" (if ceInScope ce then "ctx" else "ctx muted") (text (ceName ce <> " : " <> ceType ce))
@@ -185,10 +193,11 @@ levelPage m leaveE lang wid idx =
     -- outgoing --------------------------------------------------------------
     let checkE = Check <$> tag (current (eoText ed)) (ffilter (== CmdLoad) cmdE)
         draftE = SaveDraft <$> eoEdited ed
-    draftDebounced <- debounce 2 draftE
+    -- Send edits while this session is mounted: a delayed event would be lost
+    -- when a selector immediately tears down the language's widget.
     let requestE = leftmost [() <$ checkE, () <$ sendHoleE]
         sendE = mergeWith (++) [ (: []) <$> openE, (: []) <$> checkE, (: []) <$> sendHoleE
-                              , (: []) <$> gate (current ((== Ready) <$> session)) draftDebounced ]
+                              , (: []) <$> gate (current ((== Ready) <$> session)) draftE ]
     status <- holdDyn Idle (leftmost [ Idle <$ eoEdited ed, Idle <$ retryE, Done <$> resultE, Idle <$ finished, Checking <$ requestE ])
     pure (() <$ ffilter ((== Solved) . crVerdict) resultE)
 
@@ -208,13 +217,13 @@ levelPage m leaveE lang wid idx =
 
   nextLink w l =
     case [ n | n <- wLevels w, lIndex n == lIndex l + 1 ] of
-      (n : _) -> el "p" $ routeLinkClass "primary" (levelRoute (wId w) n (Just lang)) (text ("Next: " <> lTitle n <> " →"))
+      (n : _) -> el "p" $ routeLinkClass "primary" (levelRoute (wId w) n (Just lang)) (text ("Next: " <> maybe (lTitle n) llTitle (M.lookup lang (lLanguages n)) <> " →"))
       [] -> el "p" $ routeLink (RWorld (wId w)) (text "World complete — back to the world page →")
 
 -- | Command buttons (only the unlocked ones) and the expression field.
-commandsW :: Widget' t m => (CommandId -> Dynamic t Bool) -> EditorOut t -> m (Event t CommandId, Dynamic t Text)
-commandsW canUse ed = do
-  clicks <- elClass "div" "commands" $ mapM btn
+commandsW :: Widget' t m => LangId -> [CommandId] -> (CommandId -> Dynamic t Bool) -> EditorOut t -> m (Event t CommandId, Dynamic t Text)
+commandsW lang unlocked canUse ed = do
+  clicks <- elClass "div" "commands" $ mapM btn $ filter (\(c, _, _, _) -> c `elem` supportedCommands lang && c `elem` unlocked)
     [ (CmdLoad, "Check", "C-c C-l", True)
     , (CmdGoal, "Goal", "C-c C-,", False)
     , (CmdGive, "Give", "C-c C-SPC", False)
@@ -224,10 +233,10 @@ commandsW canUse ed = do
     , (CmdInfer, "Infer", "C-c C-d", False)
     , (CmdNormalise, "Normalise", "C-c C-n", False)
     ]
-  expr <- elClass "div" "expr" $ do
+  expr <- if lang == LangId "lean" then pure (constDyn "") else elClass "div" "expr" $ do
     i <- inputElement $ def
       & inputElementConfig_elementConfig . elementConfig_initialAttributes .~
-          ("placeholder" =: "expression for Give / Refine / Case / Infer / Normalise" <> "class" =: "mono")
+          ("placeholder" =: (if lang == LangId "bend2" then "Bend expression for Give, e.g. {==}" else "Agda expression or variable for an available command") <> "aria-label" =: "Proof expression" <> "class" =: "mono")
     pure (_inputElement_value i)
   let chordE = ffor (eoChord ed) $ \case
         ChordLoad -> CmdLoad; ChordGoal -> CmdGoal; ChordGive -> CmdGive; ChordRefine -> CmdRefine
@@ -244,20 +253,17 @@ commandsW canUse ed = do
   allowedSet f = ffor (sequenceA (M.fromList [ (c, f c) | c <- [minBound .. maxBound] ])) $ \mp c ->
     M.findWithDefault False c mp
 
--- | Visible hints, and hidden ones revealed one at a time after a failed attempt.
-hintsW :: Widget' t m => Level -> Dynamic t (Maybe CheckResult) -> m ()
-hintsW l lastResult = elClass "div" "hints" $ do
-  let visible = [ h | h <- lHints l, not (hHidden h) ]
-      hidden = [ h | h <- lHints l, hHidden h ]
+-- | Help belongs to the mounted lesson, independently of edits and verdicts.
+hintsW :: Widget' t m => LevelLang -> m ()
+hintsW l = elClass "div" "hints" $ do
+  let visible = [ h | h <- llHints l, not (hHidden h) ]
+      hidden = [ h | h <- llHints l, hHidden h ]
   forM_ visible $ \h -> elClass "div" "hint prose" (rawHtml (hHtml h))
   when (not (null hidden)) $ mdo
-    let tried = ffor lastResult $ \case
-          Just r -> crVerdict r /= Solved
-          Nothing -> False
     shown <- foldDyn (\_ n -> n + 1) (0 :: Int) clickE
     dyn_ $ ffor shown $ \n -> forM_ (take n hidden) $ \h -> elClass "div" "hint prose" (rawHtml (hHtml h))
-    clickE <- switchHold never =<< (dyn $ ffor ((,) <$> shown <*> tried) $ \(n, t) ->
-      if n < length hidden && t
+    clickE <- switchHold never =<< (dyn $ ffor shown $ \n ->
+      if n < length hidden
         then do (b, _) <- el' "button" (text ("Need a hint? (" <> T.pack (show (length hidden - n)) <> " left)")); pure (domEvent Click b)
         else pure never)
     pure ()

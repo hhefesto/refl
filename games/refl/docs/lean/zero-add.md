@@ -1,0 +1,1 @@
+`zero_add (n : MyNat)` proves `0 + n = n`. Induct on the second argument with `induction n with`, and use `rw [add_succ, ih]` in the successor case.

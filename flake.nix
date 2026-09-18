@@ -265,6 +265,7 @@
             '';
             browser = pkgs.runCommand "refl-browser" ({
               nativeBuildInputs = [ pkgs.chromium pkgs.curl ];
+              REFL_BROWSER_SKIP_LEAN = "1";
               # Chromium's renderer aborts in Skia without a fontconfig setup
               # (the sandbox has no /etc/fonts); give it one real font.
               FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; };

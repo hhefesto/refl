@@ -1,0 +1,1 @@
+`zero_add(n)` proves `{Refl.add(0n, n) == n : Nat}`. Match the natural number, and transport the recursive equality for the predecessor under `1n+_`.

@@ -38,7 +38,7 @@ import           Refl.Verify
 lean :: Language
 lean = Language
   { langInfo = LangInfo (LangId "lean") "Lean 4" "lean" "lean" True
-  , langCommands = [CmdLoad, CmdGoal]
+  , langCommands = supportedCommands (LangId "lean")
   , langStaticRules = \src user ->
       leanRules src user ++ forbiddenIdentifiers "--" (lsForbidsNames src) user
   , langStart = start

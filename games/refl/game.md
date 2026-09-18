@@ -23,14 +23,14 @@ worlds:
 ---
 Welcome. This is a game about **proofs as programs**. Every level is a
 statement with a hole in it; you fill the hole until the type checker says
-*yes*. Most of the time the last thing you type is `refl`: "these two things
-are the same, and the checker can see it".
+*yes*. A proof by reflexivity says: "these two things compute to the same
+value, and the checker can see it". Each language spells that proof differently.
 
 The game starts from nothing (its own natural numbers, its own equality) and
 ends where the real code lives: Conal Elliott's `felix` library, the ICFP 2021
 language-derivatives development, and the specifications in `formalTransformer`
 and `aanalyzer-classic`. Pick a language in the top-right corner — Agda first;
-Lean 4 and Bend 2 are available for the early worlds.
+Lean 4 and Bend 2 are available throughout Tutorial World.
 
 Click a world on the map to begin. Solved levels unlock lemmas, commands and
 syntax into your **Inventory**.

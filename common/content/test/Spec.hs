@@ -2,9 +2,17 @@ module Main (main) where
 
 import qualified Data.Map             as M
 import qualified Data.Text            as T
+import qualified Data.ByteString.Lazy.Char8 as BL
+import           Data.Aeson (encode)
+import           Control.Exception (bracket)
+import           System.Directory
+import           System.FilePath ((</>))
+import           System.IO (hClose, openTempFile)
 import           Test.Hspec
 
-import           Refl.Content.Level
+import           Refl.Content
+import           Refl.Content.Frontmatter (writeFileUtf8)
+import qualified Refl.Protocol.Manifest as P
 import           Refl.Content.Regions
 import           Refl.Content.Splice
 import           Refl.Protocol.Types
@@ -28,6 +36,38 @@ srcs = LevelSources (LangId "agda") (WorldId "w") (LevelId "l") "Tutorial.Refl"
 
 main :: IO ()
 main = hspec $ do
+  describe "language-specific teaching" $ do
+    it "isolates teaching, documents and independently authored examples" $ do
+      let manifest = buildManifest [] fixture
+          level = head (P.wLevels (head (P.mWorlds manifest)))
+          leanPage = P.lLanguages level M.! LangId "lean"
+          item = head (P.lUnlocks level)
+      P.llIntroHtml leanPage `shouldSatisfy` T.isInfixOf "Lean only"
+      P.llIntroHtml leanPage `shouldSatisfy` (not . T.isInfixOf "Agda only")
+      M.lookup (LangId "lean") (P.iiDocHtml item) `shouldSatisfy` maybe False (T.isInfixOf "Lean document")
+      P.llExampleCode leanPage `shouldSatisfy` T.isInfixOf "example-proof"
+      BL.unpack (encode manifest) `shouldSatisfy` (not . T.isInfixOf "PRIVATE-EXERCISE-SOLUTION" . T.pack)
+    it "never falls back to shared teaching or Agda documents" $ do
+      let w = head (lgWorlds fixture)
+          l = head (lwLevels w)
+          missing = fixture { lgDocs = M.delete "lean/cmd-load" (lgDocs fixture)
+            , lgWorlds = [w {lwLevels = [l {llTeaching = M.delete (LangId "lean") (llTeaching l)}]}] }
+          public = head (P.wLevels (head (P.mWorlds (buildManifest [] missing))))
+      M.member (LangId "lean") (P.lLanguages public) `shouldBe` False
+      M.lookup (LangId "lean") (P.iiDocHtml (head (P.lUnlocks public))) `shouldBe` Nothing
+      teachingProblems missing `shouldSatisfy` any (T.isInfixOf "missing teaching page")
+    it "flags missing inventory translations and unsupported command references" $ do
+      let change l = l {llTeaching = M.adjust (\t -> t {tIntro = "Use **Give** (C-c C-SPC)."}) (LangId "lean") (llTeaching l)}
+          bad = fixture {lgDocs = M.delete "lean/cmd-load" (lgDocs fixture)
+            , lgWorlds = map (\w -> w {lwLevels = map change (lwLevels w)}) (lgWorlds fixture)}
+      teachingProblems bad `shouldSatisfy` any (T.isInfixOf "missing inventory translation")
+      teachingProblems bad `shouldSatisfy` any (T.isInfixOf "unsupported command")
+    it "rejects a playable source whose sibling teaching page is absent" $
+      bracket temporary removeDirectoryRecursive $ \dir -> do
+        writeFileUtf8 (dir </> "01-test.md") "---\nid: test\nindex: 1\ntitle: Test\n---\nShared text\n"
+        writeFileUtf8 (dir </> "01-test.agda") sample
+        result <- loadLevel (WorldId "test") M.empty (dir </> "01-test.md")
+        result `shouldSatisfy` either (T.isInfixOf "missing teaching page") (const False)
   describe "parseRegions" $ do
     it "splits the four regions" $ do
       let Right r = parseRegions "--" sample
@@ -77,3 +117,26 @@ main = hspec $ do
     isLeft (Left _) = True
     isLeft _        = False
     _unused = M.empty :: M.Map Int Int
+
+temporary :: IO FilePath
+temporary = do
+  tmp <- getTemporaryDirectory
+  (path, h) <- openTempFile tmp "refl-content-test"
+  hClose h
+  removeFile path
+  createDirectory path
+  pure path
+
+fixture :: LoadedGame
+fixture = LoadedGame (GameMeta "Test" ["w"]) "" [world]
+  (M.fromList [("agda/cmd-load", "Agda document"), ("lean/cmd-load", "Lean document")]) "."
+ where
+  world = LoadedWorld (WorldMeta "w" "World" [] M.empty) "" [level] "."
+  level = LoadedLevel (LevelMeta "l" 1 "Shared" [] (UnlockSpec ["load"] [] []) [] False [])
+    "Shared Agda only" "" (M.fromList [(lang, source lang) | lang <- langs]) "01-test.md"
+    (M.fromList [(lang, page lang) | lang <- langs])
+  langs = [LangId "agda", LangId "lean"]
+  source lang = srcs {lsLang = lang, lsSolution = "PRIVATE-EXERCISE-SOLUTION"}
+  page lang = Teaching (TeachingMeta "Title" ["Goal"] [HintSpec "Clue" False, HintSpec "Next" True, HintSpec "Structure" True] "Example steps")
+    (if lang == LangId "lean" then "Lean only" else "Agda only") "Conclusion"
+    (srcs {lsLang = lang, lsPrefix = "example declaration\n", lsStatement = "example declaration\n", lsSolution = "example-proof"})

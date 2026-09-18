@@ -1,3 +1,0 @@
-`refl : x ≡ x` is the only constructor of equality. It proves any equation whose two sides **compute** to the same term, so `refl : 2 + 2 ≡ 4` type-checks and `refl : zero + x ≡ x` does not (the left side is stuck on the variable `x`).
-
-Lean: `rfl`.

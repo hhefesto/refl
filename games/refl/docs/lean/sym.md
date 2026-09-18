@@ -1,0 +1,1 @@
+`Eq.symm h` or `h.symm` reverses equality evidence. In a rewrite list, `← h` selects the reverse direction.

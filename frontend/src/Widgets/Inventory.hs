@@ -9,7 +9,6 @@ import           Control.Monad   (forM_)
 import qualified Data.Map        as M
 import qualified Data.Set        as S
 import           Data.Text       (Text)
-import qualified Data.Text       as T
 import           Reflex.Dom.Core
 
 import           Refl.Protocol
@@ -39,7 +38,8 @@ inventoryPage m progress langDyn = do
   el "p" $ elClass "span" "muted" (text "Everything unlocked by the levels you have completed, in the order you met it.")
   elClass "div" "inventory" $ dyn_ $ ffor ((,) <$> progress <*> langDyn) $ \(p, lang) -> do
     let doneKeys = S.fromList (M.findWithDefault [] lang (prCompleted p))
-        items = [ (w, l, i) | w <- mWorlds m, l <- wLevels w, levelKey (wId w) (lId l) `S.member` doneKeys, i <- lUnlocks l ]
+        items = [ (w, l, i) | w <- mWorlds m, l <- wLevels w, levelKey (wId w) (lId l) `S.member` doneKeys, i <- lUnlocks l
+                , M.member lang (iiDocHtml i), maybe True (`elem` supportedCommands lang) (iiCommand i) ]
     if null items then el "p" (text "Nothing yet. Solve the first level!") else
       forM_ [minBound .. maxBound] $ \kind -> do
         let here = [ x | x@(_, _, i) <- items, iiKind i == kind ]
@@ -48,8 +48,8 @@ inventoryPage m progress langDyn = do
           forM_ here $ \(w, l, i) -> elClass "div" "item" $ el "details" $ do
             el "summary" $ do
               elClass "code" "mono" (text (displayName lang i))
-              elClass "span" "pill" (text (wTitle w <> " · " <> lTitle l))
-            elClass "div" "prose" $ if T.null (iiDocHtml i) then el "p" (elClass "span" "muted" (text "No documentation yet.")) else rawHtml (iiDocHtml i)
+              elClass "span" "pill" (text (wTitle w <> " · " <> maybe (lTitle l) llTitle (M.lookup lang (lLanguages l))))
+            elClass "div" "prose" $ rawHtml (M.findWithDefault "" lang (iiDocHtml i))
  where
   kindTitle = \case
     ItemCommand -> "Commands"

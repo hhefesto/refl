@@ -1,0 +1,1 @@
+**Check** (`C-c C-l`) checks the current editor text. Named holes such as `?goal` appear in the hole list. Keep the definition aligned with its fixed `law`.

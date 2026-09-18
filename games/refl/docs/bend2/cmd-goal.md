@@ -1,0 +1,1 @@
+**Goal** (`C-c C-,`) displays the target and local context. Check first, then select a named Bend hole. Types use `{left == right : Type}` for equality.

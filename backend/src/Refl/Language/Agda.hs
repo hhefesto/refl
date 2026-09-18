@@ -37,7 +37,7 @@ import           Refl.Verify
 agda :: Language
 agda = Language
   { langInfo = LangInfo (LangId "agda") "Agda" "agda" "agda" True
-  , langCommands = [CmdLoad, CmdGoal, CmdGive, CmdRefine, CmdCase, CmdAuto, CmdInfer, CmdNormalise, CmdSolveAll]
+  , langCommands = supportedCommands (LangId "agda")
   , langStaticRules = \src user ->
       agdaRules src user ++ forbiddenIdentifiers "--" (lsForbidsNames src) user
   , langStart = start

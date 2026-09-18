@@ -1,0 +1,1 @@
+`Equal.sym(A, x, y, h)` turns `{x == y : A}` into `{y == x : A}`.

@@ -47,7 +47,11 @@ test-suite content-spec
     default-extensions: OverloadedStrings, LambdaCase
     build-depends:
         base
+      , aeson
+      , bytestring
       , containers
+      , directory
+      , filepath
       , hspec
       , text
       , refl-protocol

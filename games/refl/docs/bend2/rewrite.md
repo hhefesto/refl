@@ -1,0 +1,1 @@
+`%h : P` transports along equality `h`. Put `_` in `P` at the right endpoint of `h`; the remaining proof is checked after that endpoint is changed to the left one. See the worked transport example in the lesson.

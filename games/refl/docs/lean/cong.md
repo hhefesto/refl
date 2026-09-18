@@ -1,0 +1,1 @@
+`congrArg f h` applies `f` to both sides of equality evidence `h`. Alternatively `rw [h]` substitutes inside the target.

@@ -8,6 +8,8 @@ learning_goals:
 unlocks:
   syntax:
     - name: "rewrite"
+      lean: "rw"
+      bend2: "% transport"
       doc: "rewrite.md"
 hints:
   - text: "The goal is `x + 2 ≡ 5` and you know `h : x ≡ 3`. If only `x` were `3`… `rewrite h` replaces every `x` in the goal by `3`. It goes on the **left** of `=`: `use-h x h rewrite h = ?`."

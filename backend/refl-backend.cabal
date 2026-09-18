@@ -119,7 +119,8 @@ executable refl-browser-test
     hs-source-dirs:   browser
     main-is:          Main.hs
     build-depends:
-        network-uri
+        base64-bytestring
+      , network-uri
       , process
       , websockets
       , refl-backend

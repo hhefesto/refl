@@ -104,7 +104,7 @@ worldPage m progress langDyn wid =
         let lang = langDyn
             available = ffor lang $ \lg -> lg `M.member` lLanguages l
         dyn_ $ ffor ((,) <$> available <*> lang) $ \(ok, lg) ->
-          if ok then routeLink (levelRoute wid l (Just lg)) (text (lTitle l))
+          if ok then routeLink (levelRoute wid l (Just lg)) (text (maybe (lTitle l) llTitle (M.lookup lg (lLanguages l))))
           else if lSkeleton l then elClass "span" "muted" (text (lTitle l <> " (planned)"))
           else elClass "span" "muted" (text (lTitle l))
         dyn_ $ ffor ((,) <$> progress <*> lang) $ \(p, lg) ->

@@ -143,6 +143,13 @@ data CommandId
   deriving stock (Eq, Ord, Show, Bounded, Enum, Generic)
   deriving anyclass (ToJSON, FromJSON, ToJSONKey, FromJSONKey)
 
+-- | Operations implemented by each prover; shared by teaching and controls.
+supportedCommands :: LangId -> [CommandId]
+supportedCommands (LangId "agda") = [CmdLoad, CmdGoal, CmdGive, CmdRefine, CmdCase, CmdAuto, CmdInfer, CmdNormalise, CmdSolveAll]
+supportedCommands (LangId "lean") = [CmdLoad, CmdGoal]
+supportedCommands (LangId "bend2") = [CmdLoad, CmdGoal, CmdGive]
+supportedCommands _ = []
+
 data LangInfo = LangInfo
   { liId          :: LangId
   , liName        :: Text

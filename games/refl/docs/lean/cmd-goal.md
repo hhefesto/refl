@@ -1,0 +1,1 @@
+**Goal** (`C-c C-,`) displays the target and local context. Place the cursor inside the Lean proof after checking. Edit tactics directly in the editor.

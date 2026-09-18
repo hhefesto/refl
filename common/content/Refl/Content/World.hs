@@ -90,7 +90,11 @@ loadGame dir = do
       wdirs <- sort <$> listDirectory (dir </> "worlds")
       worlds <- mapM (loadWorld . ((dir </> "worlds") </>)) wdirs
       docsExist <- doesDirectoryExist (dir </> "docs")
-      docFiles <- if docsExist then filter (".md" `isSuffixOf`) <$> listDirectory (dir </> "docs") else pure []
+      docFiles <- if docsExist then fmap concat $ mapM (\lang -> do
+        let sub = dir </> "docs" </> T.unpack lang
+        exists <- doesDirectoryExist sub
+        fs <- if exists then filter (".md" `isSuffixOf`) <$> listDirectory sub else pure []
+        pure [T.unpack lang </> f | f <- fs]) knownLanguages else pure []
       docs <- mapM (\f -> (,) (T.pack (take (length f - 3) f)) <$> readFileUtf8 (dir </> "docs" </> f)) docFiles
       pure $ case sequence worlds of
         Left err -> Left err
