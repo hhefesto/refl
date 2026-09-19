@@ -117,3 +117,39 @@ branch `refl-xty`, commit `b2fe757`, refl input `f529203`):
   unit diff against the running generation: only `refl.service` added;
   kernel 6.12.74 → 6.18.48 (new kernel needs a reboot to take effect; the
   switch itself does not reboot).
+
+2026-09-18 21:00–21:30 CST, the deploy itself (`nix run .#deploy-xty` from
+`~/src/etc-nixos-configuration`, branch `refl-xty`):
+
+1. First run failed before touching xty: deploy-rs' `nix eval` hit a stale
+   evaluation-cache entry ("path …-source is not a valid store path"). A
+   plain `nix eval --json .#deploy` re-evaluated cleanly; rerun.
+2. Second run copied the closure and switched xty (generation 68). refl came
+   up at http://62.238.6.4:3007 at once. The activation printed the known
+   "user activation for root failed" and exit 4; deploy-rs reported a
+   rollback, but the system and the profile both pointed at the new
+   generation (deploy war story 2 again).
+3. **Outage, ~12 minutes, docxty.net and xty-y-dan.net (521):** the switch
+   restarted nginx, and nginx refuses to start when a `proxy_pass` upstream
+   does not resolve — the aaspectra vhost proxies to `xpsoasis.hhefesto.com`
+   and hhefesto.com currently has no DNS. The old nginx had only survived
+   because it started while DNS still worked; a rollback would not have
+   helped (same upstream). The user restored service by hand (a bind-mounted
+   `/etc/hosts` with the names pinned to 62.238.6.4, `systemctl start nginx`).
+   The durable fix is `networking.hosts."62.238.6.4"` in `xty.nix`
+   (consumer commit `35f0cca`), deployed cleanly as generation 69 through the
+   full gated pipeline; the bind mount is gone with it.
+   Lesson: **while hhefesto.com DNS is broken, every nginx restart on xty is
+   an outage unless those names are pinned**; keep the pin until DNS is back.
+4. Verification on the live service: `curl http://62.238.6.4:3007/api/health`
+   → 61 levels, `Set-Cookie: refl=…; Path=/; HttpOnly; SameSite=Strict`;
+   `refl-browser-test` in existing-service mode against the public URL
+   passed with all three provers (Agda, Lean, Bend flows, drafts, themes);
+   the vhost probe during the second deploy showed docxty.net, xty-y-dan.net
+   and refl at 200 throughout. refl is now in the live pre-deploy check.
+
+Pending on the operator's side: olimpo has not been switched to the branch
+(`nixos-rebuild switch --sudo --flake ~/src/etc-nixos-configuration#olimpo`);
+xty runs kernel 6.12 until a reboot (6.18 is installed); branch `refl-xty`
+is not merged into master (the stash "WIP before refl-xty" holds the cardano
+work); the https ingress waits for DNS.
