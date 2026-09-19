@@ -84,19 +84,22 @@ buildManifest langs g = Manifest
       , lSkeleton = M.null (llSources l)
       }
   hints hs = [ Hint (renderMarkdownOrText (hsText h)) (hsHidden h) | h <- hs ]
-  -- Only the selected language's teaching is public; never borrow Agda prose.
+  -- The level file is the source of the shared prose; a language page
+  -- overrides it field by field (a Lean page with only hints keeps the
+  -- level intro, for instance).
   levelLang l s mt = LevelLang
     { llTemplate = lsTemplate s
     , llStatement = lsStatement s
     , llAllowImports = lsAllowImports s
-    , llTitle = fromMaybe "" (mt >>= tmTitle . tMeta)
-    , llIntroHtml = maybe "" (renderMarkdownOrText . tIntro) mt
-    , llConclusionHtml = maybe "" (renderMarkdownOrText . tConclusion) mt
-    , llLearningGoals = map renderMarkdownOrText (fromMaybe [] (mt >>= tmGoals . tMeta))
-    , llHints = hints (fromMaybe [] (mt >>= tmHints . tMeta))
+    , llTitle = fromMaybe (lmTitle (llMeta l)) (mt >>= tmTitle . tMeta)
+    , llIntroHtml = renderMarkdownOrText (fromMaybe (llIntro l) (nonEmpty . tIntro =<< mt))
+    , llConclusionHtml = renderMarkdownOrText (fromMaybe (llConclusion l) (nonEmpty . tConclusion =<< mt))
+    , llLearningGoals = map renderMarkdownOrText (fromMaybe (lmLearningGoals (llMeta l)) (mt >>= tmGoals . tMeta))
+    , llHints = hints (fromMaybe (lmHints (llMeta l)) (mt >>= tmHints . tMeta))
     , llExampleCode = maybe "" (\e -> lsPrefix e <> lsSolution e) (mt >>= tExample)
     , llExampleHtml = maybe "" renderMarkdownOrText (mt >>= tmExample . tMeta)
     }
+  nonEmpty t = if T.null (T.strip t) then Nothing else Just t
   unlocks u =
     [ InventoryItem ItemCommand c (docHtml (Just ("cmd-" <> c))) M.empty (commandIdFromName c)
     | c <- usCommands u ]
@@ -107,9 +110,10 @@ buildManifest langs g = Manifest
     [ InventoryItem ItemSyntax (ssName s) (docHtml (ssDoc s)) (M.mapKeys LangId (ssNames s)) Nothing
     | s <- usSyntax u ]
 
--- | Authoring laws for the lesson a language actually shows: its prose may
--- not mention commands that prover does not offer, and a worked example
--- must be a different problem from the exercise.
+-- | Authoring laws for the lesson a language actually shows (page fields
+-- over the level file): its prose may not mention commands that prover does
+-- not offer, and a worked example must be a different problem from the
+-- exercise.
 teachingProblems :: [LangInfo] -> LoadedGame -> [Text]
 teachingProblems langs g = concat
   [ checkLang l lang s (M.lookup lang (llTeaching l))
@@ -118,28 +122,19 @@ teachingProblems langs g = concat
   commandsOf lang = concat [ liCommands li | li <- langs, liId li == lang ]
   checkLang l lang s mt =
     let
+        override f g = fromMaybe (g l) (mt >>= f)
         prose = T.unlines $
-          [ maybe "" tIntro mt
-          , maybe "" tConclusion mt
+          [ override (nonEmptyT . tIntro) llIntro
+          , override (nonEmptyT . tConclusion) llConclusion
           , maybe "" id (mt >>= tmExample . tMeta) ]
-          ++ fromMaybe [] (mt >>= tmGoals . tMeta)
-          ++ map hsText (fromMaybe [] (mt >>= tmHints . tMeta))
+          ++ override (tmGoals . tMeta) (lmLearningGoals . llMeta)
+          ++ map hsText (override (tmHints . tMeta) (lmHints . llMeta))
+        nonEmptyT t = if T.null (T.strip t) then Nothing else Just t
         commandRefs = [(CmdGive, "Give", "C-c C-SPC"), (CmdRefine, "Refine", "C-c C-r")
           , (CmdCase, "Case split", "C-c C-c"), (CmdAuto, "Auto", "C-c C-a")
           , (CmdInfer, "Infer", "C-c C-d"), (CmdNormalise, "Normalise", "C-c C-n")]
         prefix = T.pack (llPath l) <> " [" <> unLangId lang <> "]: "
-    in [ prefix <> "missing language-specific teaching" | mt == Nothing ]
-       ++ [ prefix <> "incomplete language-specific teaching: " <> field
-          | Just t <- [mt]
-          , (field, ok) <-
-              [ ("title", maybe False (not . T.null . T.strip) (tmTitle (tMeta t)))
-              , ("intro", not (T.null (T.strip (tIntro t))))
-              , ("conclusion", not (T.null (T.strip (tConclusion t))))
-              , ("learning_goals", maybe False (not . null) (tmGoals (tMeta t)))
-              , ("hints", maybe False (not . null) (tmHints (tMeta t)))
-              , ("worked example", tExample t /= Nothing)
-              ], not ok ]
-       ++ [ prefix <> "unsupported command reference: " <> label
+    in [ prefix <> "unsupported command reference: " <> label
        | (cmd, label, shortcut) <- commandRefs
        , cmd `notElem` commandsOf lang
        , any (`T.isInfixOf` prose) ["**" <> label <> "**", shortcut] ]

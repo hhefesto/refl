@@ -1,5 +1,4 @@
 ---
-title: "Refine and Normalise"
 learning_goals:
   - "Numerals compute: `(x + 2) + 1` and `x + 3` unfold to the same `succ (succ (succ x))`."
   - "When both sides compute to the same term, `rfl` is the whole proof."

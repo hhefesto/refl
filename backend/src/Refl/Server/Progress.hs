@@ -5,6 +5,8 @@ module Refl.Server.Progress
   ) where
 
 import Control.Concurrent.MVar
+import Control.Exception (SomeException, toException, try)
+import System.IO (hPutStrLn, stderr)
 import Data.Aeson (eitherDecodeStrict, encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
@@ -30,8 +32,13 @@ readProgress :: ProgressStore -> IO Progress
 readProgress (ProgressStore path _) = do
   exists <- doesFileExist path
   if not exists then pure emptyProgress else do
-    bytes <- BS.readFile path
-    either (fail . ("Invalid progress file: " ++)) pure (eitherDecodeStrict bytes)
+    r <- try (BS.readFile path)
+    case r >>= either (Left . toException . userError) Right . eitherDecodeStrict of
+      Right p -> pure p
+      Left (e :: SomeException) -> do
+        -- A damaged file must not lock a player out; it is replaced on the next write.
+        hPutStrLn stderr ("progress: ignoring unreadable " ++ path ++ ": " ++ show e)
+        pure emptyProgress
 
 getProgress :: ProgressStore -> IO Progress
 getProgress st@(ProgressStore _ lock) = withMVar lock (const (readProgress st))

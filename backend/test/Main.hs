@@ -20,12 +20,26 @@ import           Refl.Server.Identity
 main :: IO ()
 main = hspec $ do
   describe "anonymous identity boundary" $ do
+    let secure = cookiePolicy "https://refl.example"
     it "rejects path traversal, duplicate cookies and short tokens" $ do
-      identity [("Cookie", "__Host-refl=../../progress")] `shouldBe` Nothing
-      identity [("Cookie", "__Host-refl=abc")] `shouldBe` Nothing
+      identity secure [("Cookie", "__Host-refl=../../progress")] `shouldBe` Nothing
+      identity secure [("Cookie", "__Host-refl=abc")] `shouldBe` Nothing
       token <- newIdentity
-      identity [("Cookie", "__Host-refl=" <> token)] `shouldBe` Just token
-      identity [("Cookie", "__Host-refl=" <> token <> "; __Host-refl=" <> token)] `shouldBe` Nothing
+      identity secure [("Cookie", "__Host-refl=" <> token)] `shouldBe` Just token
+      identity secure [("Cookie", "__Host-refl=" <> token <> "; __Host-refl=" <> token)] `shouldBe` Nothing
+    it "uses a Secure host-only cookie on https and loopback origins only" $ do
+      cookiePolicy "https://refl.example" `shouldBe` CookiePolicy "__Host-refl" True
+      cookiePolicy "http://127.0.0.1:8090" `shouldBe` CookiePolicy "__Host-refl" True
+      cookiePolicy "http://localhost:8090" `shouldBe` CookiePolicy "__Host-refl" True
+      cookiePolicy "http://[::1]:3007" `shouldBe` CookiePolicy "__Host-refl" True
+      cookiePolicy "http://62.238.6.4:3007" `shouldBe` CookiePolicy "refl" False
+      cookiePolicy "http://refl.example" `shouldBe` CookiePolicy "refl" False
+      token <- newIdentity
+      let public = cookiePolicy "http://62.238.6.4:3007"
+      identityCookie public token `shouldBe` ("refl=" <> token <> "; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000")
+      identityCookie secure token `shouldBe` ("__Host-refl=" <> token <> "; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=31536000")
+      identity public [("Cookie", "refl=" <> token)] `shouldBe` Just token
+      identity public [("Cookie", "__Host-refl=" <> token)] `shouldBe` Nothing
     it "rejects missing, duplicate and foreign origins" $ do
       validOrigin "https://refl.example" [] `shouldBe` False
       validOrigin "https://refl.example" [("Origin", "https://refl.example.attacker")] `shouldBe` False

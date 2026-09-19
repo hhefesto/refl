@@ -1,5 +1,4 @@
 ---
-title: "Reading: analog₁ (Timely Computation)"
 learning_goals:
   - "A `def` returning a function (`t => …`) and a `law` with one more argument describe the same thing."
   - "`{==}` sees through definitions: both sides unfold to `h(xs(Refl.add(t, d)))`."

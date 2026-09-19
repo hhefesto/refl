@@ -6,7 +6,7 @@ let
   name = types.strMatching "[a-z_][a-z0-9_-]*";
   positive = types.ints.positive;
   package = self.packages.${pkgs.stdenv.hostPlatform.system}.isolated-site;
-  address = if cfg.backend.address == "::1" then "[::1]" else cfg.backend.address;
+  address = if lib.hasInfix ":" cfg.backend.address then "[${cfg.backend.address}]" else cfg.backend.address;
   origin = if cfg.ingress.enable then "https://${cfg.hostname}${lib.optionalString (cfg.ingress.httpsPort != 443) ":${toString cfg.ingress.httpsPort}"}"
     else "http://${address}:${toString cfg.backend.port}";
 in {
@@ -17,9 +17,22 @@ in {
     group = mkOption { type = name; default = "refl"; };
     stateDirectory = mkOption { type = name; default = "refl"; };
     runtimeDirectory = mkOption { type = name; default = "refl"; };
-    backend.address = mkOption { type = types.enum [ "127.0.0.1" "::1" ]; default = "127.0.0.1"; };
+    backend.address = mkOption {
+      type = types.str;
+      default = "127.0.0.1";
+      description = "Listening address: loopback behind the ingress, or a public address for plain-http operation without it (the browser then gets a non-Secure cookie).";
+    };
     backend.port = mkOption { type = types.port; default = 3007; };
-    hostname = mkOption { type = types.strMatching "[a-zA-Z0-9][a-zA-Z0-9.-]*"; default = "refl.hhefesto.com"; };
+    backend.openFirewall = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Open backend.port in the firewall (plain http on a public address, no ingress).";
+    };
+    hostname = mkOption {
+      type = types.nullOr (types.strMatching "[a-zA-Z0-9][a-zA-Z0-9.-]*");
+      default = null;
+      description = "Public host name of the nginx and ACME ingress; required when ingress.enable is set.";
+    };
     ingress = {
       enable = mkEnableOption "nginx and ACME public ingress (requires working DNS)";
       httpPort = mkOption { type = types.port; default = 80; };
@@ -37,11 +50,16 @@ in {
     };
   };
   config = mkIf cfg.enable {
+    assertions = [
+      { assertion = cfg.ingress.enable -> cfg.hostname != null;
+        message = "services.refl.profile.hostname is required when ingress.enable is set"; }
+    ];
     users.groups.${cfg.group} = { };
     users.users.${cfg.user} = { isSystemUser = true; group = cfg.group; };
     systemd.services.${cfg.serviceName} = {
       description = "Refl proof game";
       wantedBy = [ "multi-user.target" ];
+      after = [ "network.target" ];
       serviceConfig = {
         User = cfg.user;
         Group = cfg.group;
@@ -105,11 +123,13 @@ in {
           { addr = "0.0.0.0"; port = cfg.ingress.httpsPort; ssl = true; }
         ];
         locations."/" = {
-          proxyPass = "http://${if cfg.backend.address == "::1" then "[::1]" else cfg.backend.address}:${toString cfg.backend.port}";
+          proxyPass = "http://${address}:${toString cfg.backend.port}";
           proxyWebsockets = true;
         };
       };
     };
-    networking.firewall.allowedTCPPorts = lib.optionals cfg.ingress.enable [ cfg.ingress.httpPort cfg.ingress.httpsPort ];
+    networking.firewall.allowedTCPPorts =
+      lib.optionals cfg.ingress.enable [ cfg.ingress.httpPort cfg.ingress.httpsPort ]
+      ++ lib.optional cfg.backend.openFirewall cfg.backend.port;
   };
 }

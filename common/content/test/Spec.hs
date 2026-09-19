@@ -37,7 +37,7 @@ srcs = LevelSources (LangId "agda") (WorldId "w") (LevelId "l") "Tutorial.Refl"
 main :: IO ()
 main = hspec $ do
   describe "language-specific teaching" $ do
-    it "renders only the selected language's explicit teaching" $ do
+    it "renders the level.s fields unless the language page overrides them" $ do
       let manifest = buildManifest langInfos fixture
           level = head (P.wLevels (head (P.mWorlds manifest)))
           leanPage = P.lLanguages level M.! LangId "lean"
@@ -64,21 +64,22 @@ main = hspec $ do
       let change l = l {llTeaching = M.adjust (\t -> t {tIntro = "Use **Give** (C-c C-SPC)."}) (LangId "lean") (llTeaching l)}
           bad = fixture {lgWorlds = map (\w -> w {lwLevels = map change (lwLevels w)}) (lgWorlds fixture)}
       teachingProblems langInfos bad `shouldSatisfy` any (T.isInfixOf "unsupported command")
-      -- Missing teaching cannot silently inherit Agda instructions.
+      -- Without a page the level prose is what Lean players read, so it is
+      -- checked against Lean's commands (and is fine for Agda).
       let shared l = l {llIntro = "Press **Case split** (C-c C-c).", llTeaching = M.delete (LangId "lean") (llTeaching l)}
           bad2 = fixture {lgWorlds = map (\w -> w {lwLevels = map shared (lwLevels w)}) (lgWorlds fixture)}
-      teachingProblems langInfos bad2 `shouldSatisfy` any (T.isInfixOf "[lean]: missing language-specific")
+      teachingProblems langInfos bad2 `shouldSatisfy` any (T.isInfixOf "[lean]: unsupported command")
       teachingProblems langInfos bad2 `shouldSatisfy` (not . any (T.isInfixOf "[agda]"))
     it "flags a worked example that repeats the exercise" $ do
       let same l = l {llTeaching = M.adjust (\t -> t {tExample = fmap (\e -> e {lsStatement = lsStatement srcs}) (tExample t)}) (LangId "lean") (llTeaching l)}
           bad = fixture {lgWorlds = map (\w -> w {lwLevels = map same (lwLevels w)}) (lgWorlds fixture)}
       teachingProblems langInfos bad `shouldSatisfy` any (T.isInfixOf "repeats the exercise")
-    it "rejects a missing language page and an unexplained example" $
+    it "loads a level without a page and rejects an unexplained example" $
       bracket temporary removeDirectoryRecursive $ \dir -> do
         writeFileUtf8 (dir </> "01-test.md") "---\nid: test\nindex: 1\ntitle: Test\n---\nShared text\n"
         writeFileUtf8 (dir </> "01-test.agda") sample
         ok <- loadLevel (WorldId "test") M.empty (dir </> "01-test.md")
-        ok `shouldSatisfy` either (T.isInfixOf "missing language-specific") (const False)
+        fmap (M.keys . llTeaching) ok `shouldBe` Right []
         createDirectory (dir </> "01-test")
         writeFileUtf8 (dir </> "01-test" </> "agda-example.agda") sample
         writeFileUtf8 (dir </> "01-test" </> "agda.md") "---\n---\n"
@@ -156,8 +157,9 @@ fixture = LoadedGame (GameMeta "Test" ["w"]) "" [world]
     (M.fromList [(LangId "lean", leanPage), (LangId "agda", agdaPage)])
   langs = [LangId "agda", LangId "lean"]
   source lang = srcs {lsLang = lang, lsSolution = "PRIVATE-EXERCISE-SOLUTION"}
-  agdaPage = Teaching (TeachingMeta (Just "Shared") (Just ["Shared goal"]) (Just [HintSpec "Shared hint" False]) (Just "Example steps"))
-    "Shared text" "Shared conclusion"
+  -- An Agda page with only a worked example: everything else comes from the level.
+  agdaPage = Teaching (TeachingMeta Nothing Nothing Nothing (Just "Example steps"))
+    "" ""
     (Just (srcs {lsStatement = "another statement", lsSolution = "agda-example-proof"}))
   leanPage = Teaching (TeachingMeta (Just "Title") (Just ["Goal"]) (Just [HintSpec "Clue" False, HintSpec "Next" True]) (Just "Example steps"))
     "Lean only" "Conclusion"

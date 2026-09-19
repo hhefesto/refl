@@ -197,8 +197,11 @@ levelPage m leaveE lang wid idx =
     -- outgoing --------------------------------------------------------------
     let checkE = Check <$> tag (current (eoText ed)) (ffilter (== CmdLoad) cmdE)
         draftE = SaveDraft <$> eoEdited ed
-    -- Queue every edit before navigation can close this page's socket.
-    let draftSaves = draftE
+    -- A public server must not rewrite a progress file per keystroke: drafts
+    -- go out after a short pause, and unconditionally on Check and on leaving
+    -- the page (the socket closes after the flush).
+    debounced <- debounce 1 draftE
+    let draftSaves = leftmost [ debounced, SaveDraft <$> tag (current (eoText ed)) (leftmost [() <$ checkE, leaveE]) ]
         requestE = leftmost [() <$ checkE, () <$ sendHoleE]
         sendE = mergeWith (++) [ (: []) <$> openE, (: []) <$> checkE, (: []) <$> sendHoleE
                               , (: []) <$> gate (current ((== Ready) <$> session)) draftSaves ]

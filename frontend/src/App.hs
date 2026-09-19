@@ -74,7 +74,13 @@ bodyW = mdo
   pageDyn <- holdUniqDyn $ (\mm mr lg -> (mm, mr, case mr of
     Just (RLevel _ _ ml) -> fromMaybe lg ml
     _ -> lg)) <$> manifestDyn <*> routeDyn <*> langDyn
-  solvedE <- el "main" $ switchHold never =<< dyn (ffor pageDyn $ \(mm, mr, lg) ->
+  -- The level page flushes its draft and then closes its socket on leaving
+  -- (Client.connect); both must run while the page is still mounted, so the
+  -- visible page follows the route with a short delay.
+  switchE <- delay 0.15 (updated pageDyn)
+  initialPage <- sample (current pageDyn)
+  shownDyn <- holdDyn initialPage switchE
+  solvedE <- el "main" $ switchHold never =<< dyn (ffor shownDyn $ \(mm, mr, lg) ->
     case mm of
       Nothing -> el "p" (text "Loading the game…") >> pure never
       Just m -> case mr of

@@ -1,23 +1,6 @@
 ---
-title: "From falsity, anything"
-learning_goals:
-  - "`⊥` has no constructors; case splitting on it yields the absurd clause `()`."
-  - "`⊤` has exactly one proof, `tt`."
-hints:
-  - text: "Case split on the `⊥` argument: Agda writes `ex-falso ()` — a clause with no right-hand side, because there is no case."
-  - text: "For the second lemma, give `tt`, or let Refine find it."
-    hidden: true
 example_explanation: |-
   1. Split on the disjunction.
   2. Its left payload is impossible, so use `()` with no right-hand side.
   3. The right payload is truth, whose constructor is `tt`. These two cases demonstrate the separate obligations in the exercise.
 ---
-Two lemmas. `ex-falso : ⊥ → A`: case split on the hypothesis of type `⊥`;
-since `⊥` has no constructors Agda produces the **absurd pattern** `()`
-and the clause needs no right-hand side.
-
-`trivial : ⊤`: the one proof is `tt`.
-
-<!-- @conclusion -->
-`⊥-elim` in `Refl.Logic` is exactly `ex-falso`. You will use it whenever a
-hypothesis is impossible: `⊥-elim (¬p refl)`.

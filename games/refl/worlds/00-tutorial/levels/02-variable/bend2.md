@@ -1,5 +1,4 @@
 ---
-title: "A variable in the way"
 learning_goals:
   - "`for -x: Nat` binds an argument that is erased: it appears only in types."
   - "`{==}` needs the two sides to be the same term, computed or not."

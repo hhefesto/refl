@@ -47,13 +47,17 @@ data Conn t = Conn
 connect :: MonadWidget t m => Event t [ClientMsg] -> Event t () -> Event t () -> m (Conn t)
 connect sendE retryE leaveE = do
   base <- backendBase
+  -- reflex-dom queues sends on a helper thread but closes synchronously, so a
+  -- send and a close in one frame lose the send: close a little after leaving
+  -- (the page itself is switched later still, see App).
+  closeE <- delay 0.05 leaveE
   host <- getLocationHost
   proto <- getLocationProtocol
   let url | T.null base = (if proto == "https:" then "wss://" else "ws://") <> host <> "/ws"
           | otherwise = T.replace "http://" "ws://" (T.replace "https://" "wss://" base) <> "/ws"
   let socket = textWebSocket url $ def
         & webSocketConfig_send .~ fmap (map (TE.decodeUtf8 . BL.toStrict . encode)) sendE
-        & webSocketConfig_close .~ ((1000, "Leaving level") <$ leftmost [leaveE, retryE])
+        & webSocketConfig_close .~ ((1000, "Leaving level") <$ leftmost [closeE, retryE])
         & webSocketConfig_reconnect .~ False
   sockets <- widgetHold socket (socket <$ retryE)
   let received = switchDyn (_webSocket_recv <$> sockets)

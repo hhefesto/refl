@@ -1,5 +1,4 @@
 ---
-title: "sym and trans"
 learning_goals:
   - "`Eq.symm p` flips an equation; `Eq.trans p q` chains two."
   - "`rw [← p, q]` does both moves inside the goal."

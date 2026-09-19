@@ -1,5 +1,4 @@
 ---
-title: "rewrite"
 learning_goals:
   - "`rw [h]` replaces the left side of `h` by its right side in the goal."
   - "`rw [← h]` rewrites in the other direction."

@@ -18,8 +18,8 @@ import           Refl.Content                         (loadGame)
 import           Refl.Server
 import           Refl.Server.Progress
 
-opts :: Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Parser Config
-opts eGames eAgda eAgdaDir eLean eLeanPath eBend eBendPath = Config
+opts :: Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Parser Config
+opts eGames eAgda eAgdaDir eLean eLeanPath eBend eBendPath eOrigin = Config
   <$> optional (strOption (long "www" <> metavar "DIR" <> help "Static site directory (index.html, all.js)"))
   <*> strOption (long "games" <> metavar "DIR" <> value (fromMaybe "games/refl" eGames) <> showDefault <> help "Game content directory")
   <*> option auto (long "port" <> value 8090 <> showDefault)
@@ -34,11 +34,11 @@ opts eGames eAgda eAgdaDir eLean eLeanPath eBend eBendPath = Config
   <*> optional (strOption (long "bend" <> metavar "PATH" <> help "bend executable (Bend 2)") <|> pure' eBend)
   <*> optional (strOption (long "bend-path" <> metavar "DIR" <> help "Directory of .bend support files") <|> pure' eBendPath)
   <*> switch (long "verbose" <> short 'v')
-  <*> optional (strOption (long "origin" <> help "Exact allowed browser origin (default: http://host:port)"))
-  <*> option positive (long "max-sessions" <> value 4 <> showDefault)
-  <*> option positive (long "message-bytes" <> value 65536 <> showDefault)
-  <*> option positive (long "command-seconds" <> value 120 <> showDefault)
-  <*> option positive (long "idle-seconds" <> value 300 <> showDefault)
+  <*> optional (strOption (long "origin" <> metavar "URL" <> help "Exact browser origin accepted for WebSockets; decides the cookie policy (default: http://host:port)") <|> pure' eOrigin)
+  <*> option positive (long "max-sessions" <> metavar "N" <> value 4 <> showDefault <> help "Concurrent prover sessions")
+  <*> option positive (long "message-bytes" <> metavar "N" <> value 65536 <> showDefault <> help "Largest accepted WebSocket message")
+  <*> option positive (long "command-seconds" <> metavar "S" <> value 120 <> showDefault <> help "Deadline for handling one message")
+  <*> option positive (long "idle-seconds" <> metavar "S" <> value 300 <> showDefault <> help "Close a session silent for this long")
  where
   pure' = maybe empty pure
   positive = eitherReader $ \s -> case reads s of
@@ -56,7 +56,8 @@ main = do
   eLeanPath <- lookupEnv "REFL_LEAN_PATH"
   eBend <- lookupEnv "REFL_BEND"
   eBendPath <- lookupEnv "REFL_BEND_PATH"
-  cfg <- execParser (info (opts eGames eAgda eAgdaDir eLean eLeanPath eBend eBendPath <**> helper)
+  eOrigin <- lookupEnv "REFL_ORIGIN"
+  cfg <- execParser (info (opts eGames eAgda eAgdaDir eLean eLeanPath eBend eBendPath eOrigin <**> helper)
            (fullDesc <> progDesc "The Refl Game server"))
   dataDir <- maybe defaultDataDir pure (cfgDataDir cfg)
   let workDir = fromMaybe (dataDir </> "work") (cfgWorkDir cfg)

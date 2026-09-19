@@ -40,28 +40,40 @@ Import this flake's `nixosModules.default`, then enable its profile:
 
 Open **http://127.0.0.1:3007** (use this exact origin for WebSockets). The
 module runs `refl.service`, keeps browser-specific state in `/var/lib/refl`,
-and pins its own Agda, Lean and Bend packages. Each prover sees only its session
+and pins its own Agda, Lean and Bend packages. Without DNS, serve plain http
+on the public address instead: `backend = { address = "62.238.6.4"; port = 3007;
+openFirewall = true; }` and open **http://62.238.6.4:3007**. With a domain,
+set `hostname` and `ingress.enable = true` for nginx and ACME on 80/443 (the
+host must already accept the ACME terms). The browser cookie follows the
+origin: `__Host-refl; Secure` on https and loopback, a plain `refl` cookie on
+public http, because browsers drop Secure cookies there. Each prover sees only its session
 directory and read-only tool closure, in isolated process/network namespaces.
 Defaults are 2 GiB aggregate memory, no swap, one CPU quota, four sessions,
 128 tasks, 256 MiB temporary storage, 64 KiB messages, 120-second commands and
 300-second idle sessions. See [the module](nix/module.nix) for typed options.
 Ingress is opt-in; local operation needs neither nginx nor PostgreSQL.
 
-On Olimpo, the consumer is `~/src/etc-nixos-configuration`. Build as your user:
+The consumer is `~/src/etc-nixos-configuration` (input `github:hhefesto/refl`,
+profile blocks for olimpo on loopback and for xty on the public address).
+Build as your user and activate with `--sudo` so evaluation keeps your private
+Git access:
 
 ```sh
 nixos-rebuild build --flake ~/src/etc-nixos-configuration#olimpo
-# Activation is performed by the operator:
 nixos-rebuild switch --sudo --flake ~/src/etc-nixos-configuration#olimpo
+nix run ~/src/etc-nixos-configuration#deploy-xty      # production, gated
 ```
 
-Use `--sudo` for activation so evaluation retains your private Git access.
-The local consumer currently pins an immutable source snapshot; editing this
-checkout will not change the running service until that input is refreshed and
-the host rebuilt/switched. See [the rollout handoff](HANDOFF-ROLLOUT.md).
+A pushed commit is what the consumer sees: bump its `refl` input
+(`nix flake lock --update-input refl`) after pushing. See
+[the rollout handoff](HANDOFF-ROLLOUT.md).
 
 `nix run .#verify-local` checks isolated proofs, Chromium and HTTP/WebSocket
-sessions outside the Nix builder. The browser harness can also test an already
+sessions outside the Nix builder (bubblewrap cannot run inside it; `nix flake
+check` covers the same HTTP/WebSocket contract as `checks.security` with the
+plain provers). `nix build .#module-test` boots a real VM against the module
+(custom names, cgroup limits, tmpfs cap, isolation, OOM recovery) and needs
+`/dev/kvm`. The browser harness can also test an already
 running module with `REFL_BROWSER_EXISTING_URL=http://127.0.0.1:3007`; in this
 mode it never starts or stops the service and skips server restart/retry checks.
 

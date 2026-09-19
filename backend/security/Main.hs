@@ -3,8 +3,8 @@ module Main (main) where
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (withAsync)
 import Control.Concurrent.MVar
-import Control.Exception (SomeException, bracket, try)
-import Control.Monad (unless, void, replicateM_)
+import Control.Exception (SomeException, try)
+import Control.Monad (unless)
 import Data.Aeson (encode, eitherDecode)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as BL

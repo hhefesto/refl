@@ -76,8 +76,25 @@ implementations).
 - After adding Agda levels: `refl-check-levels games/refl --emit-world-modules
   languages/agda`, then check `nix build .#agdaSupport`.
 - `nix flake check` must stay green: protocol round-trips, content specs,
-  backend spec, every level's solution Solved and template Unsolved, the
-  smoke test, the browser test.
+  backend spec, every level's solution Solved and template Unsolved (and
+  every worked example), the smoke test, the security suite (HTTP/WebSocket
+  contract), the browser test. It must not need `/dev/kvm` or bubblewrap:
+  the isolated provers are exercised by `nix run .#verify-local`, the real VM
+  test by `nix build .#module-test` (olimpo has no `/dev/kvm`: `kvm_amd`
+  does not load although the CPU reports `svm`).
+- Lesson pages stay optional: the level `.md` is the source of shared prose
+  and hints, `levels/NN-id/<lang>.md` overrides fields. Never copy the level
+  prose into `agda.md` (it only needs `example_explanation`).
+- Deployment facts: `nixosModules.default` (`nix/module.nix`) runs
+  `packages.isolated-site` (bubblewrap-wrapped provers: needs `AF_NETLINK`
+  and `ProtectKernelTunables = false`); the browser identity cookie follows
+  the configured `--origin` (`__Host-refl; Secure` on https or loopback,
+  plain `refl` on public http, since browsers drop Secure cookies there);
+  the WebSocket handshake needs that exact Origin and a cookie. Drafts are
+  debounced 1 s and flushed on Check and on leaving; hidden hints open at any
+  time (user decision, 2026-09-18). The consumer is
+  `~/src/etc-nixos-configuration` (input `github:hhefesto/refl`); production
+  is xty at http://62.238.6.4:3007 until hhefesto.com DNS is back.
 - A load is Solved only with positive evidence: one goals report, one
   interaction-point list and a checked status. An Error display is the
   whole answer to a failing load; do not demand the goals report then.

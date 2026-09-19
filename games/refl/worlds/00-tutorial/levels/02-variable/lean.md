@@ -1,5 +1,4 @@
 ---
-title: "A variable in the way"
 learning_goals:
   - "A universally quantified statement becomes a theorem with named arguments."
   - "`rfl` does not care whether the sides are numerals or variables, only that they are the same."

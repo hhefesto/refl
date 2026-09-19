@@ -113,10 +113,11 @@ type Api =
 
 app :: ServerEnv -> Application
 app se req respond = do
-  let existing = identity (requestHeaders req)
+  let policy = cookiePolicy (cfgOriginString (seConfig se))
+      existing = identity policy (requestHeaders req)
   player <- maybe newIdentity pure existing
   let scoped = se { seProgress = playerStore (seProgress se) (BC.unpack player) }
-      cookie = [("Set-Cookie", identityCookie player) | existing == Nothing]
+      cookie = [("Set-Cookie", identityCookie policy player) | existing == Nothing]
       options = WS.defaultConnectionOptions
         { WS.connectionFramePayloadSizeLimit = WS.SizeLimit (fromIntegral (cfgMessageBytes (seConfig se)))
         , WS.connectionMessageDataSizeLimit = WS.SizeLimit (fromIntegral (cfgMessageBytes (seConfig se))) }
@@ -160,7 +161,7 @@ data Session = Session
 wsApp :: ServerEnv -> WS.ServerApp
 wsApp se pending
   | not (validOrigin expected headers) = WS.rejectRequest pending "origin rejected"
-  | identity headers == Nothing = WS.rejectRequest pending "open the site first"
+  | identity (cookiePolicy (cfgOriginString cfg)) headers == Nothing = WS.rejectRequest pending "open the site first"
   | WS.requestPath (WS.pendingRequest pending) == "/ws" = do
       mask $ \restore -> do
         admitted <- modifyMVar (seSlots se) $ \n ->
@@ -179,7 +180,7 @@ wsApp se pending
  where
   cfg = seConfig se
   headers = WS.requestHeaders (WS.pendingRequest pending)
-  expected = BC.pack (fromMaybe ("http://" ++ cfgHost cfg ++ ":" ++ show (cfgPort cfg)) (cfgOrigin cfg))
+  expected = BC.pack (cfgOriginString cfg)
   bounded secs action = race (threadDelay (secs * 1000000)) action >>= \case
     Left () -> fail "session time limit exceeded"
     Right value -> pure value

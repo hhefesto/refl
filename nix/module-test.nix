@@ -49,7 +49,8 @@ let
           serviceConfig = { Type = "oneshot"; TimeoutStartSec = 300; };
           script = ''
             exec > >(tee /tmp/results/test.log /dev/console) 2>&1
-            finish() { systemctl poweroff --no-block; }
+            # Let tee drain to the shared directory before the VM goes away.
+            finish() { sync; sleep 2; systemctl poweroff --no-block; }
             trap finish EXIT
             set -euxo pipefail
             for i in $(seq 1 60); do
@@ -117,9 +118,17 @@ let
       })
     ];
   };
-in pkgs.runCommand "refl-nixos-module-test" { nativeBuildInputs = [ pkgs.coreutils ]; } ''
+# Needs KVM: under TCG the boot alone exceeds the budget. Exposed as
+# packages.module-test rather than a check so `nix flake check` stays
+# runnable on hosts without /dev/kvm.
+in pkgs.runCommand "refl-nixos-module-test" {
+  nativeBuildInputs = [ pkgs.coreutils ];
+  requiredSystemFeatures = [ "kvm" "nixos-test" ];
+} ''
   export REFL_TEST_RESULTS=$TMPDIR/results
-  mkdir -p "$REFL_TEST_RESULTS"
+  # qemu-vm.nix always exports $TMPDIR/xchg (and SHARED_DIR, defaulting to
+  # it) over virtfs; QEMU refuses to start when the directory is missing.
+  mkdir -p "$REFL_TEST_RESULTS" "$TMPDIR/xchg"
   timeout 1200 ${machine.config.system.build.vm}/bin/run-refl-test-vm > $TMPDIR/console.log 2>&1 || {
     cat "$REFL_TEST_RESULTS/test.log" $TMPDIR/console.log
     exit 1

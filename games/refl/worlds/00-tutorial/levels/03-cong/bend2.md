@@ -1,5 +1,4 @@
 ---
-title: "cong"
 learning_goals:
   - "`Equal.cong(A, B, f, a, b, e)` maps `e : {a == b : A}` through `f` to `{f(a) == f(b) : B}`."
   - "`%h : P` rewrites the goal with `h`; `P` is the goal with `_` where the right side of `h` sits."

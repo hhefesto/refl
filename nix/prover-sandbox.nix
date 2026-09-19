@@ -7,6 +7,7 @@ let
 in pkgs.writeShellScriptBin "refl-prover" ''
   set -euo pipefail
   session="$PWD"
+  mkdir -p "$session/home"
   mounts=()
   while IFS= read -r path; do
     mounts+=(--ro-bind "$path" "$path")

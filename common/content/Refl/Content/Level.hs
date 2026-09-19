@@ -186,14 +186,15 @@ loadLevel wid worldOptions mdPath = do
           , llTeaching = M.fromList [t | Just t <- ts]
           }
  where
-  -- Neither file is required. A page without an example may not explain
-  -- one; an example must come with its explanation.
+  -- Neither file is required: the level file is the source and a page only
+  -- overrides fields. A page without an example may not explain one; an
+  -- example must come with its explanation.
   loadTeaching base lang src = do
     let page = base </> T.unpack lang <.> "md"
         example = base </> T.unpack lang <> "-example" <.> T.unpack (languageExt (lsLang src))
     exists <- doesFileExist page
     exampleExists <- doesFileExist example
-    if not exists then pure (Left ("missing language-specific teaching: " <> T.pack page)) else do
+    if not exists && not exampleExists then pure (Right Nothing) else do
       doc <- if exists then readFileUtf8 page else pure ""
       code <- if exampleExists then Just <$> readFileUtf8 example else pure Nothing
       pure $ do

@@ -2,6 +2,7 @@
 -- the same binary runs from the nix wrapper and from the dev shell.
 module Refl.Config
   ( Config (..)
+  , cfgOriginString
   , defaultDataDir
   , envFromConfig
   ) where
@@ -32,6 +33,14 @@ data Config = Config
   , cfgCommandSeconds :: Int
   , cfgIdleSeconds :: Int
   } deriving (Show)
+
+-- | The exact browser origin: the configured one, else the listening address.
+cfgOriginString :: Config -> String
+cfgOriginString cfg = case cfgOrigin cfg of
+  Just o -> o
+  Nothing -> "http://" ++ host ++ ":" ++ show (cfgPort cfg)
+ where
+  host = if ':' `elem` cfgHost cfg then "[" ++ cfgHost cfg ++ "]" else cfgHost cfg
 
 defaultDataDir :: IO FilePath
 defaultDataDir = getXdgDirectory XdgData "refl"

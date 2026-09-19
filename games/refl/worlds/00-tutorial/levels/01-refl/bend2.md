@@ -1,5 +1,4 @@
 ---
-title: "refl"
 learning_goals:
   - "A `law` states, the `def` below it proves; `?goal` is the hole to fill."
   - "`{==}` is refl: it proves `{a == b : T}` when both sides compute to the same value."

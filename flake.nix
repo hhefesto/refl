@@ -191,6 +191,9 @@
           };
 
           packages = {
+            # Real-VM module test (custom names, cgroup limits, tmpfs cap, prover
+            # isolation, OOM recovery). Needs /dev/kvm: `nix build .#module-test`.
+            module-test = import ./nix/module-test.nix { inherit self nixpkgs pkgs system; };
             inherit isolatedAgda isolatedLean isolatedBend;
             inherit website agdaSupport leanSupport agdaDir bend bendSupport;
             frontend-js = frontendJs;
@@ -287,7 +290,6 @@
           };
 
           checks = {
-            nixos = import ./nix/module-test.nix { inherit self nixpkgs pkgs system; };
             inherit website;
             # The Bend 2 contract the plugin relies on, against upstream's own
             # test corpus: a proof by induction runs, a loud hole reports its
@@ -335,6 +337,23 @@
             check-levels = self'.packages.check-levels;
             manifest = self'.packages.manifest;
             # The server answers, serves the manifest and the client.
+            # The HTTP/WebSocket contract (identities, origins, isolation, capacity,
+            # message size, idle timeout) against the plain site; the isolated
+            # provers cannot start inside the Nix builder (see apps.verify-local).
+            security = pkgs.runCommand "refl-security" ({ nativeBuildInputs = [ pkgs.curl ]; } // locale) ''
+              export HOME=$TMPDIR
+              ${backend}/bin/refl-server --www ${website} --games ${games} \
+                --port 8125 --data-dir $TMPDIR/data --idle-seconds 5 --agda ${agda}/bin/agda --agda-dir ${agdaDir} \
+                --bend ${bend}/bin/bend --bend-path ${bendSupport} &
+              server=$!
+              trap 'kill $server 2>/dev/null || true' EXIT
+              for i in $(seq 1 100); do
+                curl -fs http://127.0.0.1:8125/api/health >/dev/null 2>&1 && break
+                sleep 0.2
+              done
+              ${backend}/bin/refl-security-test
+              echo ok > $out
+            '';
             smoke = pkgs.runCommand "refl-smoke" ({ nativeBuildInputs = [ pkgs.curl ]; } // locale) ''
               export HOME=$TMPDIR
               ${backend}/bin/refl-server --www ${website} --games ${games} \
