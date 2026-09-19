@@ -1,5 +1,21 @@
 # Tutorial refl review — 2026-09-19
 
+## Current follow-up: GitHub publication requested
+
+The user regenerated the consumer lock to use current dependencies and switched
+Olimpo to `26.11.20260919.20b1ddd` (kernel 6.18.52). Regenerating the lock
+discarded the earlier local refl override and selected GitHub `13f600c`, so the
+running lesson was still old. The user now explicitly authorizes pushing refl
+HEAD to GitHub and consuming it through `github:hhefesto/refl`. Preserve the
+user's refreshed unrelated inputs; update only the refl lock node and rebuild.
+The earlier local-store pin and no-publication status below are historical.
+Production activation on xty still requires separate explicit approval.
+
+`ns` is defined in the consumer's `configuration-workstation.nix`, alongside
+`sn`. NixOS generates `/etc/zshrc` from that declaration; it was never edited
+directly. The currently activated system already contains the alias. Existing
+shells/tmux panes need `exec zsh` to load it.
+
 ## Scope and baseline
 
 Only Tutorial → refl is rewritten, across Agda, Lean and Bend. Exercise
