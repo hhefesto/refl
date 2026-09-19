@@ -13,7 +13,7 @@ module Refl.Language.Agda.Process
   ) where
 
 import           Control.Concurrent.MVar
-import           Control.Exception          (SomeException, try)
+import           Control.Exception          (SomeException, try, mask, onException)
 import           Control.Monad              (void, when)
 import           Data.Aeson                 (eitherDecodeStrict)
 import qualified Data.ByteString            as BS
@@ -31,6 +31,7 @@ import           System.Timeout             (timeout)
 
 import           Refl.Language.Agda.IOTCM
 import           Refl.Language.Agda.Response
+import           Refl.Process
 
 data AgdaProc = AgdaProc
   { apIn     :: Handle
@@ -47,19 +48,19 @@ prompt = "JSON> "
 -- | Spawn agda in @cwd@ with extra environment, and wait for the first prompt.
 startAgda :: (Text -> IO ()) -> FilePath -> [(String, String)] -> FilePath -> IO (Either Text AgdaProc)
 startAgda logf exe extraEnv cwd = do
-  r <- try $ do
+  r <- trySync $ mask $ \restore -> do
     env0 <- getEnvironment
     let env' = extraEnv ++ filter ((`notElem` map fst extraEnv) . fst) env0
     (Just hin, Just hout, _, ph) <- createProcess (proc exe ["--interaction-json"])
       { std_in = CreatePipe, std_out = CreatePipe, std_err = Inherit
-      , cwd = Just cwd, env = Just env' }
+      , cwd = Just cwd, env = Just env', create_group = True }
     hSetBinaryMode hout True
     hSetBuffering hin LineBuffering
     hSetEncoding hin utf8
     buf <- newIORef BS.empty
     lock <- newMVar ()
     let p = AgdaProc hin hout ph buf lock logf
-    ok <- timeout (60 * 1000000) (readUntilPrompt p)
+    ok <- restore (timeout (60 * 1000000) (readUntilPrompt p)) `onException` stopProcess ph
     case ok of
       Nothing -> stopAgda p >> fail "agda did not print its prompt"
       Just (Left e) -> stopAgda p >> fail (T.unpack e)
@@ -132,6 +133,6 @@ stopAgda p = do
   r <- timeout (2 * 1000000) (waitForProcess (apProc p))
   case r of
     Just _  -> pure ()
-    Nothing -> terminateProcess (apProc p)
+    Nothing -> stopProcess (apProc p)
   void (try (hClose (apIn p)) :: IO (Either SomeException ()))
   void (try (hClose (apOut p)) :: IO (Either SomeException ()))

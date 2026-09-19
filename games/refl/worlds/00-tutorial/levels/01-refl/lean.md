@@ -1,4 +1,5 @@
 ---
+title: "refl"
 learning_goals:
   - "In Lean the statement is a `theorem` and the proof is the tactic block after `by`."
   - "`rfl` proves `a = b` whenever both sides compute to the same value."

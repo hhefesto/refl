@@ -1,4 +1,5 @@
 ---
+title: "Refine and Normalise"
 learning_goals:
   - "`Refl.add` recurses on its second argument, so a numeral on the right computes all the way."
   - "`{==}` checks definitional equality: no lemma is needed when both sides compute to the same term."

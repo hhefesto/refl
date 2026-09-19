@@ -1,6 +1,7 @@
 cabal-version:      2.4
 name:               refl-content
 version:            0.1.0.0
+license:            BSD-3-Clause
 synopsis:           Parser for the games/ content tree (worlds, levels, sources, docs)
 description:
   Reads the authored content tree into the public manifest plus the private

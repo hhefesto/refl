@@ -34,8 +34,16 @@ opts eGames eAgda eAgdaDir eLean eLeanPath eBend eBendPath = Config
   <*> optional (strOption (long "bend" <> metavar "PATH" <> help "bend executable (Bend 2)") <|> pure' eBend)
   <*> optional (strOption (long "bend-path" <> metavar "DIR" <> help "Directory of .bend support files") <|> pure' eBendPath)
   <*> switch (long "verbose" <> short 'v')
+  <*> optional (strOption (long "origin" <> help "Exact allowed browser origin (default: http://host:port)"))
+  <*> option positive (long "max-sessions" <> value 4 <> showDefault)
+  <*> option positive (long "message-bytes" <> value 65536 <> showDefault)
+  <*> option positive (long "command-seconds" <> value 120 <> showDefault)
+  <*> option positive (long "idle-seconds" <> value 300 <> showDefault)
  where
   pure' = maybe empty pure
+  positive = eitherReader $ \s -> case reads s of
+    [(n, "")] | n > 0 && n <= 1000000 -> Right n
+    _ -> Left "expected an integer in 1..1000000"
 
 main :: IO ()
 main = do
@@ -59,7 +67,7 @@ main = do
     Right g -> do
       store <- openStore (dataDir </> "progress.json")
       let env = envFromConfig cfg workDir
-          se = newServerEnv cfg env g store
+      se <- newServerEnv cfg env g store
       unless (cfgWww cfg /= Nothing) $
         putStrLn "no --www given: serving the API only"
       putStrLn ("The Refl Game at http://" ++ cfgHost cfg ++ ":" ++ show (cfgPort cfg))

@@ -13,7 +13,7 @@ module Refl.Language.Lean.Rpc
 
 import           Control.Concurrent          (forkIO, killThread, ThreadId)
 import           Control.Concurrent.MVar
-import           Control.Exception           (SomeException, try)
+import           Control.Exception           (SomeException, try, mask_)
 import           Control.Monad               (forever, void)
 import           Data.Aeson
 import qualified Data.Aeson.KeyMap           as KM
@@ -29,6 +29,7 @@ import           System.Environment          (getEnvironment)
 import           System.IO
 import           System.Process
 import           System.Timeout              (timeout)
+import           Refl.Process
 
 data Rpc = Rpc
   { rIn      :: Handle
@@ -44,12 +45,12 @@ data Rpc = Rpc
 
 startRpc :: (Text -> IO ()) -> FilePath -> [String] -> [(String, String)] -> FilePath -> IO (Either Text Rpc)
 startRpc logf exe args extraEnv cwd = do
-  r <- try $ do
+  r <- trySync $ mask_ $ do
     env0 <- getEnvironment
     let env' = extraEnv ++ filter ((`notElem` map fst extraEnv) . fst) env0
     (Just hin, Just hout, _, ph) <- createProcess (proc exe args)
       { std_in = CreatePipe, std_out = CreatePipe, std_err = Inherit
-      , cwd = Just cwd, env = Just env' }
+      , cwd = Just cwd, env = Just env', create_group = True }
     hSetBinaryMode hin True
     hSetBinaryMode hout True
     next <- newIORef 1
@@ -67,7 +68,7 @@ startRpc logf exe args extraEnv cwd = do
 writeMessage :: Rpc -> Value -> IO (Either Text ())
 writeMessage rpc v = withMVar (rWrite rpc) $ \_ -> do
   let body = BL.toStrict (encode v)
-  r <- try $ do
+  r <- trySync $ do
     BS.hPut (rIn rpc) (BC.pack ("Content-Length: " ++ show (BS.length body) ++ "\r\n\r\n") <> body)
     hFlush (rIn rpc)
   pure $ case r of
@@ -76,12 +77,12 @@ writeMessage rpc v = withMVar (rWrite rpc) $ \_ -> do
 
 readMessage :: Handle -> IO (Maybe BS.ByteString)
 readMessage h = do
-  r <- try (headers 0)
+  r <- trySync (headers 0)
   case r of
     Left (_ :: SomeException) -> pure Nothing
     Right Nothing -> pure Nothing
     Right (Just n) -> do
-      body <- try (BS.hGet h n)
+      body <- trySync (BS.hGet h n)
       pure $ case body of
         Left (_ :: SomeException) -> Nothing
         Right b | BS.length b == n -> Just b
@@ -95,7 +96,8 @@ readMessage h = do
       if BS.null l' then pure (Just len) else
         case BC.stripPrefix "Content-Length:" l' of
           Just rest -> case BC.readInt (BC.dropWhile (== ' ') rest) of
-            Just (n, _) -> headers n
+            Just (n, _) | n >= 0 && n <= 4194304 -> headers n
+            Just _ -> fail "oversized Lean response"
             Nothing -> headers len
           Nothing -> headers len
 
@@ -163,7 +165,7 @@ stopRpc rpc = do
   r <- timeout (2 * 1000000) (waitForProcess (rProc rpc))
   case r of
     Just _  -> pure ()
-    Nothing -> terminateProcess (rProc rpc)
+    Nothing -> stopProcess (rProc rpc)
   killThread (rReader rpc)
   void (try (hClose (rIn rpc)) :: IO (Either SomeException ()))
   void (try (hClose (rOut rpc)) :: IO (Either SomeException ()))

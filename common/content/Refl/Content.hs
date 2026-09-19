@@ -61,7 +61,6 @@ buildManifest langs g = Manifest
     [ (LangId lang, renderMarkdownOrText md)
     | lang <- knownLanguages
     , Just md <- [M.lookup (lang <> "/" <> T.replace ".md" "" d) docs] ]
-  nonEmpty t = if T.null (T.strip t) then Nothing else Just t
   world w = World
     { wId = WorldId (wmId (lwMeta w))
     , wTitle = wmTitle (lwMeta w)
@@ -85,20 +84,19 @@ buildManifest langs g = Manifest
       , lSkeleton = M.null (llSources l)
       }
   hints hs = [ Hint (renderMarkdownOrText (hsText h)) (hsHidden h) | h <- hs ]
-  -- the level's own text, overridden field by field by the language page
+  -- Only the selected language's teaching is public; never borrow Agda prose.
   levelLang l s mt = LevelLang
     { llTemplate = lsTemplate s
     , llStatement = lsStatement s
     , llAllowImports = lsAllowImports s
-    , llTitle = fromMaybe (lmTitle m) (mt >>= tmTitle . tMeta)
-    , llIntroHtml = renderMarkdownOrText (fromMaybe (llIntro l) (mt >>= nonEmpty . tIntro))
-    , llConclusionHtml = renderMarkdownOrText (fromMaybe (llConclusion l) (mt >>= nonEmpty . tConclusion))
-    , llLearningGoals = map renderMarkdownOrText (fromMaybe (lmLearningGoals m) (mt >>= tmGoals . tMeta))
-    , llHints = hints (fromMaybe (lmHints m) (mt >>= tmHints . tMeta))
+    , llTitle = fromMaybe "" (mt >>= tmTitle . tMeta)
+    , llIntroHtml = maybe "" (renderMarkdownOrText . tIntro) mt
+    , llConclusionHtml = maybe "" (renderMarkdownOrText . tConclusion) mt
+    , llLearningGoals = map renderMarkdownOrText (fromMaybe [] (mt >>= tmGoals . tMeta))
+    , llHints = hints (fromMaybe [] (mt >>= tmHints . tMeta))
     , llExampleCode = maybe "" (\e -> lsPrefix e <> lsSolution e) (mt >>= tExample)
     , llExampleHtml = maybe "" renderMarkdownOrText (mt >>= tmExample . tMeta)
     }
-   where m = llMeta l
   unlocks u =
     [ InventoryItem ItemCommand c (docHtml (Just ("cmd-" <> c))) M.empty (commandIdFromName c)
     | c <- usCommands u ]
@@ -119,19 +117,29 @@ teachingProblems langs g = concat
  where
   commandsOf lang = concat [ liCommands li | li <- langs, liId li == lang ]
   checkLang l lang s mt =
-    let m = llMeta l
-        nonEmpty t = if T.null (T.strip t) then Nothing else Just t
+    let
         prose = T.unlines $
-          [ fromMaybe (llIntro l) (mt >>= nonEmpty . tIntro)
-          , fromMaybe (llConclusion l) (mt >>= nonEmpty . tConclusion)
+          [ maybe "" tIntro mt
+          , maybe "" tConclusion mt
           , maybe "" id (mt >>= tmExample . tMeta) ]
-          ++ fromMaybe (lmLearningGoals m) (mt >>= tmGoals . tMeta)
-          ++ map hsText (fromMaybe (lmHints m) (mt >>= tmHints . tMeta))
+          ++ fromMaybe [] (mt >>= tmGoals . tMeta)
+          ++ map hsText (fromMaybe [] (mt >>= tmHints . tMeta))
         commandRefs = [(CmdGive, "Give", "C-c C-SPC"), (CmdRefine, "Refine", "C-c C-r")
           , (CmdCase, "Case split", "C-c C-c"), (CmdAuto, "Auto", "C-c C-a")
           , (CmdInfer, "Infer", "C-c C-d"), (CmdNormalise, "Normalise", "C-c C-n")]
         prefix = T.pack (llPath l) <> " [" <> unLangId lang <> "]: "
-    in [ prefix <> "unsupported command reference: " <> label
+    in [ prefix <> "missing language-specific teaching" | mt == Nothing ]
+       ++ [ prefix <> "incomplete language-specific teaching: " <> field
+          | Just t <- [mt]
+          , (field, ok) <-
+              [ ("title", maybe False (not . T.null . T.strip) (tmTitle (tMeta t)))
+              , ("intro", not (T.null (T.strip (tIntro t))))
+              , ("conclusion", not (T.null (T.strip (tConclusion t))))
+              , ("learning_goals", maybe False (not . null) (tmGoals (tMeta t)))
+              , ("hints", maybe False (not . null) (tmHints (tMeta t)))
+              , ("worked example", tExample t /= Nothing)
+              ], not ok ]
+       ++ [ prefix <> "unsupported command reference: " <> label
        | (cmd, label, shortcut) <- commandRefs
        , cmd `notElem` commandsOf lang
        , any (`T.isInfixOf` prose) ["**" <> label <> "**", shortcut] ]

@@ -7,6 +7,7 @@ module Refl.Check
   , emitWorldModules
   , worldModuleName
   , renderWorldModule
+  , exampleProblems
   ) where
 
 import           Control.Exception      (SomeException, try)
@@ -20,6 +21,7 @@ import           System.Directory       (createDirectoryIfMissing)
 import           System.FilePath        ((</>))
 
 import           Refl.Content
+import           Refl.Content.Splice (forbiddenIdentifiers)
 import           Refl.Content.Frontmatter     (writeFileUtf8)
 import           Refl.Language
 import           Refl.Language.Registry
@@ -44,10 +46,36 @@ checkGame env only skip game
           -- a worked example is a solved level in its own right: its solution
           -- must check with the same earned vocabulary
           examples <- forM [ e | Just t <- [M.lookup (lsLang src) (llTeaching l)], Just e <- [tExample t] ] $ \e ->
-            checkLevel False env (wmId (lwMeta w)) (lmId (llMeta l) <> " / worked example") (restrictedSources game e)
+            let effective = restrictedSources game e
+                errors = exampleProblems src effective
+                label = lmId (llMeta l) <> " / worked example"
+            in if null errors then checkLevel False env (wmId (lwMeta w)) label effective
+               else pure (Outcome (wmId (lwMeta w)) label (unLangId (lsLang e)) False errors)
           pure (exercise : examples)
  where
   problems = teachingProblems languageInfos game
+
+-- | Examples have a different statement, but no extra imports, compiler
+-- privileges or unearned vocabulary hidden in their fixed regions.
+exampleProblems :: LevelSources -> LevelSources -> [Text]
+exampleProblems exercise example =
+  map vMessage (forbiddenIdentifiers comment (lsForbidsNames example) complete)
+  ++ ["worked example adds a privileged directive: " <> line
+     | line <- directives (lsPrefix example), line `notElem` directives (lsPrefix exercise)]
+  ++ case lookupLanguage (lsLang example) of
+    Nothing -> ["unknown example language"]
+    Just lang -> map vMessage (langStaticRules lang example checked)
+ where
+  comment = languageComment (lsLang example)
+  complete = lsPrefix example <> lsSolution example
+  directives = filter privileged . map T.strip . T.lines
+  privileged line = any (`T.isPrefixOf` line)
+    ["import ", "open import ", "{-# OPTIONS", "{-# BUILTIN"]
+  -- Trusted directives are compared verbatim above. Lean's indentation law
+  -- applies to the proof, not the example's theorem declaration.
+  body = T.unlines (filter (not . privileged . T.strip) (T.lines complete))
+  checked | lsLang example == LangId "lean" = T.unlines (map ("  " <>) (T.lines body))
+          | otherwise = body
 
 checkLevel :: Bool -> Env -> Text -> Text -> LevelSources -> IO Outcome
 checkLevel exercise env world level src = do

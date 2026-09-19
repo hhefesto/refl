@@ -1,6 +1,7 @@
 cabal-version:      2.4
 name:               refl-backend
 version:            0.1.0.0
+license:            BSD-3-Clause
 synopsis:           The Refl Game server: prover sessions over websockets, static SPA, content tools
 author:             hhefesto
 maintainer:         hhefesto@rdataa.com
@@ -55,12 +56,15 @@ library
         Refl.Verify
         Refl.Server
         Refl.Server.Progress
+        Refl.Server.Identity
         Refl.Config
+        Refl.Process
         Refl.Check
         Refl.InputTable
     build-depends:
         http-types
       , process
+      , unix
       , servant
       , servant-server
       , wai
@@ -125,3 +129,14 @@ executable refl-browser-test
       , websockets
       , refl-backend
     ghc-options: -threaded -rtsopts
+
+executable refl-security-test
+    import: shared
+    hs-source-dirs: security
+    main-is: Main.hs
+    build-depends:
+        http-client
+      , http-types
+      , websockets
+      , refl-backend
+    ghc-options: -threaded

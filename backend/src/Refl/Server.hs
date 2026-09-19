@@ -12,12 +12,15 @@ module Refl.Server
   ) where
 
 import           Control.Concurrent.MVar
-import           Control.Exception              (SomeException, finally, try)
+import           Control.Concurrent             (threadDelay)
+import           Control.Concurrent.Async       (race)
+import           Control.Exception              (SomeException, finally, try, mask, mask_)
 import           Control.Monad                  (forever, void, when)
 import           Control.Monad.IO.Class         (liftIO)
 import           Data.Aeson                     (Value, eitherDecodeStrict, encode,
                                                  object, (.=))
 import           Data.IORef
+import qualified Data.ByteString.Char8          as BC
 import qualified Data.Map                       as M
 import           Data.Maybe                     (fromMaybe)
 import qualified Data.Set                       as S
@@ -26,7 +29,7 @@ import qualified Data.Text                      as T
 import           Network.HTTP.Types             (hContentType, status200,
                                                  status404)
 import           Network.Wai                    (Application, responseFile,
-                                                 responseLBS)
+                                                 responseLBS, requestHeaders, mapResponseHeaders)
 import           Network.Wai.Application.Static (defaultWebAppSettings,
                                                  staticApp)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
@@ -43,6 +46,7 @@ import           Refl.Language
 import           Refl.Language.Registry
 import           Refl.Protocol
 import           Refl.Server.Progress
+import           Refl.Server.Identity
 
 data ServerEnv = ServerEnv
   { seConfig   :: Config
@@ -51,16 +55,20 @@ data ServerEnv = ServerEnv
   , seManifest :: Manifest
   , seSources  :: SourceIndex
   , seProgress :: ProgressStore
+  , seSlots :: MVar Int
   }
 
-newServerEnv :: Config -> Env -> LoadedGame -> ProgressStore -> ServerEnv
-newServerEnv cfg env game store = ServerEnv
+newServerEnv :: Config -> Env -> LoadedGame -> ProgressStore -> IO ServerEnv
+newServerEnv cfg env game store = do
+ slots <- newMVar 0
+ pure ServerEnv
   { seConfig = cfg
   , seEnv = env
   , seGame = game
   , seManifest = buildManifest languageInfos game
   , seSources = sourceIndex game
   , seProgress = store
+  , seSlots = slots
   }
 
 -- | For each level, the lemma spellings unlocked by this level and earlier
@@ -104,7 +112,16 @@ type Api =
   :<|> Raw
 
 app :: ServerEnv -> Application
-app se = cors (websocketsOr WS.defaultConnectionOptions (wsApp se) (serve (Proxy :: Proxy Api) (server se)))
+app se req respond = do
+  let existing = identity (requestHeaders req)
+  player <- maybe newIdentity pure existing
+  let scoped = se { seProgress = playerStore (seProgress se) (BC.unpack player) }
+      cookie = [("Set-Cookie", identityCookie player) | existing == Nothing]
+      options = WS.defaultConnectionOptions
+        { WS.connectionFramePayloadSizeLimit = WS.SizeLimit (fromIntegral (cfgMessageBytes (seConfig se)))
+        , WS.connectionMessageDataSizeLimit = WS.SizeLimit (fromIntegral (cfgMessageBytes (seConfig se))) }
+  cors (websocketsOr options (wsApp scoped) (serve (Proxy :: Proxy Api) (server scoped))) req
+    (respond . mapResponseHeaders (cookie ++))
  where
   cors | cfgDev (seConfig se) = addHeaders [("Access-Control-Allow-Origin", "*")]
        | otherwise = id
@@ -142,22 +159,36 @@ data Session = Session
 
 wsApp :: ServerEnv -> WS.ServerApp
 wsApp se pending
+  | not (validOrigin expected headers) = WS.rejectRequest pending "origin rejected"
+  | identity headers == Nothing = WS.rejectRequest pending "open the site first"
   | WS.requestPath (WS.pendingRequest pending) == "/ws" = do
-      conn <- WS.acceptRequest pending
-      sessionVar <- newMVar Nothing
-      let closeSession = do
-            ms <- swapMVar sessionVar Nothing
-            mapM_ (\s -> void (try (psClose (ssProver s)) :: IO (Either SomeException ()))) ms
-      WS.withPingThread conn 30 (pure ()) $
-        (loop conn sessionVar `finally` closeSession)
+      mask $ \restore -> do
+        admitted <- modifyMVar (seSlots se) $ \n ->
+          if n < cfgMaxSessions cfg then pure (n + 1, True) else pure (n, False)
+        if not admitted then WS.rejectRequest pending "session capacity reached" else
+          restore (do
+            conn <- WS.acceptRequest pending
+            sessionVar <- newMVar Nothing
+            let closeSession = do
+                  ms <- swapMVar sessionVar Nothing
+                  mapM_ (\s -> void (try (psClose (ssProver s)) :: IO (Either SomeException ()))) ms
+            WS.withPingThread conn 30 (pure ()) $
+              (loop conn sessionVar `finally` closeSession))
+          `finally` modifyMVar_ (seSlots se) (pure . subtract 1)
   | otherwise = WS.rejectRequest pending "not found"
  where
+  cfg = seConfig se
+  headers = WS.requestHeaders (WS.pendingRequest pending)
+  expected = BC.pack (fromMaybe ("http://" ++ cfgHost cfg ++ ":" ++ show (cfgPort cfg)) (cfgOrigin cfg))
+  bounded secs action = race (threadDelay (secs * 1000000)) action >>= \case
+    Left () -> fail "session time limit exceeded"
+    Right value -> pure value
   loop conn sessionVar = void $ try @SomeException $ forever $ do
-    raw <- WS.receiveData conn
+    raw <- bounded (cfgIdleSeconds cfg) (WS.receiveData conn)
     case eitherDecodeStrict raw of
       Left e -> send conn (ServerError ("Unreadable message: " <> T.pack e))
       Right msg -> do
-        outcome <- try @SomeException (handle conn sessionVar msg)
+        outcome <- try @SomeException (bounded (cfgCommandSeconds cfg) (handle conn sessionVar msg))
         case outcome of
           Right () -> pure ()
           Left e -> do
@@ -179,7 +210,7 @@ wsApp se pending
         (Just l, _) | not (liAvailable (langInfo l)) ->
           send conn (SessionUnavailable (liName (langInfo l) <> " is not available yet."))
         (_, Nothing) -> send conn (SessionUnavailable "This level has no source for that language.")
-        (Just l, Just src0) -> do
+        (Just l, Just src0) -> mask_ $ do
           let key = levelKey world level
               src = restrictedSources (seGame se) src0
           r <- langStart l (seEnv se) src

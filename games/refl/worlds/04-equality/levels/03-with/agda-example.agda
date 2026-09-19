@@ -1,10 +1,12 @@
 -- @prelude
 {-# OPTIONS --safe --without-K #-}
 module Example where
+
 open import Refl.Nat
 open import Refl.Eq
 open import Refl.Logic
 open import Refl.Bool
+open import Refl.World.Logic using (_≟_)
 -- @statement
 choose : ∀ {A : Set} → Dec A → ℕ
 choose (yes _) = 1

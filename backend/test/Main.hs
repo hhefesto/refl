@@ -14,9 +14,23 @@ import           Refl.Language.Lean            (parseGoalText, theoremName)
 import           Refl.Language.Bend2           (BendReport (..), holesIn, parseBendReport, reportResult)
 import           System.Exit                   (ExitCode (..))
 import           Refl.Protocol.Types
+import           Refl.Check (exampleProblems)
+import           Refl.Server.Identity
 
 main :: IO ()
 main = hspec $ do
+  describe "anonymous identity boundary" $ do
+    it "rejects path traversal, duplicate cookies and short tokens" $ do
+      identity [("Cookie", "__Host-refl=../../progress")] `shouldBe` Nothing
+      identity [("Cookie", "__Host-refl=abc")] `shouldBe` Nothing
+      token <- newIdentity
+      identity [("Cookie", "__Host-refl=" <> token)] `shouldBe` Just token
+      identity [("Cookie", "__Host-refl=" <> token <> "; __Host-refl=" <> token)] `shouldBe` Nothing
+    it "rejects missing, duplicate and foreign origins" $ do
+      validOrigin "https://refl.example" [] `shouldBe` False
+      validOrigin "https://refl.example" [("Origin", "https://refl.example.attacker")] `shouldBe` False
+      validOrigin "https://refl.example" [("Origin", "https://refl.example"), ("Origin", "https://refl.example")] `shouldBe` False
+      validOrigin "https://refl.example" [("Origin", "https://refl.example")] `shouldBe` True
   describe "IOTCM" $ do
     it "renders load" $
       renderIOTCM "/x/A.agda" ALoad `shouldBe` "IOTCM \"/x/A.agda\" NonInteractive Direct (Cmd_load \"/x/A.agda\" [])"

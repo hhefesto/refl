@@ -1,10 +1,11 @@
 -- @prelude
 {-# OPTIONS --safe --without-K #-}
 module Example where
+
 open import Refl.Nat
 open import Refl.Eq
-open import Refl.Logic
-open import Refl.Bool
+open import Refl.World.Addition using (+-comm; +-assoc)
+open ≡-Reasoning
 -- @statement
 open ≡-Reasoning
 

@@ -1,12 +1,13 @@
 -- @prelude
 {-# OPTIONS --safe --without-K #-}
 module Example where
+
 open import Refl.Nat
 open import Refl.Eq
-open import Refl.Logic
-open import Refl.Bool
+open import Refl.World.Tutorial using (zero-+)
+open import Refl.World.Addition using (+-comm; +-assoc; +-right-comm; +-swap)
+open ≡-Reasoning
 -- @statement
-open import Refl.World.Addition using (+-assoc)
 
 example : ∀ a b c → suc ((a + b) + c) ≡ suc (a + (b + c))
 -- @template

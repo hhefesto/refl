@@ -6,10 +6,10 @@ open import Refl.Nat
 open import Refl.Eq
 open import Refl.World.Tutorial using (zero-+)
 open import Refl.World.Addition using (+-comm; +-assoc; +-right-comm; +-swap)
-open import Refl.World.Multiplication using (*-one; *-comm; one-*; suc-*; zero-*)
+open import Refl.World.Multiplication using (*-one; *-comm)
 -- @statement
-example : ∀ (x : ℕ) → 2 * x ≡ x + x
+example : ∀ (x : ℕ) → 1 * x + 0 ≡ x
 -- @template
 -- The complete worked proof is below.
 -- @solution
-example x = trans (suc-* 1 x) (cong (λ n → n + x) (one-* x))
+example x = trans (*-comm 1 x) (*-one x)

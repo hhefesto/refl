@@ -1,6 +1,7 @@
 cabal-version:      2.4
 name:               refl-markdown
 version:            0.1.0.0
+license:            BSD-3-Clause
 synopsis:           Markdown rendering for level prose (commonmark, sanitized by construction)
 description:        Adapted from xpsoasis/common/markdown. Pure, TH-free; builds on
                     native GHC and the GHC JavaScript backend.

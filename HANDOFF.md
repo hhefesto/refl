@@ -1,5 +1,9 @@
 # Handoff — The Refl Game (2026-09-18)
 
+**Current review/rollout:** read [HANDOFF-ROLLOUT.md](HANDOFF-ROLLOUT.md) first.
+The rest of this file records the earlier pre-review state; its optional-teaching,
+post-Check-hint and debounced-draft descriptions have been superseded.
+
 Repo: `~/src/refl` (own git history). Read this, then `CLAUDE.md` (rules and
 verified facts), then `README.md` (run, develop, author a level).
 

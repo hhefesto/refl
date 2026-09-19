@@ -23,6 +23,48 @@ nix run .#bend -- file.bend  # Bend 2 on its own (checks the file, then runs its
 `nix run` builds the client bundle (slow the first time: it cross-compiles
 reflex-dom with the GHC JavaScript backend; the reflex cache helps).
 
+## NixOS module
+
+Import this flake's `nixosModules.default`, then enable its profile:
+
+```nix
+{
+  imports = [ inputs.refl.nixosModules.default ];
+  services.refl.profile = {
+    enable = true;
+    backend = { address = "127.0.0.1"; port = 3007; };
+    ingress.enable = false;
+  };
+}
+```
+
+Open **http://127.0.0.1:3007** (use this exact origin for WebSockets). The
+module runs `refl.service`, keeps browser-specific state in `/var/lib/refl`,
+and pins its own Agda, Lean and Bend packages. Each prover sees only its session
+directory and read-only tool closure, in isolated process/network namespaces.
+Defaults are 2 GiB aggregate memory, no swap, one CPU quota, four sessions,
+128 tasks, 256 MiB temporary storage, 64 KiB messages, 120-second commands and
+300-second idle sessions. See [the module](nix/module.nix) for typed options.
+Ingress is opt-in; local operation needs neither nginx nor PostgreSQL.
+
+On Olimpo, the consumer is `~/src/etc-nixos-configuration`. Build as your user:
+
+```sh
+nixos-rebuild build --flake ~/src/etc-nixos-configuration#olimpo
+# Activation is performed by the operator:
+nixos-rebuild switch --sudo --flake ~/src/etc-nixos-configuration#olimpo
+```
+
+Use `--sudo` for activation so evaluation retains your private Git access.
+The local consumer currently pins an immutable source snapshot; editing this
+checkout will not change the running service until that input is refreshed and
+the host rebuilt/switched. See [the rollout handoff](HANDOFF-ROLLOUT.md).
+
+`nix run .#verify-local` checks isolated proofs, Chromium and HTTP/WebSocket
+sessions outside the Nix builder. The browser harness can also test an already
+running module with `REFL_BROWSER_EXISTING_URL=http://127.0.0.1:3007`; in this
+mode it never starts or stops the service and skips server restart/retry checks.
+
 ## Develop
 
 ```sh

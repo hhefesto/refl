@@ -1,4 +1,5 @@
 ---
+title: "sym and trans"
 learning_goals:
   - "`Equal.sym(T, a, b, e)` flips `e : {a == b : T}`; `Equal.trans(T, a, b, c, ab, bc)` chains."
   - "The type arguments (`T`, the endpoints) are explicit: read the goal to fill them in."

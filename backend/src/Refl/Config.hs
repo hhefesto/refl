@@ -26,6 +26,11 @@ data Config = Config
   , cfgBend     :: Maybe FilePath
   , cfgBendPath :: Maybe FilePath
   , cfgVerbose  :: Bool
+  , cfgOrigin :: Maybe String
+  , cfgMaxSessions :: Int
+  , cfgMessageBytes :: Int
+  , cfgCommandSeconds :: Int
+  , cfgIdleSeconds :: Int
   } deriving (Show)
 
 defaultDataDir :: IO FilePath

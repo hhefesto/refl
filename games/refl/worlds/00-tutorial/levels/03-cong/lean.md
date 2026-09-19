@@ -1,4 +1,5 @@
 ---
+title: "cong"
 learning_goals:
   - "`congrArg f h` turns `h : a = b` into `f a = f b`."
   - "`rw [h]` rewrites the goal with an equation and closes it when it becomes `x = x`."

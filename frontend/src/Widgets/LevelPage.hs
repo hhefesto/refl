@@ -88,7 +88,7 @@ levelPage m leaveE lang wid idx =
         elClass "div" "card prose" $ do
           rawHtml (llIntroHtml ll)
           elClass "ul" "goals" $ forM_ (llLearningGoals ll) $ \g -> el "li" (rawHtml g)
-        hintsW ll lastResult
+        hintsW ll
         when (not (T.null (llExampleCode ll))) $
           elClass "details" "worked-example prose card" $ do
             el "summary" (text "A similar problem, worked out")
@@ -197,9 +197,8 @@ levelPage m leaveE lang wid idx =
     -- outgoing --------------------------------------------------------------
     let checkE = Check <$> tag (current (eoText ed)) (ffilter (== CmdLoad) cmdE)
         draftE = SaveDraft <$> eoEdited ed
-    -- one save per pause in typing, plus a last one when the page is left
-    draftDebounced <- debounce 2 draftE
-    let draftSaves = leftmost [ draftDebounced, SaveDraft <$> tag (current (eoText ed)) leaveE ]
+    -- Queue every edit before navigation can close this page's socket.
+    let draftSaves = draftE
         requestE = leftmost [() <$ checkE, () <$ sendHoleE]
         sendE = mergeWith (++) [ (: []) <$> openE, (: []) <$> checkE, (: []) <$> sendHoleE
                               , (: []) <$> gate (current ((== Ready) <$> session)) draftSaves ]
@@ -258,21 +257,17 @@ commandsW lang supported unlocked canUse ed = do
   allowedSet f = ffor (sequenceA (M.fromList [ (c, f c) | c <- [minBound .. maxBound] ])) $ \mp c ->
     M.findWithDefault False c mp
 
--- | Visible hints always; hidden ones are offered one at a time once the
--- player has checked and is not done (as NNG4 does). Revealed hints stay.
-hintsW :: Widget' t m => LevelLang -> Dynamic t (Maybe CheckResult) -> m ()
-hintsW l lastResult = elClass "div" "hints" $ do
+-- | Progressive hints are available before checking. Revealed hints stay.
+hintsW :: Widget' t m => LevelLang -> m ()
+hintsW l = elClass "div" "hints" $ do
   let visible = [ h | h <- llHints l, not (hHidden h) ]
       hidden = [ h | h <- llHints l, hHidden h ]
   forM_ visible $ \h -> elClass "div" "hint prose" (rawHtml (hHtml h))
   when (not (null hidden)) $ mdo
-    let tried = ffor lastResult $ \case
-          Just r -> crVerdict r /= Solved
-          Nothing -> False
     shown <- foldDyn (\_ n -> n + 1) (0 :: Int) clickE
     dyn_ $ ffor shown $ \n -> forM_ (take n hidden) $ \h -> elClass "div" "hint prose revealed" (rawHtml (hHtml h))
-    clickE <- switchHold never =<< (dyn $ ffor ((,) <$> shown <*> tried) $ \(n, t) ->
-      if n < length hidden && t
+    clickE <- switchHold never =<< (dyn $ ffor shown $ \n ->
+      if n < length hidden
         then do (b, _) <- el' "button" (text ("Need a hint? (" <> T.pack (show (length hidden - n)) <> " left)")); pure (domEvent Click b)
         else pure never)
     pure ()

@@ -1,67 +1,59 @@
--- | Player progress: completed levels per language and per-level drafts, in
--- one JSON file written atomically.
+-- | Atomic progress per anonymous identity. The shared lock serialises disk
+-- transactions; no unbounded in-memory cache or legacy shared progress is used.
 module Refl.Server.Progress
-  ( ProgressStore
-  , openStore
-  , getProgress
-  , markSolved
-  , saveDraft
-  , draftFor
+  ( ProgressStore, openStore, playerStore, getProgress, markSolved, saveDraft, draftFor
   ) where
 
-import           Control.Concurrent.MVar
-import           Control.Exception       (SomeException, try)
-import           Data.Aeson              (decodeStrict, encode)
-import qualified Data.ByteString         as BS
-import qualified Data.ByteString.Lazy    as BL
-import           Data.List               (nub)
-import qualified Data.Map                as M
-import           Data.Text               (Text)
-import           System.Directory        (createDirectoryIfMissing,
-                                          doesFileExist, renameFile)
-import           System.FilePath         (takeDirectory)
+import Control.Concurrent.MVar
+import Data.Aeson (eitherDecodeStrict, encode)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BL
+import Data.List (nub)
+import qualified Data.Map as M
+import Data.Text (Text)
+import System.Directory (createDirectoryIfMissing, doesFileExist, renameFile)
+import System.FilePath (takeDirectory, (</>))
+import Refl.Protocol.Types
 
-import           Refl.Protocol.Types
-
-data ProgressStore = ProgressStore
-  { psPath :: FilePath
-  , psVar  :: MVar Progress
-  }
+-- All stores derived from one root share this lock, including separate sockets.
+data ProgressStore = ProgressStore FilePath (MVar ())
 
 openStore :: FilePath -> IO ProgressStore
-openStore path = do
+openStore path = ProgressStore path <$> newMVar ()
+
+-- The caller supplies only a validated, randomly generated identity.
+playerStore :: ProgressStore -> String -> ProgressStore
+playerStore (ProgressStore root lock) player =
+  ProgressStore (takeDirectory root </> "players" </> player ++ ".json") lock
+
+readProgress :: ProgressStore -> IO Progress
+readProgress (ProgressStore path _) = do
   exists <- doesFileExist path
-  p <- if not exists then pure emptyProgress else do
-    r <- try (BS.readFile path)
-    pure $ case r of
-      Left (_ :: SomeException) -> emptyProgress
-      Right bytes -> maybe emptyProgress id (decodeStrict bytes)
-  ProgressStore path <$> newMVar p
+  if not exists then pure emptyProgress else do
+    bytes <- BS.readFile path
+    either (fail . ("Invalid progress file: " ++)) pure (eitherDecodeStrict bytes)
 
 getProgress :: ProgressStore -> IO Progress
-getProgress = readMVar . psVar
+getProgress st@(ProgressStore _ lock) = withMVar lock (const (readProgress st))
 
-persist :: ProgressStore -> Progress -> IO ()
-persist st p = do
-  createDirectoryIfMissing True (takeDirectory (psPath st))
-  let tmp = psPath st ++ ".tmp"
-  BL.writeFile tmp (encode p)
-  renameFile tmp (psPath st)
+update :: ProgressStore -> (Progress -> Progress) -> IO Progress
+update st@(ProgressStore path lock) f = withMVar lock $ \_ -> do
+  p <- f <$> readProgress st
+  createDirectoryIfMissing True (takeDirectory path)
+  BL.writeFile (path ++ ".tmp") (encode p)
+  renameFile (path ++ ".tmp") path
+  pure p
 
 markSolved :: ProgressStore -> LangId -> Text -> IO Progress
-markSolved st lang key = modifyMVar (psVar st) $ \p -> do
-  let done = nub (key : M.findWithDefault [] lang (prCompleted p))
-      p' = p { prCompleted = M.insert lang done (prCompleted p) }
-  persist st p'
-  pure (p', p')
+markSolved st lang key = update st $ \p ->
+  p { prCompleted = M.insert lang (nub (key : M.findWithDefault [] lang (prCompleted p))) (prCompleted p) }
 
 saveDraft :: ProgressStore -> Text -> LangId -> Text -> IO ()
-saveDraft st key lang txt = modifyMVar_ (psVar st) $ \p -> do
-  let p' = p { prDrafts = M.insertWith M.union key (M.singleton lang txt) (prDrafts p) }
-  persist st p'
-  pure p'
+saveDraft st key lang txt = do
+  _ <- update st $ \p -> p { prDrafts = M.insertWith M.union key (M.singleton lang txt) (prDrafts p) }
+  pure ()
 
 draftFor :: ProgressStore -> Text -> LangId -> IO (Maybe Text)
 draftFor st key lang = do
-  p <- readMVar (psVar st)
+  p <- getProgress st
   pure (M.lookup key (prDrafts p) >>= M.lookup lang)

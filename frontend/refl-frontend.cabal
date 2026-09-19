@@ -1,6 +1,7 @@
 cabal-version:      2.4
 name:               refl-frontend
 version:            0.1.0.0
+license:            BSD-3-Clause
 synopsis:           The Refl Game SPA (reflex-dom, GHC JavaScript backend)
 author:             hhefesto
 maintainer:         hhefesto@rdataa.com

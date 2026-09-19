@@ -1,4 +1,5 @@
 ---
+title: "rewrite"
 learning_goals:
   - "`%h : P` rewrites the goal with `h : {a == b : T}`: `P` is the goal with `_` marking `b`, and the goal becomes `P` with `a` there."
   - "To rewrite the other way, flip the equation with `Equal.sym`."

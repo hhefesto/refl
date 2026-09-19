@@ -1,4 +1,5 @@
 ---
+title: "Reading: analog₁ (Timely Computation)"
 learning_goals:
   - "A `def` returning a function and a `def` with one more argument mean the same thing."
   - "`rfl` sees through definitions: both sides unfold to `h (xs (t + δ))`."

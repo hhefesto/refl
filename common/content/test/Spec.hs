@@ -37,7 +37,7 @@ srcs = LevelSources (LangId "agda") (WorldId "w") (LevelId "l") "Tutorial.Refl"
 main :: IO ()
 main = hspec $ do
   describe "language-specific teaching" $ do
-    it "lets a language page override the level's text, and keeps the level's when there is none" $ do
+    it "renders only the selected language's explicit teaching" $ do
       let manifest = buildManifest langInfos fixture
           level = head (P.wLevels (head (P.mWorlds manifest)))
           leanPage = P.lLanguages level M.! LangId "lean"
@@ -52,7 +52,7 @@ main = hspec $ do
       P.llTitle leanPage `shouldBe` "Title"
       M.lookup (LangId "lean") (P.iiDocHtml item) `shouldSatisfy` maybe False (T.isInfixOf "Lean document")
       P.llExampleCode leanPage `shouldSatisfy` T.isInfixOf "example-proof"
-      P.llExampleCode agdaPage `shouldBe` ""
+      P.llExampleCode agdaPage `shouldSatisfy` T.isInfixOf "agda-example-proof"
       BL.unpack (encode manifest) `shouldSatisfy` (not . T.isInfixOf "PRIVATE-EXERCISE-SOLUTION" . T.pack)
     it "keeps an item whose doc is missing for a language (the page shows a placeholder)" $ do
       let missing = fixture { lgDocs = M.delete "lean/cmd-load" (lgDocs fixture) }
@@ -64,23 +64,24 @@ main = hspec $ do
       let change l = l {llTeaching = M.adjust (\t -> t {tIntro = "Use **Give** (C-c C-SPC)."}) (LangId "lean") (llTeaching l)}
           bad = fixture {lgWorlds = map (\w -> w {lwLevels = map change (lwLevels w)}) (lgWorlds fixture)}
       teachingProblems langInfos bad `shouldSatisfy` any (T.isInfixOf "unsupported command")
-      -- the level's own text is what a language without a page shows
+      -- Missing teaching cannot silently inherit Agda instructions.
       let shared l = l {llIntro = "Press **Case split** (C-c C-c).", llTeaching = M.delete (LangId "lean") (llTeaching l)}
           bad2 = fixture {lgWorlds = map (\w -> w {lwLevels = map shared (lwLevels w)}) (lgWorlds fixture)}
-      teachingProblems langInfos bad2 `shouldSatisfy` any (T.isInfixOf "[lean]: unsupported command")
+      teachingProblems langInfos bad2 `shouldSatisfy` any (T.isInfixOf "[lean]: missing language-specific")
       teachingProblems langInfos bad2 `shouldSatisfy` (not . any (T.isInfixOf "[agda]"))
     it "flags a worked example that repeats the exercise" $ do
       let same l = l {llTeaching = M.adjust (\t -> t {tExample = fmap (\e -> e {lsStatement = lsStatement srcs}) (tExample t)}) (LangId "lean") (llTeaching l)}
           bad = fixture {lgWorlds = map (\w -> w {lwLevels = map same (lwLevels w)}) (lgWorlds fixture)}
       teachingProblems langInfos bad `shouldSatisfy` any (T.isInfixOf "repeats the exercise")
-    it "loads a level with no language page, and rejects an example without its explanation" $
+    it "rejects a missing language page and an unexplained example" $
       bracket temporary removeDirectoryRecursive $ \dir -> do
         writeFileUtf8 (dir </> "01-test.md") "---\nid: test\nindex: 1\ntitle: Test\n---\nShared text\n"
         writeFileUtf8 (dir </> "01-test.agda") sample
         ok <- loadLevel (WorldId "test") M.empty (dir </> "01-test.md")
-        fmap (M.keys . llTeaching) ok `shouldBe` Right []
+        ok `shouldSatisfy` either (T.isInfixOf "missing language-specific") (const False)
         createDirectory (dir </> "01-test")
         writeFileUtf8 (dir </> "01-test" </> "agda-example.agda") sample
+        writeFileUtf8 (dir </> "01-test" </> "agda.md") "---\n---\n"
         bad <- loadLevel (WorldId "test") M.empty (dir </> "01-test.md")
         bad `shouldSatisfy` either (T.isInfixOf "without example_explanation") (const False)
         writeFileUtf8 (dir </> "01-test" </> "agda.md") "---\nexample_explanation: Start here.\n---\n"
@@ -152,9 +153,12 @@ fixture = LoadedGame (GameMeta "Test" ["w"]) "" [world]
   world = LoadedWorld (WorldMeta "w" "World" [] M.empty) "" [level] "."
   level = LoadedLevel (LevelMeta "l" 1 "Shared" ["Shared goal"] (UnlockSpec ["load"] [] []) [] False [HintSpec "Shared hint" False])
     "Shared text" "Shared conclusion" (M.fromList [(lang, source lang) | lang <- langs]) "01-test.md"
-    (M.fromList [(LangId "lean", leanPage)])
+    (M.fromList [(LangId "lean", leanPage), (LangId "agda", agdaPage)])
   langs = [LangId "agda", LangId "lean"]
   source lang = srcs {lsLang = lang, lsSolution = "PRIVATE-EXERCISE-SOLUTION"}
+  agdaPage = Teaching (TeachingMeta (Just "Shared") (Just ["Shared goal"]) (Just [HintSpec "Shared hint" False]) (Just "Example steps"))
+    "Shared text" "Shared conclusion"
+    (Just (srcs {lsStatement = "another statement", lsSolution = "agda-example-proof"}))
   leanPage = Teaching (TeachingMeta (Just "Title") (Just ["Goal"]) (Just [HintSpec "Clue" False, HintSpec "Next" True]) (Just "Example steps"))
     "Lean only" "Conclusion"
     (Just (srcs {lsLang = LangId "lean", lsPrefix = "example declaration\n", lsStatement = "example declaration\n", lsSolution = "example-proof"}))

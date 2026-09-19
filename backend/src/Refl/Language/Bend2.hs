@@ -16,7 +16,7 @@ module Refl.Language.Bend2
 
 import           Control.Concurrent           (forkIO)
 import           Control.Concurrent.MVar
-import           Control.Exception            (SomeException, try)
+import           Control.Exception            (SomeException, try, finally)
 import           Control.Monad                (forM_, void)
 import           Data.Aeson                   (Value (Null))
 import qualified Data.ByteString              as BS
@@ -42,6 +42,7 @@ import           Refl.Content.Splice
 import           Refl.Language
 import           Refl.Protocol.Types
 import           Refl.Verify
+import           Refl.Process
 
 bend2 :: Language
 bend2 = Language
@@ -91,8 +92,8 @@ runBend env exe st text = do
   let extra = [ ("HOME", stDir st </> "home"), ("BEND_LIB", stDir st </> "lib"), ("BEND_NO_TELEMETRY", "1") ]
       env' = extra ++ filter ((`notElem` map fst extra) . fst) env0
       cp = (proc exe [stFile st]) { cwd = Just (stDir st), env = Just env'
-                                  , std_in = NoStream, std_out = CreatePipe, std_err = CreatePipe }
-  r <- try $ withCreateProcess cp $ \_ mout merr ph -> do
+                                  , std_in = NoStream, std_out = CreatePipe, std_err = CreatePipe, create_group = True }
+  r <- trySync $ withCreateProcess cp $ \_ mout merr ph -> flip finally (stopProcess ph) $ do
     outV <- newEmptyMVar
     errV <- newEmptyMVar
     let slurp mh v = void $ forkIO $ do
@@ -103,8 +104,7 @@ runBend env exe st text = do
     done <- timeout (60 * 1000000) (waitForProcess ph)
     case done of
       Nothing -> do
-        terminateProcess ph
-        void (waitForProcess ph)
+        stopProcess ph
         pure (Left "bend took more than 60 seconds; the check was stopped.")
       Just code -> do
         out <- takeMVar outV

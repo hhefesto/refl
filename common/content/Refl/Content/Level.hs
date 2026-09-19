@@ -193,7 +193,7 @@ loadLevel wid worldOptions mdPath = do
         example = base </> T.unpack lang <> "-example" <.> T.unpack (languageExt (lsLang src))
     exists <- doesFileExist page
     exampleExists <- doesFileExist example
-    if not exists && not exampleExists then pure (Right Nothing) else do
+    if not exists then pure (Left ("missing language-specific teaching: " <> T.pack page)) else do
       doc <- if exists then readFileUtf8 page else pure ""
       code <- if exampleExists then Just <$> readFileUtf8 example else pure Nothing
       pure $ do

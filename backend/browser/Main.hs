@@ -12,6 +12,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.Text.Encoding as TE
 import Data.IORef
+import Data.Maybe (fromMaybe, isNothing)
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
@@ -33,23 +34,27 @@ main = do
   chrome : site : games : extra <- getArgs
   skipLean <- (== Just "1") <$> lookupEnv "REFL_BROWSER_SKIP_LEAN"
   artifacts <- lookupEnv "REFL_BROWSER_ARTIFACTS"
+  existing <- lookupEnv "REFL_BROWSER_EXISTING_URL"
+  let base = fromMaybe "http://127.0.0.1:8124" existing
   tmp <- getTemporaryDirectory
   (dir, h) <- openTempFile tmp "refl-browser"
   hClose h
   removeFile dir
   createDirectory dir
-  let launch = do
+  let launch = if isNothing existing then do
         -- The server's output goes to ours: a closed stdout would kill it on
         -- its first banner line, and the log is the only diagnostic in CI.
         (_, _, _, p) <- createProcess (proc site (["--port", "8124", "--data-dir", dir </> "data"] ++ extra))
           { std_out = Inherit, std_err = Inherit }
-        pure p
+        pure (Just p)
+        else pure Nothing
       stop p = terminateProcess p >> void (waitForProcess p)
+      stopServer = mapM_ stop
       readyServer = await "server" $ do
-        (c, _, _) <- readProcessWithExitCode "curl" ["-fs", "http://127.0.0.1:8124/api/health"] ""
+        (c, _, _) <- readProcessWithExitCode "curl" ["-fs", base ++ "/api/health"] ""
         pure (show c == "ExitSuccess")
   server <- launch >>= newIORef
-  flip finally (readIORef server >>= stop) $ do
+  flip finally (readIORef server >>= stopServer) $ do
     readyServer
     bracket (do
       devNull <- openFile "/dev/null" WriteMode
@@ -156,15 +161,15 @@ main = do
           void (rpc "Runtime.enable" (object []))
           -- Page.addScriptToEvaluateOnNewDocument is honoured only with Page events enabled
           void (rpc "Page.enable" (object []))
-          void (rpc "Page.navigate" (object ["url" .= ("http://127.0.0.1:8124/#/w/tutorial/l/1/agda" :: T.Text)]))
+          void (rpc "Page.navigate" (object ["url" .= (base ++ "/#/w/tutorial/l/1/agda")]))
           wait "first Check enabled" ("Boolean(" <> button ("Check" :: T.Text) <> " && !" <> button ("Check" :: T.Text) <> ".disabled)")
           theme "dark"
           contrast
           wait "default dark colors" "getComputedStyle(document.body).backgroundColor === 'rgb(21, 25, 31)'"
           wait "example collapsed" "document.querySelector('.worked-example')?.open === false"
+          hint
           click "Check"
           verdict "unsolved"
-          hint
           editor "two-plus-two = ?\n-- retained help\n"
           wait "edits retain hints" "document.querySelectorAll('.hints .hint.revealed').length === 1"
           run "document.querySelector('.worked-example summary').click(); true"
@@ -208,10 +213,7 @@ main = do
           verdict "failed"
           snapshot "dark-error"
           editor "two-plus-two = ?\n-- λ → ℕ 😀\n"
-          click "Check"
-          verdict "unsolved"
-          -- Debounced draft restoration across route teardown.
-          threadDelay 2300000
+          -- Navigate before the former two-second debounce could fire.
           route 2
           route 1
           wait "Unicode draft restored" "document.querySelector('textarea').value.includes('λ → ℕ 😀')"
@@ -311,17 +313,19 @@ main = do
           click "Theme: Light"
           route 8
           -- A real server failure must disable commands and offer Retry.
-          readIORef server >>= stop
-          wait "disconnect" ("Boolean(" <> button ("Retry" :: T.Text) <> ")")
-          click "Retry"
-          wait "failed connection offers retry" ("Boolean(" <> button ("Retry" :: T.Text) <> ")")
-          launch >>= writeIORef server
-          readyServer
-          click "Retry"
-          wait "retry opens prover" "document.querySelector('.session-status')?.textContent === 'Ready'"
-          click "Check"
-          verdict "solved"
-          putStrLn ("browser: language routes, help, inventory, isolated drafts, themes, prover flows, failure and retry passed" ++ if skipLean then " (Lean prover sessions skipped in sandbox)" else " (all three provers)")
+          when (isNothing existing) $ do
+            readIORef server >>= stopServer
+            wait "disconnect" ("Boolean(" <> button ("Retry" :: T.Text) <> ")")
+            click "Retry"
+            wait "failed connection offers retry" ("Boolean(" <> button ("Retry" :: T.Text) <> ")")
+            launch >>= writeIORef server
+            readyServer
+            click "Retry"
+            wait "retry opens prover" "document.querySelector('.session-status')?.textContent === 'Ready'"
+            click "Check"
+            verdict "solved"
+          putStrLn ("browser: language routes, help, inventory, isolated drafts, themes and prover flows passed" ++ if skipLean then " (Lean prover sessions skipped in sandbox)" else " (all three provers)")
+          putStrLn (if isNothing existing then "browser: failure and retry passed" else "browser: verified existing service; lifecycle checks skipped")
 
 -- WCAG text contrast for semantic surfaces, diagnostics and syntax colors.
 -- The probe uses computed browser colors, so unresolved CSS variables fail too.

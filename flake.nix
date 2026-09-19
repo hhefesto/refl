@@ -27,6 +27,7 @@
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ "x86_64-linux" ];
       imports = [ inputs.haskell-flake.flakeModule ];
+      flake.nixosModules.default = import ./nix/module.nix self;
 
       perSystem = { self', pkgs, config, system, ... }:
         let
@@ -136,6 +137,22 @@
 
           games = ./games/refl;
           backend = self'.packages.refl-backend;
+          sandbox = args: import ./nix/prover-sandbox.nix ({ inherit pkgs; } // args);
+          isolatedAgda = sandbox {
+            executable = "${agda}/bin/agda";
+            paths = [ agda agdaDir agdaSupport pkgs.glibcLocales ];
+            variables = locale // { AGDA_DIR = "${agdaDir}"; };
+          };
+          isolatedLean = sandbox {
+            executable = "${lean}/bin/lean";
+            paths = [ lean leanSupport pkgs.glibcLocales ];
+            variables = locale // { LEAN_PATH = "${leanSupport}"; };
+          };
+          isolatedBend = sandbox {
+            executable = "${bend}/bin/bend";
+            paths = [ bend bendSupport pkgs.glibcLocales ];
+            variables = locale // { BEND_NO_TELEMETRY = "1"; };
+          };
         in
         {
           # ── native Haskell (backend + shared packages) ───────────────────
@@ -174,6 +191,7 @@
           };
 
           packages = {
+            inherit isolatedAgda isolatedLean isolatedBend;
             inherit website agdaSupport leanSupport agdaDir bend bendSupport;
             frontend-js = frontendJs;
             agda = agda;
@@ -192,6 +210,13 @@
                 --bend ${bend}/bin/bend --bend-path ${bendSupport} "$@"
             '';
             default = self'.packages.site;
+            isolated-site = pkgs.writeShellScriptBin "refl-site" ''
+              exec ${backend}/bin/refl-server \
+                --www ${website} --games ${games} \
+                --agda ${isolatedAgda}/bin/refl-prover --agda-dir ${agdaDir} \
+                --lean ${isolatedLean}/bin/refl-prover --lean-path ${leanSupport} \
+                --bend ${isolatedBend}/bin/refl-prover --bend-path ${bendSupport} "$@"
+            '';
 
             # Content CI: every level's solution must be Solved and its
             # template Unsolved, in every language that has a source.
@@ -215,6 +240,36 @@
           };
 
           apps = {
+            verify-local = {
+              type = "app";
+              program = toString (pkgs.writeShellScript "refl-verify-local" ''
+                set -euo pipefail
+                export PATH=${pkgs.lib.makeBinPath [ pkgs.curl pkgs.coreutils ]}:$PATH
+                export FONTCONFIG_FILE=${pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; }}
+                export LC_ALL=en_US.UTF-8
+                export LOCALE_ARCHIVE=${pkgs.glibcLocales}/lib/locale/locale-archive
+                tmp=$(mktemp -d)
+                server=""
+                cleanup() {
+                  if [ -n "$server" ]; then kill "$server" 2>/dev/null || true; wait "$server" 2>/dev/null || true; fi
+                  rm -rf "$tmp"
+                }
+                trap cleanup EXIT
+                ${backend}/bin/refl-check-levels ${games} \
+                  --agda ${isolatedAgda}/bin/refl-prover --agda-dir ${agdaDir} \
+                  --lean ${isolatedLean}/bin/refl-prover --lean-path ${leanSupport} \
+                  --bend ${isolatedBend}/bin/refl-prover --bend-path ${bendSupport}
+                ${backend}/bin/refl-browser-test ${pkgs.chromium}/bin/chromium \
+                  ${self'.packages.isolated-site}/bin/refl-site ${games}
+                ${self'.packages.isolated-site}/bin/refl-site --port 8125 --data-dir "$tmp" --idle-seconds 2 &
+                server=$!
+                for i in $(seq 1 100); do
+                  curl -fs http://127.0.0.1:8125/api/health >/dev/null && break
+                  sleep 0.2
+                done
+                ${backend}/bin/refl-security-test
+              '');
+            };
             default = { type = "app"; program = "${self'.packages.site}/bin/refl-site"; };
             serve = { type = "app"; program = "${self'.packages.site}/bin/refl-site"; };
             bend = { type = "app"; program = "${bend}/bin/bend"; };
@@ -232,6 +287,7 @@
           };
 
           checks = {
+            nixos = import ./nix/module-test.nix { inherit self nixpkgs pkgs system; };
             inherit website;
             # The Bend 2 contract the plugin relies on, against upstream's own
             # test corpus: a proof by induction runs, a loud hole reports its

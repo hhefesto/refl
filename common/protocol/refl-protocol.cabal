@@ -1,6 +1,7 @@
 cabal-version:      2.4
 name:               refl-protocol
 version:            0.1.0.0
+license:            BSD-3-Clause
 synopsis:           Wire types shared by The Refl Game backend and reflex frontend
 description:
   Language-agnostic client/server protocol, the game manifest served to the

@@ -1,7 +1,18 @@
 ---
+title: "one-*"
+learning_goals:
+  - "Chaining two inventory lemmas."
+hints:
+  - text: "`*-comm 1 x` then `*-one x`."
+    hidden: true
 example_explanation: |-
-  1. `2 * x` is `suc 1 * x`, which is stuck; `suc-* 1 x` rewrites it to `1 * x + x`.
-  2. Inside, `one-* x` turns `1 * x` into `x`; `cong (λ n → n + x)` applies it under `+ x`.
-  3. `trans` chains the two steps.
-  For the exercise, `1 * x` is `suc zero * x`: apply `suc-*` once and then `zero-*` inside, the same two-step shape.
+  1. The outer `+ 0` computes away by the definition of addition.
+  2. `*-comm 1 x` changes `1 * x` into `x * 1`.
+  3. The previously proved `*-one x` removes multiplication by one on the right; `trans` connects the steps.
+  Start by asking which simplifications compute and which require an earned lemma.
 ---
+A one-liner from `*-comm` and `*-one`.
+
+<!-- @conclusion -->
+When a lemma follows from others without induction, it does not need a case
+split — reach for `trans`.

@@ -1,6 +1,7 @@
 -- @prelude
 {-# OPTIONS --safe --without-K #-}
 module Example where
+
 open import Refl.Nat
 open import Refl.Eq
 open import Refl.Logic

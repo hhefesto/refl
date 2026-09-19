@@ -12,7 +12,7 @@ module Refl.Language.Lean
   , parseGoalText
   ) where
 
-import           Control.Exception            (SomeException, try)
+import           Control.Exception            (SomeException, try, mask, onException)
 import           Control.Monad                (void)
 import           Data.Aeson
 import qualified Data.Aeson.KeyMap            as KM
@@ -71,7 +71,7 @@ suffixFor src = maybe "" (\n -> "\n#print axioms " <> n <> "\n") (theoremName (l
 start :: Env -> LevelSources -> IO (Either Text ProverSession)
 start env src = case envLean env of
   Nothing -> pure (Left "Lean is not configured on this server (--lean).")
-  Just exe -> do
+  Just exe -> mask $ \restore -> do
     uuid <- UUID.nextRandom
     let dir = envWorkRoot env </> ("lean-" ++ UUID.toString uuid)
         file = dir </> "Level.lean"
@@ -84,11 +84,11 @@ start env src = case envLean env of
     case r of
       Left e -> pure (Left e)
       Right rpc -> do
-        ini <- request rpc 60 "initialize" $ object
+        ini <- restore (request rpc 60 "initialize" $ object
           [ "processId" .= Null
           , "rootUri" .= ("file://" <> T.pack dir)
           , "capabilities" .= object []
-          ]
+          ]) `onException` stopRpc rpc
         case ini of
           Left e -> stopRpc rpc >> pure (Left e)
           Right _ -> do

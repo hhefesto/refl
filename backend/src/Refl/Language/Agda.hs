@@ -10,7 +10,7 @@ module Refl.Language.Agda
   , tidyMessage
   ) where
 
-import           Control.Exception            (SomeException, try)
+import           Control.Exception            (SomeException, try, onException)
 import           Control.Monad                (void)
 import           Data.Char                    (isDigit)
 import           Data.Aeson                   (Value (Null))
@@ -63,9 +63,9 @@ start env src = do
     "name: refl-level\ninclude: .\ndepend: standard-library refl-support\n"
   writeFileUtf8 file (splice src "" (lsTemplate src))
   let extra = [("LC_ALL", "en_US.UTF-8")] ++ maybe [] (\d -> [("AGDA_DIR", d)]) (envAgdaDir env)
-  r <- startAgda (logMsg env) (envAgda env) extra dir
+  r <- startAgda (logMsg env) (envAgda env) extra dir `onException` removeDirectoryRecursive dir
   case r of
-    Left e -> pure (Left e)
+    Left e -> removeDirectoryRecursive dir >> pure (Left e)
     Right p -> do
       ref <- newIORef Nothing
       let st = St p dir file ref
