@@ -1,111 +1,109 @@
-# Handoff — The Refl Game (2026-09-18)
+# Tutorial refl review — 2026-09-19
 
-**Current review/rollout:** read [HANDOFF-ROLLOUT.md](HANDOFF-ROLLOUT.md) first.
-The rest of this file records the earlier pre-review state; its optional-teaching,
-post-Check-hint and debounced-draft descriptions have been superseded.
+## Scope and baseline
 
-Repo: `~/src/refl` (own git history). Read this, then `CLAUDE.md` (rules and
-verified facts), then `README.md` (run, develop, author a level).
+Only Tutorial → refl is rewritten, across Agda, Lean and Bend. Exercise
+statements, identifiers, progress keys and canonical solutions are unchanged.
+The lesson teaches constructor numbers, second-argument addition, the equality
+proposition/type, an explicit normalized proof and the short reflexivity proof.
+A language-filtered building-block panel uses inventory metadata and docs.
 
-## Where things stand
+Reviewed baseline: refl `13f600c` (including Claude's `4d4bce6`, `b6e1fd8`,
+`f529203`); consumer `05765c2` (including `b2fe757`, `35f0cca`, domain move
+`b3564d6` and `1b5ee18`). Both branches are **master**, initially clean.
+Preserved the router startup fix, plugin commands, prover diagnostics,
+per-language teaching, browser coverage, isolation and https deployment.
 
-Green at the commit that adds this file (`nix flake check`: website, unit
-suites, check-levels over every level and worked example, smoke, bend,
-browser):
+## Findings by severity
 
-- Worlds 0–4 (45 levels) playable in Agda; the Tutorial (8 levels) also in
-  Lean 4 and in Bend 2.
-- Provers: Agda 2.8.0 (`--interaction-json`), Lean 4.30.0 (`--server`), Bend
-  2.0.4 (batch `bend` runs; flake input `bend2`, TypeScript on Bun).
-- Lessons per language: `levels/NN-id/<lang>.md` (optional, each field
-  overrides the level's) and `<lang>-example.<ext>` (a similar problem worked
-  out, shown collapsed, type-checked in CI). Docs per language under
-  `docs/<lang>/`. The level `.md` stays the source of the shared prose and of
-  the Agda hints; the 16 Lean/Bend Tutorial pages carry their own hints.
-- Client: dark/light theme (`frontend/src/Theme.hs`), CSS tokens, the route
-  owns the language, hidden hints unlock after a failed Check, drafts are
-  saved after a 2 s pause and on leaving the page.
-- Headless-Chromium acceptance test (`backend/browser/Main.hs`) covers the
-  Agda Tutorial, Bend flows (Lean too where the sandbox allows), theme
-  persistence, contrast, language routing, drafts, hints, failure and retry.
+- **High, open for production:** consumer `deployXty` in `flake.nix` checks
+  backup health, pure assertions, live service health and builds, then deploys.
+  It does not compare candidate changes against the running system or block
+  restarts/reloads of shared nginx, PostgreSQL, networking, docxty or other
+  unrelated projects. Production remains blocked pending approval AND this gate.
+  The previous nginx outage demonstrates the impact (see archive).
+- **Medium, reproduced and fixed:** draft persistence relies on a 1 s debounce,
+  50 ms delayed socket close and 150 ms delayed page replacement (`Client.hs`,
+  `App.hs`, `LevelPage.hs`). New browser checks dispatch edit and navigation in
+  the same browser task, including repeated Unicode and per-language drafts.
+  The first same-task edit/navigation test restored the previous draft.
+  `eoText` can lag behind asynchronous editor input-method processing.
+  Departure now reads the live textarea and prioritizes that flush over a
+  simultaneous debounce. The repeated Unicode regression passes in Chromium.
+  The existing close/unmount delays remain; this is not a guarantee for tab
+  closure, process crashes or arbitrary network stalls (no save acknowledgment).
+- **Medium, fixed:** the first lesson jumped straight to reflexivity without
+  teaching constructor arithmetic or separating proposition from proof.
+  Five progressive hints now lead through the reductions, explicit proof,
+  then short proof. Both authored snippets are checked through the real UI.
+- **Low, fixed:** stale hint gating, branch and deployment/publication prose.
+  Both branches are master; https ingress is live; local snapshots do not
+  require publication. Historical handoffs are preserved, not current advice.
+- **Verification limit:** `packages.module-test` is not part of flake checks.
+  Its xchg/log fixes were reviewed but the KVM VM test remains unverified;
+  `/dev/kvm` is absent on this host. Native/isolated/browser checks do not
+  establish its cgroup exhaustion, VM boot or OOM-recovery assertions.
 
-## What the last two passes did
+## Verification / exact snapshot
 
-1. Codex added the per-language lessons, docs split, theme and larger browser
-   test, and left the client not booting (committed as found, `45e849b`).
-2. Review pass (this commit): lesson pages became optional overrides instead
-   of required replacements (the original hand-written level text and hints
-   are live again); commands moved from a protocol table into
-   `LangInfo.liCommands` fed by each plugin; the router hang was a `holdDyn`
-   on an event defined later in the same `mdo` (the dropdown now only follows
-   the route, and rewrites the hash on a level page); per-keystroke draft
-   saves went back to a debounce; hidden hints are gated again; the
-   input-method cheat sheet is back; the `manifest` derivation got the locale
-   the non-ASCII doc names need; 14 one-line filler docs and the lemma-name
-   fallback were dropped (explicit `doc:` only, placeholder otherwise); 12
-   recycled or off-topic Agda worked examples were rewritten as genuinely
-   similar problems with "how to start" explanations; the 16 boilerplate
-   Lean/Bend pages were rewritten; the Bend rewrite doc got its numeric
-   worked example back; `% transport` became `%h : P`.
+Native `nix develop -c cabal test all --offline`: 67 examples, zero failures
+(6 protocol, 29 content, 32 backend). `nix run .#check-levels`: 122 checks,
+zero failures, including Lean outside the sandbox. `nix flake check -L`:
+passed after the draft fix (website, manifest, 106 in-sandbox content checks,
+Bend, browser, smoke, security and native suites). Lean prover sessions are
+explicitly skipped inside the Nix sandbox because it lacks `/etc/localtime`.
+Isolated host results and immutable snapshot follow below when complete.
 
-## How to re-verify
+Production read-only health probe: `{"levels":61,"ok":true}` at
+https://refl.hhefesto.dev/api/health. The currently running Olimpo module also
+reports 61; that is the previous build, not acceptance of this candidate.
 
-```sh
-cd ~/src/refl && nix develop
-cabal build all && cabal test all                 # 6 + 29 + 29 examples
-cabal run refl-build-manifest -- games/refl -o /tmp/m.json   # authoring laws
-cabal run -v0 refl-check-levels -- games/refl --agda "$REFL_AGDA" --agda-dir "$AGDA_DIR" \
-  --lean "$REFL_LEAN" --lean-path "$REFL_LEAN_PATH" --bend "$REFL_BEND" --bend-path "$REFL_BEND_PATH"
-                                                  # 122 checks (61 exercises + 61 examples), 0 failed
-git add -A && nix flake check -L                  # the flake sees tracked files only
-nix run                                           # http://127.0.0.1:8090
-```
+## Local and production status
 
-Browser test by hand (screenshots land in `$REFL_BROWSER_ARTIFACTS`):
-`cabal run refl-browser-test -- <chromium> <site wrapper> games/refl`, where
-the wrapper runs `refl-server` with `--www result-website` and all prover
-flags (see `flake.nix` `packages.site`).
+User requests the consumer NixOS module for local assessment, with the reviewed
+snapshot persisted in its refl input, then `nixos-rebuild build --flake
+~/src/etc-nixos-configuration`. The user performs the matching `switch --sudo`.
+Add `ns` as that switch alias (existing `sn` retained). No activation performed.
+After the user switches, verify http://127.0.0.1:3007, then await explicit
+approval before xty. Production remains https://refl.hhefesto.dev at the old
+revision; no publication or production deployment authorized/performed here.
 
-## Next
+## Later production procedure / refl-only rollback
 
-1. **Worlds 5–18** are skeleton `.md` files (learning goals only). Author
-   them per `README.md`; after adding Agda levels run
-   `cabal run refl-check-levels -- games/refl --emit-world-modules languages/agda`
-   and rebuild `agdaSupport`. The curriculum, coverage table and world DAG
-   are in `games/refl/worlds/*/world.md` and the plan file's git history.
-2. Lean and Bend sources for worlds 1–4 (the Tutorial shows the shapes).
-   Bend has no generated per-world modules yet: extend `languages/bend2/Refl.bend`
-   per world or add a Bend twin of `emitWorldModules` (`backend/src/Refl/Check.hs`).
-3. Worked examples for later worlds are Agda-only; add `lean-example.lean` /
-   `bend2-example.bend` alongside the sources when those exist.
+Pin the reviewed revision after approval. Keep backup checks and deploy-rs
+`autoRollback = false` / `magicRollback = false`. Compare the built candidate
+with xty's actual `/run/current-system`, block any unrelated service restart
+or reload, and continuously probe public sites and protected service PIDs.
+A successful pure check alone is not restart-safety evidence.
 
-## Pitfalls that cost time
+Before activation, record the previous refl input and refl service ExecStart
+(store closure), retain that closure as a GC root, and back up refl state.
+Rollback only refl: repin its previous input on top of the current consumer,
+build and pass the same service-diff gate, then activate that candidate.
+Do not use whole-system `--rollback`, which can change unrelated projects.
+Do not restore old player state unless needed for a demonstrated data-format
+incompatibility; these lesson changes introduce none.
 
-- `fuser` does not exist in this shell; `pkill -f PATTERN` matches your own
-  shell's command line (use `pkill -f 'refl-serv[e]r'`); stale servers hold
-  ports and serve old content.
-- The flake sees only git-tracked files: `git add -A` before `nix build`.
-- Chromium in the nix sandbox needs `FONTCONFIG_FILE`; after a synthetic DOM
-  event the test must `settle` before the next DevTools command; never
-  `BL.unpack` JSON bytes into `Text`.
-- `Refl.Reading.Core` (stdlib) can never share an Agda session with
-  `Refl.Eq`/`Refl.Nat` (duplicate BUILTIN bindings).
-- A child process launched with a closed stdout dies on its first print.
-- Bend: `%e : P` marks the equation's **right-hand** side; a `def main` is
-  executed, so levels forbid it; bend reports only the first error.
-- Haskell: `let t = f t` inside a list comprehension is a recursive binding
-  and hangs silently. In the reflex client, a `holdDyn` whose event is bound
-  later in the same `mdo` hangs the whole widget build with no error in the
-  console (the page stays empty); wire such loops through the DOM (hash,
-  route) instead.
-- DevTools: `Page.addScriptToEvaluateOnNewDocument` is honoured only after
-  `Page.enable`; a reload must be followed by a wait for a *new* document
-  (the test marks the old one) before polling; the language `<select>` is a
-  `selectElement` whose option values are the language ids, on purpose.
-- Level `.md` prose is what Agda players read; a `<lang>.md` page is the
-  place for Lean/Bend-specific text. Do not duplicate the level prose into
-  `agda.md` — it only needs `example_explanation`.
+## History
 
-The user's Chrome extension has never been connected; the browser test is the
-real-browser evidence. Claude's session memory lives in
-`~/.claude/projects/-home-hhefesto-src-conal-elliott/memory/refl-game-project.md`.
+- `HANDOFF-2026-09-19-before-tutorial-review.md`: previous general handoff.
+- `HANDOFF-ROLLOUT.md`: previous rollout, nginx outage and .dev move evidence.
+- Consumer archives retain its pre-review deployment and domain-move history.
+
+## Completed host verification
+
+`REFL_BROWSER_ARTIFACTS=/tmp/refl-reviewed-browser nix run .#verify-local`
+passed: 122 isolated prover checks; Chromium with all three provers; lifecycle
+failure/retry; HTTP/WebSocket security. Browser coverage checks the actual two
+proof snippets rendered in the hints against the server's level restrictions,
+wrong terms fail in each language, templates remain unsolved, five hints appear
+in computation-first order, five language-specific building blocks appear
+before completion, and selectors/history preserve language-specific commands.
+Same-task input/navigation restores exact drafts in all three languages,
+including five repeated Agda Unicode drafts. No wire protocol or NixOS option
+changes. Screenshots were inspected for lesson layout in the light theme.
+
+Logs: `/tmp/refl-flake-review.log`, `/tmp/refl-levels-review.log`,
+`/tmp/refl-isolated-review.log`. Screenshots: `/tmp/refl-reviewed-browser/`.
+The first failed browser run reproduced the stale draft; the subsequent Nix
+and isolated host browser runs both passed after the fix.

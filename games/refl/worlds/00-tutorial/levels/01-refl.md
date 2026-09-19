@@ -3,9 +3,9 @@ id: refl
 index: 1
 title: "refl"
 learning_goals:
-  - "A hole `?` is a place where a proof is missing."
-  - "`refl` proves `x ≡ x` — and `2 + 2 ≡ 4`, because the checker computes."
-  - "The Check / Goal / Give loop."
+  - "Read natural numbers as zero and successors."
+  - "Compute addition using its second argument."
+  - "Distinguish an equality type from a proof of that type."
 unlocks:
   commands: [load, goal, give]
   lemmas:
@@ -14,29 +14,101 @@ unlocks:
       lean: "rfl"
       bend2: "{==}"
       doc: "refl.md"
+  syntax:
+    - name: "natural numbers"
+      agda: "ℕ, zero, suc"
+      lean: "MyNat, zero, succ"
+      bend2: "Nat, Zero{}, Succ{…}"
+      doc: "numbers.md"
+    - name: "equality"
+      agda: "_≡_"
+      lean: "="
+      bend2: "{a == b : Nat}"
+      doc: "equality.md"
+    - name: "addition"
+      agda: "_+_"
+      lean: "+"
+      bend2: "Refl.add"
+      doc: "addition.md"
+    - name: "explicit proof type"
+      agda: "let, :, in"
+      lean: "by, change"
+      bend2: "(proof : Type)"
+      doc: "explicit-proof.md"
 hints:
-  - text: "Press **Check** (or `C-c C-l`). The hole `?` becomes a numbered goal `?0`, and the right panel tells you what it wants: `2 + 2 ≡ 4`."
-  - text: "Type `refl` in the expression box and press **Give** (`C-c C-SPC`). Agda replaces the hole with your expression if it has the right type."
-  - text: "Why does `refl : 2 + 2 ≡ 4` type-check? Because `2 + 2` *computes* to `4` by the definition of `_+_`, and `refl` proves any `x ≡ x` when both sides compute to the same thing."
+  - text: "Start by unfolding addition and expanding both endpoints. Write `2` as `suc (suc zero)` and the right-hand `4` as `suc (suc (suc (suc zero)))`. Apply the rule for the second argument of `+`."
+    hidden: true
+  - text: "The left endpoint reduces as `2 + suc (suc zero)` → `suc (2 + suc zero)` → `suc (suc (2 + zero))` → `suc (suc 2)`. The first two steps use the successor rule; the last uses the zero rule."
+    hidden: true
+  - text: "Expand the remaining `2`: the left endpoint is `suc (suc (suc (suc zero)))`. The right endpoint has exactly that form too. The equality is a type asking for a proof; the computation has made its two endpoints identical."
+    hidden: true
+  - text: |-
+      Make this normalized equality explicit with a typed local proof:
+
+      ```agda
+      two-plus-two =
+        let same : suc (suc (suc (suc zero))) ≡ suc (suc (suc (suc zero)))
+            same = refl
+        in same
+      ```
+
+      `let` introduces a local name; `same : …` gives its type; `same = refl` supplies its value; `in same` returns that proof. Keep the two `same` lines aligned. `refl` proves equality of identical terms. Agda accepts this proof for the original statement because its endpoints compute to these terms.
+    hidden: true
+  - text: |-
+      Now try the short proof:
+
+      ```agda
+      two-plus-two = refl
+      ```
+
+      The checker performs the very same reductions automatically. You can edit the whole definition and **Check**, or after checking the hole, select it and **Give** `refl` in the expression box.
     hidden: true
 ---
-Your first proof. The statement is fixed (you cannot edit the grey box); your
-job is the definition below it, which currently ends in a **hole** `?`.
+A natural number counts how many times we take a **successor**, starting at
+zero. In Agda the type of natural numbers is `ℕ`, its first constructor is
+`zero`, and `suc n` means the successor of `n` (one more).
+Numerals are convenient notation for these constructor terms:
 
-The loop you will repeat a thousand times:
+```agda
+0  =  zero
+1  =  suc zero
+2  =  suc (suc zero)
+4  =  suc (suc (suc (suc zero)))
+```
 
-1. **Check** the file (`C-c C-l`). Agda reads it and turns every `?` into a
-   numbered goal.
-2. Select a goal and ask for its **Goal** (`C-c C-,`) to see what type it wants
-   and what is in scope.
-3. Write an expression of that type in the box and **Give** it
-   (`C-c C-SPC`). If it type-checks, it replaces the hole.
+These lines explain notation; they are not code to paste into the editor.
+Parentheses group the argument of a function such as `suc`.
 
-When no holes and no errors remain, the level is solved.
+The fixed statement `two-plus-two : 2 + 2 ≡ 4` names a proposition:
+`2 + 2 ≡ 4` is an **equality type**, saying the two numbers are equal.
+The colon reads “has type”. A proof is a value of that type; the statement
+itself is not the proof. Your definition below it currently contains `?`,
+a hole where that proof belongs.
+
+Before proving anything, compute. The game's addition has these two rules:
+
+```agda
+m + zero  = m
+m + suc n = suc (m + n)
+```
+
+Here `m` and `n` stand for any natural numbers. Addition inspects its
+**second argument**: zero returns `m`; a successor puts `suc` outside a
+smaller addition. The `=` in these defining equations explains computation;
+`≡` in your statement is the proposition you must prove.
+
+Use the hints in order to compute `2 + 2` and expand the right-hand `4`,
+then build an explicit proof before trying its shorter form. Hints and
+**Available building blocks** are available before any Check.
+
+**Check** (`C-c C-l`) finds holes and errors. Select a hole and press
+**Goal** (`C-c C-,`) to inspect its required type. Edit the definition and
+Check again, or **Give** (`C-c C-SPC`) an expression for the selected hole.
+No holes and no errors means solved.
 
 <!-- @conclusion -->
-That is the whole game: `refl` says "both sides are the same", and the type
-checker *computes* to find out. Everything else is learning to bring the two
-sides of an equation to the point where `refl` works.
-
-Next: the same thing with a variable in the way.
+You have seen two proofs: one states the normalized equality explicitly;
+the other asks `refl` to prove the original equality directly. Both work
+because the two endpoints compute to the same constructor term. This is
+called **definitional equality**. Reflexivity does not prove every equality:
+it works here because computation makes the endpoints identical.

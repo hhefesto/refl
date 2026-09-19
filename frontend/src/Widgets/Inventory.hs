@@ -3,6 +3,7 @@ module Widgets.Inventory
   ( inventoryPage
   , unlockedItems
   , unlockedCommands
+  , buildingBlocks
   ) where
 
 import           Control.Monad   (forM_)
@@ -30,6 +31,18 @@ unlockedItems m wid idx = concat
 
 unlockedCommands :: Manifest -> WorldId -> Int -> [CommandId]
 unlockedCommands m wid idx = [ c | i <- unlockedItems m wid idx, Just c <- [iiCommand i] ]
+
+-- | Vocabulary available to attempt this level, independent of completion.
+-- Only explicitly documented items in the selected language are shown.
+buildingBlocks :: Widget' t m => Manifest -> LangId -> WorldId -> Int -> m ()
+buildingBlocks m lang wid idx = elClass "section" "building-blocks inventory card" $ do
+  el "h2" (text "Available building blocks")
+  forM_ [ (i, name, doc) | i <- unlockedItems m wid idx, iiKind i /= ItemCommand
+        , Just name <- [M.lookup lang (iiLangNames i)]
+        , Just doc <- [M.lookup lang (iiDocHtml i)] ] $ \(_, name, doc) ->
+    elClass "div" "item" $ el "details" $ do
+      el "summary" $ el "code" (text name)
+      elClass "div" "prose" (rawHtml doc)
 
 inventoryPage :: Widget' t m => Manifest -> Dynamic t Progress -> Dynamic t LangId -> m ()
 inventoryPage m progress langDyn = do

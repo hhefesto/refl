@@ -158,6 +158,41 @@ main = do
                 wait "hint revealed" ("document.querySelectorAll('.hints .hint.revealed').length === " <> T.pack (show (asInt before + 1)))
               asInt v = case v of Number n -> (round n :: Int); _ -> 0
               verdict cls = wait ("verdict " ++ cls) ("Boolean(document.querySelector('.verdict." <> T.pack cls <> "'))")
+              buildingBlocks lang = do
+                wait "building blocks before completion" "document.querySelectorAll('.building-blocks details').length === 5"
+                let (number, equality, proofSyntax, foreignNumber) = case lang of
+                      "agda" -> ("ℕ, zero, suc", "_≡_", "let, :, in", "MyNat")
+                      "lean" -> ("MyNat, zero, succ", "=", "by, change", "Zero{}")
+                      _ -> ("Nat, Zero{}, Succ{…}", "{a == b : Nat}", "(proof : Type)", "MyNat")
+                wait "language-specific building blocks" ("(() => {const t=document.querySelector('.building-blocks').textContent; return "
+                  <> T.intercalate " && " ["t.includes(" <> js s <> ")" | s <- [number, equality, proofSyntax]]
+                  <> " && !t.includes(" <> js foreignNumber <> ");})()")
+              -- Check the actual authored proofs served in hints, through the
+              -- normal server restrictions, rather than a duplicate fixture.
+              firstProofs lang wrong = do
+                buildingBlocks lang
+                count <- eval "document.querySelectorAll('.hints .hint.revealed').length"
+                forM_ [asInt count .. 4] $ \_ -> hint
+                wait "computation before reflexivity" "(() => {const h=[...document.querySelectorAll('.hints .hint')]; return h.length===5 && h[0].textContent.includes('unfolding addition') && h[1].textContent.includes('left endpoint reduces') && h[2].textContent.includes('right endpoint') && h[3].querySelector('pre code') && h[4].textContent.includes('short proof');})()"
+                forM_ [3 :: Int, 4] $ \i -> do
+                  proof <- eval ("document.querySelectorAll('.hints .hint')[" <> T.pack (show i) <> "].querySelector('pre code').textContent")
+                  case proof of
+                    String code -> editor code
+                    _ -> fail "Missing authored proof"
+                  click "Check"
+                  verdict "solved"
+                editor wrong
+                click "Check"
+                verdict "failed"
+              -- Dispatch input and navigate in the SAME browser task. No
+              -- settle or debounce is allowed between them.
+              immediateDraft lang draft = do
+                run ("(() => {const e=document.querySelector('textarea'); e.value=" <> js draft
+                  <> "; e.dispatchEvent(new Event('input',{bubbles:true})); e.dataset.departing='true'; location.hash="
+                  <> js ("#/w/tutorial/l/2/" <> lang) <> "; return true;})()")
+                ready
+                routeLang lang 1
+                wait "immediate navigation preserves exact draft" ("document.querySelector('textarea').value === " <> js draft)
           void (rpc "Runtime.enable" (object []))
           -- Page.addScriptToEvaluateOnNewDocument is honoured only with Page events enabled
           void (rpc "Page.enable" (object []))
@@ -167,6 +202,7 @@ main = do
           contrast
           wait "default dark colors" "getComputedStyle(document.body).backgroundColor === 'rgb(21, 25, 31)'"
           wait "example collapsed" "document.querySelector('.worked-example')?.open === false"
+          buildingBlocks "agda"
           hint
           click "Check"
           verdict "unsolved"
@@ -208,6 +244,7 @@ main = do
           verdict "solved"
           snapshot "dark-solved"
           wait "Give edits the textarea" "document.querySelector('textarea').value.includes('refl')"
+          firstProofs "agda" "two-plus-two = zero\n"
           editor "two-plus-two = zero\n"
           click "Check"
           verdict "failed"
@@ -217,9 +254,11 @@ main = do
           route 2
           route 1
           wait "Unicode draft restored" "document.querySelector('textarea').value.includes('λ → ℕ 😀')"
+          forM_ [1 :: Int .. 5] $ \i -> immediateDraft "agda" ("two-plus-two = ?\n-- λ → ℕ 😀 immediate " <> T.pack (show i) <> "\n")
           choose "lean"
           wait "Lean instructions and commands" "document.querySelector('.col-left').textContent.includes('rfl') && !document.querySelector('.expr') && [...document.querySelectorAll('.commands button')].map(b => b.textContent).join(',') === 'Check,Goal'"
           wait "language change resets help" "document.querySelectorAll('.hints .hint.revealed').length === 0 && !document.querySelector('.worked-example').open"
+          buildingBlocks "lean"
           unless skipLean $ do
             click "Check"
             verdict "unsolved"
@@ -238,9 +277,11 @@ main = do
             editor "  rfl\n  -- Lean draft\n"
             click "Check"
             verdict "solved"
-            threadDelay 2300000
+            firstProofs "lean" "  exact (zero : MyNat)\n"
+            immediateDraft "lean" "  sorry\n  -- Lean draft\n"
           tab "bend2"
           wait "Bend instructions and commands" "document.querySelector('.col-left').textContent.includes('{==}') && document.querySelector('.expr input').placeholder.includes('Bend') && [...document.querySelectorAll('.commands button')].map(b => b.textContent).join(',') === 'Check,Goal,Give'"
+          buildingBlocks "bend2"
           click "Check"
           verdict "unsolved"
           click "Goal"
@@ -252,7 +293,12 @@ main = do
           editor "def two_plus_two():\n  {==}\n# Bend draft\n"
           click "Check"
           verdict "solved"
-          threadDelay 2300000
+          firstProofs "bend2" "def two_plus_two():\n  Zero{}\n"
+          immediateDraft "bend2" "def two_plus_two():\n  {==}\n# Bend draft\n"
+          -- Return to the selector-created history entry after the draft
+          -- navigation stress, then exercise back/forward between languages.
+          tab "lean"
+          tab "bend2"
           run "history.back(); true"
           wait "back restores Lean selector" "document.querySelector('#language')?.value === 'lean' && document.querySelector('.pill.on')?.textContent === 'lean'"
           unless skipLean $ wait "Lean draft isolated" "document.querySelector('textarea')?.value.includes('Lean draft') === true && !document.querySelector('textarea').value.includes('Bend draft')"

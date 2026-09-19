@@ -54,19 +54,30 @@ Defaults are 2 GiB aggregate memory, no swap, one CPU quota, four sessions,
 Ingress is opt-in; local operation needs neither nginx nor PostgreSQL.
 
 The consumer is `~/src/etc-nixos-configuration` (input `github:hhefesto/refl`,
-profile blocks for olimpo on loopback and for xty on the public address).
+profile blocks for olimpo on loopback and xty behind nginx at
+https://refl.hhefesto.dev).
 Build as your user and activate with `--sudo` so evaluation keeps your private
 Git access:
 
 ```sh
 nixos-rebuild build --flake ~/src/etc-nixos-configuration#olimpo
 nixos-rebuild switch --sudo --flake ~/src/etc-nixos-configuration#olimpo
-nix run ~/src/etc-nixos-configuration#deploy-xty      # production, gated
 ```
 
-A pushed commit is what the consumer sees: bump its `refl` input
-(`nix flake lock --update-input refl`) after pushing. See
-[the rollout handoff](HANDOFF-ROLLOUT.md).
+For local review, pin an immutable local snapshot with
+`nix flake lock --override-input refl path:/nix/store/<reviewed-source>` in
+the consumer. Its ordinary build and switch commands then use that snapshot;
+do not update unrelated inputs. For publication, push only when authorized
+and pin the approved remote revision. Both checkouts currently use `master`.
+See [the current handoff](HANDOFF.md) for exact review and rollout status.
+
+Production requires explicit approval after local assessment. The consumer's
+`deploy-xty` pipeline checks backups and service health, but currently lacks
+a gate against restarting unrelated services. Before activation, compare the
+candidate with xty's running system and block shared nginx, PostgreSQL,
+networking, docxty or other unrelated restarts/reloads. Preserve backup checks
+and disabled automatic rollback, and monitor external availability and service
+PIDs. Historical deployment evidence is in [the archive](HANDOFF-ROLLOUT.md).
 
 `nix run .#verify-local` checks isolated proofs, Chromium and HTTP/WebSocket
 sessions outside the Nix builder (bubblewrap cannot run inside it; `nix flake
@@ -123,6 +134,12 @@ languages/bend2   Refl.bend, the prelude copied next to every Bend level; notes 
 ```
 
 ## Authoring a level
+
+Hints can be revealed in order before Check. The lesson's **Available building
+blocks** panel shows documented inventory items available at that level in
+the selected language, independent of completion. The separate Inventory page
+records completed levels. Teaching proofs are authored in lesson Markdown;
+private canonical solutions are never used to populate the lesson panel.
 
 A level is `levels/NN-<id>.md` (front matter + intro + `<!-- @conclusion -->`
 + conclusion) and one source per language, split into four regions:

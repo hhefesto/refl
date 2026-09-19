@@ -9,13 +9,15 @@ import qualified Data.Map               as M
 import           Data.Maybe             (listToMaybe)
 import           Data.Text              (Text)
 import qualified Data.Text              as T
+import qualified GHCJS.DOM.HTMLTextAreaElement as TA
+import           Language.Javascript.JSaddle (liftJSM)
 import           Reflex.Dom.Core
 
 import           Client
 import           Refl.Protocol
 import           Widgets.Common
 import           Widgets.Editor
-import           Widgets.Inventory      (unlockedCommands)
+import           Widgets.Inventory      (unlockedCommands, buildingBlocks)
 
 data Status = Idle | Checking | Done CheckResult
 
@@ -89,6 +91,7 @@ levelPage m leaveE lang wid idx =
           rawHtml (llIntroHtml ll)
           elClass "ul" "goals" $ forM_ (llLearningGoals ll) $ \g -> el "li" (rawHtml g)
         hintsW ll
+        buildingBlocks m lang wid (lIndex l)
         when (not (T.null (llExampleCode ll))) $
           elClass "details" "worked-example prose card" $ do
             el "summary" (text "A similar problem, worked out")
@@ -201,7 +204,12 @@ levelPage m leaveE lang wid idx =
     -- go out after a short pause, and unconditionally on Check and on leaving
     -- the page (the socket closes after the flush).
     debounced <- debounce 1 draftE
-    let draftSaves = leftmost [ debounced, SaveDraft <$> tag (current (eoText ed)) (leftmost [() <$ checkE, leaveE]) ]
+    -- Input-method processing updates eoText asynchronously. Navigation can
+    -- arrive before that update, so flush the actual textarea on departure.
+    -- This also takes precedence over a stale debounce firing in this frame.
+    leavingDraft <- performEvent $ ffor leaveE $ \_ ->
+      SaveDraft <$> liftJSM (TA.getValue (eoRaw ed))
+    let draftSaves = leftmost [ leavingDraft, SaveDraft <$> tagPromptlyDyn (eoText ed) (() <$ checkE), debounced ]
         requestE = leftmost [() <$ checkE, () <$ sendHoleE]
         sendE = mergeWith (++) [ (: []) <$> openE, (: []) <$> checkE, (: []) <$> sendHoleE
                               , (: []) <$> gate (current ((== Ready) <$> session)) draftSaves ]
