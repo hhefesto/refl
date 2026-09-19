@@ -59,7 +59,10 @@ in {
     systemd.services.${cfg.serviceName} = {
       description = "Refl proof game";
       wantedBy = [ "multi-user.target" ];
-      after = [ "network.target" ];
+      # The unit may bind one specific public address (backend.address), which
+      # must exist before the first start.
+      wants = [ "network-online.target" ];
+      after = [ "network-online.target" ];
       serviceConfig = {
         User = cfg.user;
         Group = cfg.group;
