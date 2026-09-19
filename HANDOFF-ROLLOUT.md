@@ -101,3 +101,19 @@ REFL_BROWSER_EXISTING_URL=http://62.238.6.4:3007 FONTCONFIG_FILE=/etc/fonts/font
 ## Rollout log
 
 (filled in below as the xty deployment proceeds)
+
+2026-09-18/19, before the deploy (all run from `~/src/etc-nixos-configuration`,
+branch `refl-xty`, commit `b2fe757`, refl input `f529203`):
+
+- refl: `cabal test all` 6 + 32 + 29; `nix flake check` exit 0 (website,
+  manifest, check-levels 106 in-sandbox, smoke, security, bend, browser);
+  `nix run .#verify-local` 122 isolated checks, browser with all three
+  provers, security suite. gitleaks: no leaks.
+- consumer: `nix run .#check-docxty-backups` passed (timer live, last run ok,
+  snapshot 17 h old with the dump, restic check clean);
+  `checks.pre-deploy-xty` passed (incl. the refl assertions);
+  `nix run .#pre-deploy-xty-live` passed; xty toplevel built
+  (`idkr94pg…-nixos-system-xty-26.11.20260831.34ab990`, 11.1 GiB closure);
+  unit diff against the running generation: only `refl.service` added;
+  kernel 6.12.74 → 6.18.48 (new kernel needs a reboot to take effect; the
+  switch itself does not reboot).
