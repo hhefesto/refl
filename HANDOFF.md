@@ -52,7 +52,7 @@ zero failures, including Lean outside the sandbox. `nix flake check -L`:
 passed after the draft fix (website, manifest, 106 in-sandbox content checks,
 Bend, browser, smoke, security and native suites). Lean prover sessions are
 explicitly skipped inside the Nix sandbox because it lacks `/etc/localtime`.
-Isolated host results and immutable snapshot follow below when complete.
+Completed isolated host results and immutable snapshot are recorded below.
 
 Production read-only health probe: `{"levels":61,"ok":true}` at
 https://refl.hhefesto.dev/api/health. The currently running Olimpo module also
@@ -107,3 +107,36 @@ Logs: `/tmp/refl-flake-review.log`, `/tmp/refl-levels-review.log`,
 `/tmp/refl-isolated-review.log`. Screenshots: `/tmp/refl-reviewed-browser/`.
 The first failed browser run reproduced the stale draft; the subsequent Nix
 and isolated host browser runs both passed after the fix.
+
+## Immutable local candidate
+
+Reviewed implementation commit: `476f27d3d9bb7ebbc3a1ba3a65a2083bfe9223e7`.
+Source: `/nix/store/y3vyjacprm8dpkagr5fiy98b10anl36a-source`, NAR hash
+`sha256-QzAOP7R3u1meVRKGOB2xToCq9TAcTW/jVDUI9qXvrv0=`; retained by the
+`result-reviewed-source` GC root. Subsequent handoff-only commits do not alter
+that reviewed source. Consumer `flake.lock` persistently overrides only `refl`
+with this snapshot (JSON comparison: sole changed node `refl`). Original remote
+input remains `github:hhefesto/refl`; no push or unrelated dependency update.
+Previous refl pin for rollback: `f529203020105b3e995833798348307ab80868a4`.
+
+Consumer configuration commit: `188cc609869d70a929c6c4bad882eb86f49a858d`
+(subsequent commits only finalize handoff records). It has the requested `ns`
+alias, confirmed in the built `etc/zshrc`.
+
+`nixos-rebuild build --flake /home/hhefesto/src/etc-nixos-configuration` passed.
+System: `/nix/store/yqsv22fni68nggn5q0iakm088d86yavd-nixos-system-olimpo-26.11.20260831.34ab990`.
+Refl ExecStart: `/nix/store/f8lx96yyy0hjswwgsk1h8v25447dw793-refl-site/bin/refl-site`.
+Build log: `/tmp/refl-olimpo-build.log`.
+
+**Existing Olimpo configuration drift:** the running system is
+`/nix/store/5pghfdayjcpb2vvjbsbxhl5hmn7cb109-nixos-system-olimpo-26.11.20260916.b1b8759`.
+The checkout pins older dependencies; a full switch would also change many
+unrelated units (including local nginx, PostgreSQL, NetworkManager) and the
+next-boot kernel 6.18.52 → 6.18.48. No unrelated lock inputs were changed to
+resolve this drift. `/tmp/refl-olimpo-unit-diff.txt` records the comparison.
+The user was informed before activation; this build is not a refl-only switch.
+
+Matching activation command, left to the user:
+`nixos-rebuild switch --sudo --flake ~/src/etc-nixos-configuration`.
+Start a new zsh after switching for `ns`. Local activation/lesson approval and
+production approval remain pending. No production deployment or push occurred.
