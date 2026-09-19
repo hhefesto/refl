@@ -9,15 +9,14 @@ descriptions of lesson pages, hints and drafts.
   `~/src/etc-nixos-configuration` pins (input `refl`, no `follows`: the
   provers keep their own nixpkgs pins).
 - **olimpo**: `refl.service` on http://127.0.0.1:3007 (loopback, ingress off).
-- **xty** (production, 62.238.6.4): profile enabled on branch `refl-xty`,
-  plain http on the public address, port 3007 open in the firewall, ingress
-  off because hhefesto.com DNS is still being repaired. Deployment goes
-  through `nix run .#deploy-xty` (docxty backup health → pure checks → live
-  checks → build → deploy-rs). See "Rollout log" below for what actually
-  happened.
-- When DNS is back: set `hostname = "refl.hhefesto.com"`, `ingress.enable =
-  true`, drop `openFirewall`, create the A record, and keep the ACME order
-  unit out of activation until the record resolves (as done for aaspectra).
+- **xty** (production, 62.238.6.4): first deployed 2026-09-18 as plain http
+  on 62.238.6.4:3007 (hhefesto.com had died). Since 2026-09-19 the domain is
+  **hhefesto.dev** and refl is **https://refl.hhefesto.dev** (Cloudflare
+  proxied A record → xty, nginx + ACME from the module's ingress, game
+  server on loopback). Deployment goes through `nix run .#deploy-xty`
+  (docxty backup health → pure checks → live checks → build → deploy-rs).
+  The consumer handoff for the domain move is
+  `~/src/etc-nixos-configuration/HANDOFF.md`.
 
 ## What the Codex pass added (commit `985ff80`) and what the review changed
 
@@ -153,3 +152,13 @@ Pending on the operator's side: olimpo has not been switched to the branch
 xty runs kernel 6.12 until a reboot (6.18 is installed); branch `refl-xty`
 is not merged into master (the stash "WIP before refl-xty" holds the cardano
 work); the https ingress waits for DNS.
+
+2026-09-19, the move to hhefesto.dev (consumer handoff:
+`~/src/etc-nixos-configuration/HANDOFF.md`): proxied A record
+`refl.hhefesto.dev` → xty on Cloudflare, module ingress on (`hostname`,
+nginx + ACME, Let's Encrypt cert issued during the switch, valid to
+2026-12-18), game server back on loopback, port 3007 closed. Verified:
+`https://refl.hhefesto.dev/api/health` → 200 with `__Host-refl; Secure`;
+`refl-browser-test` in existing-service mode against the public https URL
+passed with all three provers through the Cloudflare proxy (WebSockets
+included). Nothing pushed (user's instruction); docs committed locally.

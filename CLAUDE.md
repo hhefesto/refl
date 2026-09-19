@@ -94,7 +94,7 @@ implementations).
   debounced 1 s and flushed on Check and on leaving; hidden hints open at any
   time (user decision, 2026-09-18). The consumer is
   `~/src/etc-nixos-configuration` (input `github:hhefesto/refl`); production
-  is xty at http://62.238.6.4:3007 until hhefesto.com DNS is back.
+  is xty at https://refl.hhefesto.dev (Cloudflare-proxied, since 2026-09-19).
 - A load is Solved only with positive evidence: one goals report, one
   interaction-point list and a checked status. An Error display is the
   whole answer to a failing load; do not demand the goals report then.
