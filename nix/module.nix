@@ -88,7 +88,13 @@ in {
       passwordFile = mkOption {
         type = types.nullOr types.path;
         default = null;
-        description = "File holding the dashboard password, delivered by systemd LoadCredential.";
+        description = ''
+          File holding the dashboard password, delivered to the unit by
+          systemd LoadCredential so it never reaches ExecStart. The host
+          config points this at an agenix secret; this flake ships one at
+          secrets/refl-dashboard-password.age. Unset, and with no password,
+          the dashboard stays off and answers 403.
+        '';
       };
     };
     limits = {
