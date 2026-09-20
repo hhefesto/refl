@@ -48,7 +48,7 @@ verdictText = \case
   Failed -> "Errors"
 
 levelRoute :: WorldId -> Level -> Maybe LangId -> Route
-levelRoute w l = RLevel w (lIndex l)
+levelRoute w l = RLesson w (lId l)
 
 cssClasses :: [Text] -> Text
 cssClasses = T.unwords . filter (not . T.null)

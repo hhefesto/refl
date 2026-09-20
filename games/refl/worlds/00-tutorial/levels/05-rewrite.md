@@ -1,6 +1,6 @@
 ---
 id: rewrite
-index: 4
+index: 5
 title: "rewrite"
 learning_goals:
   - "`rewrite h` rewrites the goal with an equation before the `=`."

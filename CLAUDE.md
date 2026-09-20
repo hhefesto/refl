@@ -61,8 +61,32 @@ implementations).
   mismatch → Failed with the marked line mapped into the user region. Goal
   on a hole re-runs bend with that hole as the only loud one. Levels must
   not define `main` (bend would run it), import, or use `@unsafe`.
+- `_≡⟨⟩_` asserts only that the terms around it are definitionally equal; it
+  is not one reduction step, so a chain may skip as many rungs as it likes and
+  a hole in a *rung* asks for a term (`?0 : ℕ`), not a proof.
+- Lean's meet-in-the-middle is core `conv`: `conv => lhs` / `conv => rhs` plus
+  `change` restates one endpoint, and when both sides reach the same term
+  `conv` closes the goal with no `rfl` typed. `conv_lhs`/`conv_rhs` are
+  Mathlib and are not available here (`unknown tactic`). `?_` cannot stand for
+  a term in `calc` or `show`: it is a *synthetic opaque* metavariable, closed
+  to unification, so a neighbouring `rfl` may not solve it (`rfl has type
+  ?m = ?m but is expected to have type ?m = succ 3`). An ordinary `_` there
+  compiles but is solved silently, so it is no use as a hole. `calc` therefore
+  carries proof holes only, and it has no empty justification slot the way
+  `≡⟨⟩` does — every rung must spell out `:= rfl`.
 - Bend rewrites the other way round from `rw`: `%e : P` with `e : a == b`
   takes `P` = the goal with `_` marking `b`, and leaves `P` with `a` there.
+  `%{{==} : {m == lhs : T}} : {_ == rhs : T}` therefore restates one side, the
+  closest Bend has to `conv`.
+  Base has only `Equal.sym`/`trans`/`cong`. The game's `Refl.step` and
+  `Refl.arrive` helpers check computational paths; `Refl.meet` joins two
+  paths at a common endpoint using symmetry and transitivity. The first
+  lesson teaches these paths and offers native `%` rewrites after completion.
+- Only braces annotate in Bend: `{e : T}` is checked, `(e : T)` is the
+  operator-namespace marker and its type term is silently discarded when no
+  `.method` was parsed, so a wrong type there still prints `All terms check.`
+  (`parse_term_tup`/`parse_term_ns` in `bend2/bend.ts`). Annotations nest:
+  `{{e : T1} : T2}` checks both layers.
 
 ## Rules
 
@@ -73,6 +97,19 @@ implementations).
   NATURAL, and Agda rejects the duplicate. So `Refl.Everything` never
   imports `Refl.Reading.Core`, the flake checks it in a second `agda` run,
   and a stdlib level never imports `Refl.Nat`/`Refl.Eq`.
+- `restrictedSources` forbids unearned **lemma** names only, so syntax such
+  as `≡-Reasoning`'s `begin`/`≡⟨⟩`/`∎` is usable before `trans` is earned
+  even though those combinators are defined with it. Tutorial level 1
+  ("Meet in the middle") documents computational paths (Agda `begin … ∎`,
+  Lean `conv`/`change`, Bend `Refl.step`/`arrive`/`meet`). Level 2 documents
+  reflexivity as syntax, so the primitive remains usable in level 1's
+  native alternative without advertising the shortcut before it; world 1's
+  `+-right-comm` no longer unlocks `≡-Reasoning`.
+- Tutorial is nine levels: 1 "Meet in the middle" and 2 "refl" pose the same
+  `2 + 2 ≡ 4`. Their Agda lemmas must differ (`two-plus-two-by-hand` and
+  `two-plus-two`) because `renderWorldModule` harvests every level's statement
+  and solution into one `Refl/World/Tutorial.agda` with no exclusion flag.
+  Lean and Bend are not harvested, so both keep `two_plus_two…` freely.
 - After adding Agda levels: `refl-check-levels games/refl --emit-world-modules
   languages/agda`, then check `nix build .#agdaSupport`.
 - `nix flake check` must stay green: protocol round-trips, content specs,

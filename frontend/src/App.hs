@@ -42,9 +42,9 @@ bodyW = mdo
   -- directly on a level page: it rewrites the hash and the route answers, so
   -- a switch mounts the page exactly once. Nothing here refers forward to an
   -- event that is built later: the dropdown only follows the route.
-      routeLang = fmapMaybe (\case Just (RLevel _ _ (Just lg)) -> Just lg; _ -> Nothing)
+      routeLang = fmapMaybe (\case Just (RLevel _ _ (Just lg)) -> Just lg; Just (RLesson _ _ (Just lg)) -> Just lg; _ -> Nothing)
         (leftmost [tag (current routeDyn) pb, updated routeDyn])
-      onLevel = \case Just (RLevel {}) -> True; _ -> False
+      onLevel = \case Just (RLevel {}) -> True; Just (RLesson {}) -> True; _ -> False
   -- the language the route asks for, for marking the selected option
   routeLangDyn <- holdDyn "agda" (unLangId <$> routeLang)
   chosenE <- elClass "header" "top" $ do
@@ -66,13 +66,17 @@ bodyW = mdo
     pure (LangId <$> _selectElement_change sel)
   let chosenElsewhere = gate (not . onLevel <$> current routeDyn) chosenE
       chosenOnLevel = attachWithMaybe
-        (\r lg -> case r of Just (RLevel w n _) -> Just (RLevel w n (Just lg)); _ -> Nothing)
+        (\r lg -> case r of
+          Just (RLevel w n _) -> Just (RLevel w n (Just lg))
+          Just (RLesson w n _) -> Just (RLesson w n (Just lg))
+          _ -> Nothing)
         (current routeDyn) chosenE
   langDyn <- holdUniqDyn =<< holdDyn (LangId "agda") (leftmost [routeLang, chosenElsewhere])
   performEvent_ $ ffor chosenOnLevel $ \r -> liftJSM $ void $ eval
     ("window.location.hash = '" <> encodeRoute r <> "'" :: T.Text)
   pageDyn <- holdUniqDyn $ (\mm mr lg -> (mm, mr, case mr of
     Just (RLevel _ _ ml) -> fromMaybe lg ml
+    Just (RLesson _ _ ml) -> fromMaybe lg ml
     _ -> lg)) <$> manifestDyn <*> routeDyn <*> langDyn
   -- The level page flushes its draft and then closes its socket on leaving
   -- (Client.connect); both must run while the page is still mounted, so the
@@ -80,6 +84,10 @@ bodyW = mdo
   switchE <- delay 0.15 (updated pageDyn)
   initialPage <- sample (current pageDyn)
   shownDyn <- holdDyn initialPage switchE
+  let lessonPage m lg wid lid =
+        case [lIndex l | w <- mWorlds m, wId w == wid, l <- wLevels w, lId l == lid] of
+          n : _ -> levelPage m (() <$ updated pageDyn) lg wid n
+          [] -> el "p" (text "No such level.") >> pure never
   solvedE <- el "main" $ switchHold never =<< dyn (ffor shownDyn $ \(mm, mr, lg) ->
     case mm of
       Nothing -> el "p" (text "Loading the game…") >> pure never
@@ -87,6 +95,10 @@ bodyW = mdo
         Nothing -> el "p" (text "404 — no such page.") >> pure never
         Just RWorldMap -> worldMap m progressDyn langDyn >> pure never
         Just (RWorld w) -> worldPage m progressDyn langDyn w >> pure never
-        Just (RLevel w n _) -> levelPage m (() <$ updated pageDyn) lg w n
+        Just (RLevel w n _) ->
+          case if w == WorldId "tutorial" then legacyTutorialLevel n else Nothing of
+            Just lid -> lessonPage m lg w lid
+            Nothing -> levelPage m (() <$ updated pageDyn) lg w n
+        Just (RLesson w lid _) -> lessonPage m lg w lid
         Just RInventory -> inventoryPage m progressDyn langDyn >> pure never)
   void (pure hist)

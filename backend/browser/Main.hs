@@ -122,7 +122,8 @@ main = do
               expression = set (".expr input" :: T.Text)
               ready = wait "session ready" "document.querySelector('.session-status')?.textContent === 'Ready' && !document.querySelector('textarea')?.dataset.departing"
               routeLang lang n = do
-                let hash = "#/w/tutorial/l/" <> T.pack (show (n :: Int)) <> "/" <> lang
+                let lid = ["meet-in-the-middle", "refl", "variable", "cong", "rewrite", "refine", "induction", "sym-trans", "reading-analog"] !! (n - 1 :: Int)
+                    hash = "#/w/tutorial/level/" <> lid <> "/" <> lang
                 run ("if(location.hash !== " <> js hash <> ") {const e=document.querySelector('textarea'); if(e) e.dataset.departing='true'; location.hash=" <> js hash <> ";} true")
                 wait "language and editor agree" ("document.querySelector('#language')?.value === " <> js lang <> " && Boolean(document.querySelector('textarea')) && !document.querySelector('textarea').dataset.departing")
                 unless (skipLean && lang == "lean") ready
@@ -159,11 +160,11 @@ main = do
               asInt v = case v of Number n -> (round n :: Int); _ -> 0
               verdict cls = wait ("verdict " ++ cls) ("Boolean(document.querySelector('.verdict." <> T.pack cls <> "'))")
               buildingBlocks lang = do
-                wait "building blocks before completion" "document.querySelectorAll('.building-blocks details').length === 5"
+                wait "building blocks before completion" "document.querySelectorAll('.building-blocks details').length === 4"
                 let (number, equality, proofSyntax, foreignNumber) = case lang of
-                      "agda" -> ("ℕ, zero, suc", "_≡_", "let, :, in", "MyNat")
-                      "lean" -> ("MyNat, zero, succ", "=", "by, change", "Zero{}")
-                      _ -> ("Nat, Zero{}, Succ{…}", "{a == b : Nat}", "(proof : Type)", "MyNat")
+                      "agda" -> ("ℕ, zero, suc", "_≡_", "begin, ≡⟨⟩, ∎", "MyNat")
+                      "lean" -> ("MyNat, zero, succ", "=", "conv, change", "Zero{}")
+                      _ -> ("Nat, Zero{}, Succ{…}", "{a == b : Nat}", "Refl.step, Refl.arrive, Refl.meet", "MyNat")
                 wait "language-specific building blocks" ("(() => {const t=document.querySelector('.building-blocks').textContent; return "
                   <> T.intercalate " && " ["t.includes(" <> js s <> ")" | s <- [number, equality, proofSyntax]]
                   <> " && !t.includes(" <> js foreignNumber <> ");})()")
@@ -172,41 +173,81 @@ main = do
               firstProofs lang wrong = do
                 buildingBlocks lang
                 count <- eval "document.querySelectorAll('.hints .hint.revealed').length"
-                forM_ [asInt count .. 4] $ \_ -> hint
-                wait "computation before reflexivity" "(() => {const h=[...document.querySelectorAll('.hints .hint')]; return h.length===5 && h[0].textContent.includes('unfolding addition') && h[1].textContent.includes('left endpoint reduces') && h[2].textContent.includes('right endpoint') && h[3].querySelector('pre code') && h[4].textContent.includes('short proof');})()"
-                forM_ [3 :: Int, 4] $ \i -> do
-                  proof <- eval ("document.querySelectorAll('.hints .hint')[" <> T.pack (show i) <> "].querySelector('pre code').textContent")
-                  case proof of
-                    String code -> editor code
-                    _ -> fail "Missing authored proof"
+                forM_ [asInt count .. 3] $ \_ -> hint
+                wait "both sides before the meeting point" "(() => {const h=[...document.querySelectorAll('.hints .hint')]; return h.length===4 && h[0].textContent.includes('Walk down from the left') && h[1].textContent.includes('Now walk down from the right') && h[2].textContent.includes('same number') && Boolean(h[3].querySelector('pre code'));})()"
+                proof <- eval "document.querySelectorAll('.hints .hint')[3].querySelector('pre code').textContent"
+                code <- case proof of
+                  String code -> pure code
+                  _ -> fail "Missing authored proof"
+                editor code
+                click "Check"
+                verdict "solved"
+                when (lang == "bend2") $ do
+                  native <- eval "document.querySelector('.conclusion pre code').textContent"
+                  case native of
+                    String nativeCode -> do
+                      editor nativeCode
+                      click "Check"
+                      verdict "solved"
+                      editor (T.replace "Succ{Succ{2n}}" "3n" nativeCode)
+                      click "Check"
+                      verdict "failed"
+                    _ -> fail "Missing native rewrite alternative"
+                -- Wrong numbers in otherwise well-formed demonstrations must
+                -- fail on either path, not merely on supplying a wrong type.
+                let (leftTerm, rightTerm, bad, hole) = case lang of
+                      "agda" -> ("suc (suc 2)", "suc 3", "zero", "?")
+                      "lean" -> ("lhs\n    change succ (succ 2)", "rhs\n    change succ (succ 2)", "", "")
+                      _ -> ("Succ{Refl.add(2n, 1n)}", "Succ{3n}", "3n", "?remaining")
+                    wrongPaths | lang == "lean" =
+                      [T.replace leftTerm "lhs\n    change zero" code, T.replace rightTerm "rhs\n    change zero" code]
+                      | otherwise = [T.replace leftTerm bad code, T.replace rightTerm bad code]
+                    partial | lang == "lean" = "  conv =>\n    lhs\n    change succ (succ 2)\n  sorry\n"
+                            | otherwise = T.replace rightTerm hole code
+                forM_ wrongPaths $ \wrongPath -> do
+                  editor wrongPath
                   click "Check"
-                  verdict "solved"
+                  verdict "failed"
+                editor partial
+                click "Check"
+                verdict "unsolved"
                 editor wrong
                 click "Check"
                 verdict "failed"
+              -- C-c is agda-mode's chord prefix and the browser's Copy. It may
+              -- only arm a chord when nothing is selected, and the second key
+              -- may only be swallowed when it names a command, or the editor
+              -- eats Copy, Paste and Select-all.
+              clipboardKeys = do
+                let press = "(k,sel) => {const t=document.querySelector('textarea');t.focus();t.setSelectionRange(sel[0],sel[1]);const e=new KeyboardEvent('keydown',{key:k,ctrlKey:true,bubbles:true,cancelable:true});t.dispatchEvent(e);return e.defaultPrevented;}"
+                wait "Ctrl+C with a selection stays the clipboard's" ("(() => {const p=" <> press <> "; return p('c',[0,5])===false;})()")
+                wait "Ctrl+V is never swallowed" ("(() => {const p=" <> press <> "; p('c',[0,0]); return p('v',[0,0])===false;})()")
+                wait "Ctrl+X is never swallowed" ("(() => {const p=" <> press <> "; p('c',[0,0]); return p('x',[0,0])===false;})()")
+                wait "C-c C-l is still a chord" ("(() => {const p=" <> press <> "; p('c',[0,0]); return p('l',[0,0])===true;})()")
               -- Dispatch input and navigate in the SAME browser task. No
               -- settle or debounce is allowed between them.
               immediateDraft lang draft = do
                 run ("(() => {const e=document.querySelector('textarea'); e.value=" <> js draft
                   <> "; e.dispatchEvent(new Event('input',{bubbles:true})); e.dataset.departing='true'; location.hash="
-                  <> js ("#/w/tutorial/l/2/" <> lang) <> "; return true;})()")
+                  <> js ("#/w/tutorial/level/refl/" <> lang) <> "; return true;})()")
                 ready
                 routeLang lang 1
                 wait "immediate navigation preserves exact draft" ("document.querySelector('textarea').value === " <> js draft)
           void (rpc "Runtime.enable" (object []))
           -- Page.addScriptToEvaluateOnNewDocument is honoured only with Page events enabled
           void (rpc "Page.enable" (object []))
-          void (rpc "Page.navigate" (object ["url" .= (base ++ "/#/w/tutorial/l/1/agda")]))
+          void (rpc "Page.navigate" (object ["url" .= (base ++ "/#/w/tutorial/level/meet-in-the-middle/agda")]))
           wait "first Check enabled" ("Boolean(" <> button ("Check" :: T.Text) <> " && !" <> button ("Check" :: T.Text) <> ".disabled)")
           theme "dark"
           contrast
           wait "default dark colors" "getComputedStyle(document.body).backgroundColor === 'rgb(21, 25, 31)'"
           wait "example collapsed" "document.querySelector('.worked-example')?.open === false"
           buildingBlocks "agda"
+          wait "first lesson does not reveal the shortcut" "![...document.querySelectorAll('.col-left code')].some(c => ['refl','rfl','{==}'].includes(c.textContent.trim()))"
           hint
           click "Check"
           verdict "unsolved"
-          editor "two-plus-two = ?\n-- retained help\n"
+          editor "two-plus-two-by-hand = ?\n-- retained help\n"
           wait "edits retain hints" "document.querySelectorAll('.hints .hint.revealed').length === 1"
           run "document.querySelector('.worked-example summary').click(); true"
           wait "example source is a different problem" "document.querySelector('.worked-example code').textContent.includes('3 + 1') && !document.querySelector('.worked-example code').textContent.includes('two-plus-two')"
@@ -235,28 +276,35 @@ main = do
           void (rpc "Page.removeScriptToEvaluateOnNewDocument" (object ["identifier" .= blockedId]))
           reload
           theme "dark"
+          -- The chain skeleton the level ships: every bracket empty, and a
+          -- hole per endpoint asking for the term it lands on, not a proof.
+          editor "two-plus-two-by-hand =\n  begin\n    2 + 2        ≡⟨⟩\n    ?            ≡⟨⟩\n    ?            ≡⟨⟩\n    4            ∎\n"
           click "Check"
           verdict "unsolved"
           click "Goal"
-          wait "goal shown" "document.querySelector('.goal .ty')?.textContent.includes('≡') === true"
-          expression "refl"
+          wait "the holes ask for a number" "document.querySelector('.goal .ty')?.textContent.includes('ℕ') === true"
+          expression "suc (suc 2)"
+          click "Give"
+          wait "Give edits the textarea" "document.querySelector('textarea').value.includes('suc (suc 2)')"
+          expression "suc 3"
           click "Give"
           verdict "solved"
           snapshot "dark-solved"
-          wait "Give edits the textarea" "document.querySelector('textarea').value.includes('refl')"
-          firstProofs "agda" "two-plus-two = zero\n"
-          editor "two-plus-two = zero\n"
+          clipboardKeys
+          verdict "solved"
+          firstProofs "agda" "two-plus-two-by-hand = zero\n"
+          editor "two-plus-two-by-hand = zero\n"
           click "Check"
           verdict "failed"
           snapshot "dark-error"
-          editor "two-plus-two = ?\n-- λ → ℕ 😀\n"
+          editor "two-plus-two-by-hand = ?\n-- λ → ℕ 😀\n"
           -- Navigate before the former two-second debounce could fire.
           route 2
           route 1
           wait "Unicode draft restored" "document.querySelector('textarea').value.includes('λ → ℕ 😀')"
-          forM_ [1 :: Int .. 5] $ \i -> immediateDraft "agda" ("two-plus-two = ?\n-- λ → ℕ 😀 immediate " <> T.pack (show i) <> "\n")
+          forM_ [1 :: Int .. 5] $ \i -> immediateDraft "agda" ("two-plus-two-by-hand = ?\n-- λ → ℕ 😀 immediate " <> T.pack (show i) <> "\n")
           choose "lean"
-          wait "Lean instructions and commands" "document.querySelector('.col-left').textContent.includes('rfl') && !document.querySelector('.expr') && [...document.querySelectorAll('.commands button')].map(b => b.textContent).join(',') === 'Check,Goal'"
+          wait "Lean instructions and commands" "document.querySelector('.col-left').textContent.includes('conv') && !document.querySelector('.expr') && [...document.querySelectorAll('.commands button')].map(b => b.textContent).join(',') === 'Check,Goal'"
           wait "language change resets help" "document.querySelectorAll('.hints .hint.revealed').length === 0 && !document.querySelector('.worked-example').open"
           buildingBlocks "lean"
           unless skipLean $ do
@@ -264,7 +312,7 @@ main = do
             verdict "unsolved"
             hint
             reload
-            wait "Lean deep link synchronizes header" "document.querySelector('#language')?.value === 'lean' && document.querySelector('.col-left')?.textContent.includes('rfl') === true"
+            wait "Lean deep link synchronizes header" "document.querySelector('#language')?.value === 'lean' && document.querySelector('.col-left')?.textContent.includes('conv') === true"
           unless skipLean $ do
             editor "  sorry\n  -- Lean draft\n"
             click "Check"
@@ -280,21 +328,26 @@ main = do
             firstProofs "lean" "  exact (zero : MyNat)\n"
             immediateDraft "lean" "  sorry\n  -- Lean draft\n"
           tab "bend2"
-          wait "Bend instructions and commands" "document.querySelector('.col-left').textContent.includes('{==}') && document.querySelector('.expr input').placeholder.includes('Bend') && [...document.querySelectorAll('.commands button')].map(b => b.textContent).join(',') === 'Check,Goal,Give'"
+          wait "Bend instructions and commands" "document.querySelector('.col-left').textContent.includes('Refl.step') && document.querySelector('.expr input').placeholder.includes('Bend') && [...document.querySelectorAll('.commands button')].map(b => b.textContent).join(',') === 'Check,Goal,Give'"
           buildingBlocks "bend2"
           click "Check"
           verdict "unsolved"
           click "Goal"
           wait "Bend goal" "document.querySelector('.goal .ty')?.textContent.includes('Nat') === true"
           snapshot "bend-goal"
-          expression "{==}"
+          expression "Succ{Succ{2n}}"
+          click "Give"
+          wait "Give edits the textarea" "document.querySelector('textarea').value.includes('Succ{Succ{2n}}')"
+          verdict "unsolved"
+          expression "Succ{Succ{2n}}"
           click "Give"
           verdict "solved"
-          editor "def two_plus_two():\n  {==}\n# Bend draft\n"
+          -- Definitional equality also permits the later shortcut here.
+          editor "def two_plus_two_by_hand():\n  {==}\n# Bend draft\n"
           click "Check"
           verdict "solved"
-          firstProofs "bend2" "def two_plus_two():\n  Zero{}\n"
-          immediateDraft "bend2" "def two_plus_two():\n  {==}\n# Bend draft\n"
+          firstProofs "bend2" "def two_plus_two_by_hand():\n  Zero{}\n"
+          immediateDraft "bend2" "def two_plus_two_by_hand():\n  {==}\n# Bend draft\n"
           -- Return to the selector-created history entry after the draft
           -- navigation stress, then exercise back/forward between languages.
           tab "lean"
@@ -310,6 +363,18 @@ main = do
           run "location.hash='#/w/addition/l/1/lean'; true"
           wait "unavailable language" "Boolean(document.querySelector('.unavailable')) && !document.querySelector('textarea') && document.querySelector('#language').value === 'lean'"
           routeLang "bend2" 1
+          -- Reflexivity is documented only in the follow-up lesson. Test its
+          -- actual teaching snippet, in addition to private canonical proofs.
+          forM_ (if skipLean then ["agda", "bend2"] else ["agda", "lean", "bend2"]) $ \lg -> do
+            routeLang lg 2
+            forM_ [1 :: Int .. 4] $ \_ -> hint
+            short <- eval "document.querySelectorAll('.hints .hint')[3].querySelector('pre code').textContent"
+            case short of
+              String code -> editor code
+              _ -> fail "Missing authored short proof"
+            click "Check"
+            verdict "solved"
+          routeLang "bend2" 2
           run "location.hash='#/inventory'; true"
           wait "Bend inventory" "document.querySelector('.inventory')?.textContent.includes('{==}') === true && !document.querySelector('.inventory').textContent.includes('Refine')"
           run "document.querySelectorAll('.inventory details').forEach(d => d.open=true); true"
@@ -320,6 +385,9 @@ main = do
           wait "inventory follows the selector" "!document.querySelector('.inventory').textContent.includes('{==}')"
           unless skipLean $ wait "Lean inventory" "document.querySelector('.inventory')?.textContent.includes('rfl') === true"
           route 1
+          run "location.hash='#/w/tutorial/l/2/agda'; true"
+          wait "legacy bookmark opens variable, not refl" "document.querySelector('.statement')?.textContent.includes('same :') === true"
+          route 1
           Right game <- loadGame games
           let tutorial = head [w | w <- lgWorlds game, wmId (lwMeta w) == "tutorial"]
           forM_ (lwLevels tutorial) $ \level -> do
@@ -328,7 +396,7 @@ main = do
             editor (lsTemplate src)
             click "Check"
             verdict "unsolved"
-            if lmIndex (llMeta level) == 6 then do
+            if lmId (llMeta level) == "induction" then do
               expression "x"
               click "Case split"
               verdict "unsolved"
@@ -349,7 +417,7 @@ main = do
               editor (lsSolution src)
               click "Check"
               verdict "solved"
-          route 8
+          route 9
           run "location.hash='#/'; true"
           wait "world map" "Boolean(document.querySelector('.map svg'))"
           snapshot "dark-map"
@@ -357,7 +425,7 @@ main = do
           contrast
           snapshot "light-map"
           click "Theme: Light"
-          route 8
+          route 9
           -- A real server failure must disable commands and offer Retry.
           when (isNothing existing) $ do
             readIORef server >>= stopServer

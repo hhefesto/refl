@@ -28,7 +28,7 @@ suc-+ x (suc y) = cong suc (suc-+ x y)
 +-assoc x y (suc z) = cong suc (+-assoc x y z)
 
 
--- +-right-comm and ≡-Reasoning
+-- +-right-comm
 +-right-comm : ∀ (x y z : ℕ) → (x + y) + z ≡ (x + z) + y
 
 +-right-comm x y z =

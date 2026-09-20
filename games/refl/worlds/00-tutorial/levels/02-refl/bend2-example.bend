@@ -8,4 +8,4 @@ law example_sum:
 # example shown below
 # @solution
 def example_sum():
-  ({==} : {Succ{Succ{Succ{Succ{Zero{}}}}} == Succ{Succ{Succ{Succ{Zero{}}}}} : Nat})
+  {==}

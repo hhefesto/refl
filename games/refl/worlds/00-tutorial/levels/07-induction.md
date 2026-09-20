@@ -1,6 +1,6 @@
 ---
 id: induction
-index: 6
+index: 7
 title: "Case split is induction"
 learning_goals:
   - "**Case split** (`C-c C-c`) on a variable replaces one clause by one per constructor."

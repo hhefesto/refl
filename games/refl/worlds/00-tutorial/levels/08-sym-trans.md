@@ -1,6 +1,6 @@
 ---
 id: sym-trans
-index: 7
+index: 8
 title: "sym and trans"
 learning_goals:
   - "`sym : x ≡ y → y ≡ x` flips an equation; `trans : x ≡ y → y ≡ z → x ≡ z` chains two."

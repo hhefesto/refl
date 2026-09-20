@@ -38,7 +38,7 @@ worldState m p lang w
   | otherwise = WLocked
  where
   byId = M.fromList [ (wId x, x) | x <- mWorlds m ]
-  depDone d = maybe True (worldDone p lang) (M.lookup d byId)
+  depDone d = maybe True (worldPrerequisiteDone p lang) (M.lookup d byId)
 
 svgNS :: Maybe Text
 svgNS = Just "http://www.w3.org/2000/svg"

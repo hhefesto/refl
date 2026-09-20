@@ -1,6 +1,6 @@
 ---
 id: cong
-index: 3
+index: 4
 title: "cong"
 learning_goals:
   - "Hypotheses are just arguments; name them on the left of `=`."

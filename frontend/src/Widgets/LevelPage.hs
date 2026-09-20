@@ -251,7 +251,7 @@ commandsW lang supported unlocked canUse ed = do
   expr <- if lang == LangId "lean" then pure (constDyn "") else elClass "div" "expr" $ do
     i <- inputElement $ def
       & inputElementConfig_elementConfig . elementConfig_initialAttributes .~
-          ("placeholder" =: (if lang == LangId "bend2" then "Bend expression for Give, e.g. {==}" else "Agda expression or variable for an available command") <> "aria-label" =: "Proof expression" <> "class" =: "mono")
+          ("placeholder" =: (if lang == LangId "bend2" then "Bend expression for the selected hole" else "Agda expression or variable for an available command") <> "aria-label" =: "Proof expression" <> "class" =: "mono")
     pure (_inputElement_value i)
   let chordE = ffor (eoChord ed) $ \case
         ChordLoad -> CmdLoad; ChordGoal -> CmdGoal; ChordGive -> CmdGive; ChordRefine -> CmdRefine

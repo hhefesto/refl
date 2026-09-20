@@ -6,7 +6,7 @@ options:
   agda: ["--safe", "--without-K"]
   lean: []
 ---
-Eight levels introduce equality by computation, substitution, induction and
+Nine levels introduce equality by computation, substitution, induction and
 composition of proofs. Each lesson explains the syntax and commands for your
 selected language, with clues and a checked example available from the start.
 

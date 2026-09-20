@@ -64,11 +64,10 @@ nixos-rebuild build --flake ~/src/etc-nixos-configuration#olimpo
 nixos-rebuild switch --sudo --flake ~/src/etc-nixos-configuration#olimpo
 ```
 
-For local review, pin an immutable local snapshot with
-`nix flake lock --override-input refl path:/nix/store/<reviewed-source>` in
-the consumer. Its ordinary build and switch commands then use that snapshot;
-do not update unrelated inputs. For publication, push only when authorized
-and pin the approved remote revision. Both checkouts currently use `master`.
+For local review, publish the reviewed refl revision to GitHub and update only
+the consumer's refl input with `nix flake update refl`. Its ordinary build and
+switch commands then use that locked revision. Preserve unrelated inputs,
+including the user's chosen kernel. Both checkouts currently use `master`.
 See [the current handoff](HANDOFF.md) for exact review and rollout status.
 
 Production requires explicit approval after local assessment. The consumer's
@@ -141,6 +140,14 @@ the selected language, independent of completion. The separate Inventory page
 records completed levels. Teaching proofs are authored in lesson Markdown;
 private canonical solutions are never used to populate the lesson panel.
 
+Tutorial begins with **Meet in the middle**, then **refl**, both proving
+`2 + 2 = 4`. Bend offers two approaches: named computational paths in the
+exercise and native `%` rewrites after completion. The next lesson explains
+why reflexivity alone suffices. New lesson links use stable identifiers;
+old numeric Tutorial links retain their original destinations. Completing
+the original eight lessons still satisfies later worlds' prerequisites,
+while the new introduction retains its own completion and draft keys.
+
 A level is `levels/NN-<id>.md` (front matter + intro + `<!-- @conclusion -->`
 + conclusion) and one source per language, split into four regions:
 
@@ -200,6 +207,6 @@ cabal run refl-check-levels -- games/refl --emit-world-modules languages/agda
 
 ## Status
 
-Worlds 0–4 (Tutorial, Addition, Multiplication, Logic, Equality: 45 levels)
+Worlds 0–4 (Tutorial, Addition, Multiplication, Logic, Equality: 46 levels)
 are fully playable in Agda; the Tutorial is also playable in Lean 4 and in
 Bend 2. Worlds 5–18 are planned with learning goals per level (see the map).

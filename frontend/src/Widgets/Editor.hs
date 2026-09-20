@@ -35,6 +35,20 @@ import           Widgets.InputTable          (agdaTable)
 data Chord = ChordLoad | ChordGoal | ChordGive | ChordRefine | ChordCase | ChordAuto | ChordNormalise | ChordInfer
   deriving (Eq, Show)
 
+-- | The second key of a @C-c@ chord. Anything not listed here is not ours:
+-- the browser keeps it, which is what leaves Ctrl+V and Ctrl+X alone.
+chordFor :: Text -> Maybe Chord
+chordFor k = case k of
+  "l" -> Just ChordLoad
+  "," -> Just ChordGoal
+  " " -> Just ChordGive
+  "r" -> Just ChordRefine
+  "c" -> Just ChordCase
+  "a" -> Just ChordAuto
+  "n" -> Just ChordNormalise
+  "d" -> Just ChordInfer
+  _   -> Nothing
+
 data EditorConfig t = EditorConfig
   { ecInitial     :: Text
   , ecSetText     :: Event t Text                 -- ^ server rewrote the text
@@ -67,28 +81,31 @@ editor cfg = elClass "div" "editor-wrap" $ mdo
   let raw = _textAreaElement_raw ta
   overlayEl <- pure ()  -- overlay is the first child; scroll sync below finds it by DOM
   chordRef <- liftIO (newIORef False)
-  -- keydown: chords and preventDefault for C-c
+  -- keydown: agda-mode's C-c chords, without stealing the clipboard.
+  -- C-c is also Copy, so it only arms a chord when nothing is selected
+  -- (copying a selection is what the player meant) and it never calls
+  -- preventDefault: copying an empty selection is a no-op anyway. The
+  -- second key is swallowed only when it names a command, so C-c C-v,
+  -- C-c C-x and the rest still reach the browser as clipboard keys.
   keyE <- wrapDomEvent raw (`EventM.on` GE.keyDown) $ do
     e <- EventM.event
     ctrl <- KE.getCtrlKey e
     key <- KE.getKey e
     armed <- liftIO (readIORef chordRef)
     if ctrl && key == "c" && not armed
-      then do EventM.preventDefault; liftIO (writeIORef chordRef True); pure Nothing
+      then do
+        selected <- liftJSM $ do
+          a <- TA.getSelectionStart raw
+          b <- TA.getSelectionEnd raw
+          pure (a /= b)
+        liftIO (writeIORef chordRef (not selected))
+        pure Nothing
       else if armed && ctrl
         then do
-          EventM.preventDefault
           liftIO (writeIORef chordRef False)
-          pure $ case T.toLower key of
-            "l" -> Just ChordLoad
-            "," -> Just ChordGoal
-            " " -> Just ChordGive
-            "r" -> Just ChordRefine
-            "c" -> Just ChordCase
-            "a" -> Just ChordAuto
-            "n" -> Just ChordNormalise
-            "d" -> Just ChordInfer
-            _   -> Nothing
+          case chordFor (T.toLower key) of
+            Just c  -> do EventM.preventDefault; pure (Just c)
+            Nothing -> pure Nothing
         else do
           when armed (liftIO (writeIORef chordRef False))
           pure Nothing

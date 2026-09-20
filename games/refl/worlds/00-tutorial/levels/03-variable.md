@@ -1,6 +1,6 @@
 ---
 id: variable
-index: 2
+index: 3
 title: "A variable in the way"
 learning_goals:
   - "`∀ (x : ℕ) → …` is a function type: the proof takes `x` as an argument."

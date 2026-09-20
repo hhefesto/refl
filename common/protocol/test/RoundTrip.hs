@@ -18,6 +18,26 @@ main = hspec $ do
     it "decode . encode = Just" $ property $ \r -> decodeRoute (encodeRoute r) == Just (r :: Route)
     it "decodes the bare map" $ decodeRoute "#/" `shouldBe` Just RWorldMap
     it "decodes without a hash" $ decodeRoute "/inventory" `shouldBe` Just RInventory
+    it "keeps Tutorial bookmarks attached to the original lessons" $ do
+      legacyTutorialLevel 1 `shouldBe` Just (LevelId "refl")
+      legacyTutorialLevel 2 `shouldBe` Just (LevelId "variable")
+      legacyTutorialLevel 8 `shouldBe` Just (LevelId "reading-analog")
+    it "uses a stable identifier for the new first lesson" $
+      decodeRoute "#/w/tutorial/level/meet-in-the-middle/bend2"
+        `shouldBe` Just (RLesson (WorldId "tutorial") (LevelId "meet-in-the-middle") (Just (LangId "bend2")))
+  describe "Tutorial prerequisite compatibility" $ do
+    let lg = LangId "agda"
+        ids = [LevelId "meet-in-the-middle"] ++ [i | n <- [1..8], Just i <- [legacyTutorialLevel n]]
+        lesson i = Level i 0 "" "" "" [] [] [] [] (M.singleton lg (LevelLang "" "" False "" "" "" [] [] "" "")) False
+        world = World (WorldId "tutorial") "" "" [] (map lesson ids)
+        keys = map (levelKey (wId world)) (tail ids)
+        old = emptyProgress {prCompleted = M.singleton lg keys}
+    it "preserves prerequisites for a completed old Tutorial without marking the new lesson solved" $ do
+      worldPrerequisiteDone old lg world `shouldBe` True
+      levelKey (wId world) (head ids) `elem` (prCompleted old M.! lg) `shouldBe` False
+    it "still requires every original lesson and keeps languages separate" $ do
+      worldPrerequisiteDone (old {prCompleted = M.singleton lg (tail keys)}) lg world `shouldBe` False
+      worldPrerequisiteDone old (LangId "bend2") world `shouldBe` False
 
 roundTrip :: (Eq a, ToJSON a, FromJSON a) => a -> Bool
 roundTrip x = decode (encode x) == Just x
@@ -74,6 +94,7 @@ instance Arbitrary Route where
   arbitrary = oneof
     [ pure RWorldMap, RWorld <$> arbitrary
     , RLevel <$> arbitrary <*> (getNonNegative <$> arbitrary) <*> arbitrary
+    , RLesson <$> arbitrary <*> arbitrary <*> arbitrary
     , pure RInventory ]
 
 toJSONUnit :: () -> Value

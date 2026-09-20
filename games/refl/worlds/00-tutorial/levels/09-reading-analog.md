@@ -1,6 +1,6 @@
 ---
 id: reading-analog
-index: 8
+index: 9
 title: "Reading: analog₁ (Timely Computation)"
 learning_goals:
   - "`→` associates to the right: `A → B → C` is `A → (B → C)`."

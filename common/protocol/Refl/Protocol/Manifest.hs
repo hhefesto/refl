@@ -5,10 +5,21 @@ module Refl.Protocol.Manifest where
 
 import           Data.Aeson          (FromJSON, ToJSON)
 import           Data.Map            (Map)
+import qualified Data.Map            as M
 import           Data.Text           (Text)
 import           GHC.Generics        (Generic)
 
 import           Refl.Protocol.Types
+
+-- | The added introductory exercise does not revoke downstream access from
+-- players who completed the original Tutorial. It still counts toward the
+-- world's displayed completion; no progress or draft is fabricated/migrated.
+worldPrerequisiteDone :: Progress -> LangId -> World -> Bool
+worldPrerequisiteDone p lang w = not (null required) && all done required
+ where
+  required = [l | l <- wLevels w, M.member lang (lLanguages l)
+                , (wId w, lId l) /= (WorldId "tutorial", LevelId "meet-in-the-middle")]
+  done l = levelKey (wId w) (lId l) `elem` M.findWithDefault [] lang (prCompleted p)
 
 data Manifest = Manifest
   { mTitle     :: Text

@@ -1,6 +1,6 @@
 ---
 id: refine
-index: 5
+index: 6
 title: "Refine and Normalise"
 learning_goals:
   - "**Refine** (`C-c C-r`) puts an expression in the hole and opens new holes for its missing arguments."
