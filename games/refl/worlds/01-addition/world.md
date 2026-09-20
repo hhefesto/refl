@@ -17,5 +17,5 @@ begin
 ```
 
 It is nothing but `trans` with the intermediate terms written down, and it is
-how every serious Agda development (Spectra2, formalTransformer, felix) writes
+how every serious Agda development (Spectra2, `ana`, felix) writes
 its proofs.

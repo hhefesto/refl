@@ -3,9 +3,11 @@
 An [NNG4](https://adam.math.hhu.de/#/g/leanprover-community/nng4)-style game
 for learning **Agda** (and Lean 4, and Bend 2): worlds of levels,
 each a statement with a hole; you fill the hole until the checker says `refl`.
-The curriculum ends where the real code lives — Conal Elliott's `felix`, the
-ICFP 2021 language-derivatives development, and the Agda specifications in
-`formalTransformer` and `aanalyzer-classic`.
+The curriculum ends where the real code lives — Conal Elliott's
+[`felix`](https://github.com/conal/felix), the [ICFP 2021 language-derivatives
+development](https://github.com/conal/paper-2021-language-derivatives), and the
+Agda specifications in [`ana`](https://github.com/hhefesto/ana) and
+[Spectra](https://xpsoasis.org).
 
 Everything is Haskell and Nix: a servant backend that runs one prover process
 per browser session, a reflex-dom client cross-compiled to JavaScript, and a

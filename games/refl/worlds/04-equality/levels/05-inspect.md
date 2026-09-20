@@ -15,7 +15,7 @@ hints:
     hidden: true
 ---
 Older code (and `market/agda/Market/Serialize.agda:94` in
-formalTransformer) remembers a test result with a small record:
+`ana`) remembers a test result with a small record:
 
 ```agda
 record Reveal_·_is_ {A B : Set} (f : A → B) (x : A) (y : B) : Set where

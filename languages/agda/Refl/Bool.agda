@@ -1,6 +1,6 @@
 {-# OPTIONS --safe --without-K #-}
 -- Booleans and the reflection between Bool-valued tests and propositions
--- (the `T`/`≤ᵇ⇒≤` idiom of formalTransformer's Decoding.agda).
+-- (the `T`/`≤ᵇ⇒≤` idiom of ana's Decoding.agda).
 module Refl.Bool where
 
 open import Refl.Nat
