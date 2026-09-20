@@ -42,8 +42,10 @@ library
         App
         Client
         Style
+        Style.Dashboard
         Theme
         Widgets.Common
+        Widgets.Dashboard
         Widgets.Donate
         Widgets.Editor
         Widgets.InputMethod

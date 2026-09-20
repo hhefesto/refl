@@ -113,6 +113,13 @@ executable refl-check-donations
     build-depends:
         refl-backend
 
+executable refl-gen-world-map
+    import:           shared
+    hs-source-dirs:   app-worldmap
+    main-is:          Main.hs
+    build-depends:
+        refl-backend
+
 executable refl-gen-input-table
     import:           shared
     hs-source-dirs:   app-inputmethod

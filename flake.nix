@@ -144,6 +144,7 @@
             install -m644 ${./index.html} $out/index.html
             install -m644 ${./fonts.css} $out/fonts.css
             install -m644 ${./donations.json} $out/donations.json
+            install -m644 ${./world-countries.json} $out/world-countries.json
             cp ${donationQrs}/*.svg $out/qr/
             cp -r ${./fonts}/. $out/fonts/
             for f in JuliaMono-Regular JuliaMono-Bold; do
@@ -397,6 +398,7 @@
               step fallback; curl -fsS http://127.0.0.1:8123/w/tutorial    -o $TMPDIR/deep.html;     grep -q '<script' $TMPDIR/deep.html
               step donations; curl -fsS http://127.0.0.1:8123/donations.json -o $TMPDIR/donations.json; grep -q 'bc1qhf0ym26ag4l2nusgn74p8kg3y9dtgp5q8c6x7s' $TMPDIR/donations.json
               step qr;       curl -fsS http://127.0.0.1:8123/qr/bitcoin.svg -o $TMPDIR/qr.svg;        grep -q '<svg' $TMPDIR/qr.svg
+              step world;    curl -fsS http://127.0.0.1:8123/world-countries.json -o $TMPDIR/world.json; grep -q '"US"' $TMPDIR/world.json
               code() { curl -s -o "$2" -w '%{http_code}' "$1" ''${3:+-u "$3"}; }
               step dashboard-locked;   test "$(code http://127.0.0.1:8123/dashboard/ /dev/null)" = 401
               step dashboard-wrong-pw; test "$(code http://127.0.0.1:8123/dashboard/ /dev/null refl:nope)" = 401

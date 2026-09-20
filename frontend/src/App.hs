@@ -14,6 +14,7 @@ import           Client
 import           Refl.Protocol
 import           Style           (appCss)
 import           Theme
+import           Widgets.Dashboard
 import           Widgets.Donate
 import           Widgets.Inventory
 import           Widgets.LevelPage
@@ -27,8 +28,17 @@ headW = do
   elAttr "link" ("rel" =: "stylesheet" <> "href" =: "/fonts.css") blank
   el "style" (text appCss)
 
+-- | @/dashboard/@ is a path, not a hash route: basic credentials are cached
+-- per directory, so the page and its data have to share one. It is mounted
+-- straight from the location rather than through 'Route', which is
+-- hash-encoded by construction.
 bodyW :: Widget x ()
-bodyW = mdo
+bodyW = do
+  path <- getLocationPath
+  if path == "/dashboard" || path == "/dashboard/" then dashboardPage else gameW
+
+gameW :: Widget x ()
+gameW = mdo
   pb <- getPostBuild
   manifestE <- fetchManifest pb
   progressE <- fetchProgress (leftmost [pb, refreshE, solvedE])

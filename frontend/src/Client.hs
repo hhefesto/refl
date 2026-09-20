@@ -6,6 +6,8 @@ module Client
   , fetchProgress
   , fetchDonations
   , postHit
+  , fetchStats
+  , fetchWorld
   , Conn (..)
   , connect
   ) where
@@ -13,6 +15,7 @@ module Client
 import           Control.Lens                ((&), (.~))
 import           Data.Aeson                  (eitherDecodeStrict, encode)
 import qualified Data.ByteString.Lazy        as BL
+import qualified Data.Map                    as M
 import           Data.Text                   (Text)
 import qualified Data.Text                   as T
 import qualified Data.Text.Encoding          as TE
@@ -44,6 +47,20 @@ fetchDonations :: MonadWidget t m => Event t () -> m (Event t (Maybe Donations))
 fetchDonations e = do
   base <- backendBase
   getAndDecode ((base <> "/donations.json") <$ e)
+
+-- | The dashboard's aggregate. Under @\/dashboard\/@ rather than @\/api@ so
+-- the browser resends the basic credentials it was already asked for.
+fetchStats :: MonadWidget t m => Event t Int -> m (Event t (Maybe Summary))
+fetchStats e = do
+  base <- backendBase
+  getAndDecode (ffor e (\d -> base <> "/dashboard/data.json?days=" <> T.pack (show d)))
+
+-- | Country outlines, fetched only when the dashboard mounts: 130 kB of
+-- geometry has no business in the bundle every visitor downloads.
+fetchWorld :: MonadWidget t m => Event t () -> m (Event t (Maybe (M.Map Text Text)))
+fetchWorld e = do
+  base <- backendBase
+  getAndDecode ((base <> "/world-countries.json") <$ e)
 
 -- | Tell the server which page was opened. Hash routes never reach it, so
 -- this is the only way it learns anything past the first document. Errors
