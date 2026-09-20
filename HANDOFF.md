@@ -4,6 +4,9 @@
 
 Reviewed Claude's staged tutorial split on refl base
 `19bb9b7d177c6c3b53a38d7314b8309189f9616e` and the consumer on `75e231f`.
+Verified implementation commit: `1164993` (the following commit updates only
+this handoff). Both complete flake runs passed, including the final placeholder
+change. Native, isolated and browser results below are complete.
 Retained the startup fix, plugin commands, prover diagnostics, language-specific
 lessons, clipboard handling, isolation and deployment configuration.
 Historical notes are in `HANDOFF-2026-09-19-before-meet-review.md`,
