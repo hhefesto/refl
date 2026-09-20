@@ -44,6 +44,7 @@ library
         Style
         Theme
         Widgets.Common
+        Widgets.Donate
         Widgets.Editor
         Widgets.InputMethod
         Widgets.InputTable

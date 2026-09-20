@@ -95,7 +95,7 @@ instance Arbitrary Route where
     [ pure RWorldMap, RWorld <$> arbitrary
     , RLevel <$> arbitrary <*> (getNonNegative <$> arbitrary) <*> arbitrary
     , RLesson <$> arbitrary <*> arbitrary <*> arbitrary
-    , pure RInventory ]
+    , pure RInventory, pure RDonate ]
 
 toJSONUnit :: () -> Value
 toJSONUnit () = Null

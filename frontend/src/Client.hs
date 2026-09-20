@@ -4,6 +4,7 @@ module Client
   ( backendBase
   , fetchManifest
   , fetchProgress
+  , fetchDonations
   , Conn (..)
   , connect
   ) where
@@ -35,6 +36,13 @@ fetchProgress :: MonadWidget t m => Event t () -> m (Event t (Maybe Progress))
 fetchProgress e = do
   base <- backendBase
   getAndDecode ((base <> "/api/progress") <$ e)
+
+-- | The donation addresses. A static file, not an endpoint: the same
+-- @donations.json@ is what the website derivation reads to make the QR codes.
+fetchDonations :: MonadWidget t m => Event t () -> m (Event t (Maybe Donations))
+fetchDonations e = do
+  base <- backendBase
+  getAndDecode ((base <> "/donations.json") <$ e)
 
 data Conn t = Conn
   { connRecv  :: Event t ServerMsg

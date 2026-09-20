@@ -14,6 +14,7 @@ import           Client
 import           Refl.Protocol
 import           Style           (appCss)
 import           Theme
+import           Widgets.Donate
 import           Widgets.Inventory
 import           Widgets.LevelPage
 import           Widgets.WorldMap
@@ -53,6 +54,9 @@ bodyW = mdo
       elAttr "a" ("href" =: encodeRoute RWorldMap) (text "Map")
       elAttr "a" ("href" =: encodeRoute RInventory) (text "Inventory")
     elClass "span" "spacer" blank
+    -- The one call to action in the chrome: filled, not a nav link, because
+    -- a.primary is not button.primary and this must read as a button.
+    elAttr "a" ("href" =: encodeRoute RDonate <> "class" =: "support") (text "Support")
     elAttr "label" ("for" =: "language") (text "Language")
     -- a real <select> whose option values are the language ids
     (sel, _) <- selectElement (def
@@ -89,7 +93,11 @@ bodyW = mdo
           n : _ -> levelPage m (() <$ updated pageDyn) lg wid n
           [] -> el "p" (text "No such level.") >> pure never
   solvedE <- el "main" $ switchHold never =<< dyn (ffor shownDyn $ \(mm, mr, lg) ->
-    case mm of
+    -- Support needs no game data, so it is answered before the manifest: it
+    -- must still render when the backend is down or the fetch failed.
+    case mr of
+     Just RDonate -> donatePage >> pure never
+     _ -> case mm of
       Nothing -> el "p" (text "Loading the game…") >> pure never
       Just m -> case mr of
         Nothing -> el "p" (text "404 — no such page.") >> pure never

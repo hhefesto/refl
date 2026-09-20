@@ -1,0 +1,58 @@
+{
+  "dnIntro": "The Refl Game is free, has no accounts and no adverts, and runs three real proof assistants for anyone who opens it. If it taught you something, you can pay for some of that compute.",
+  "dnChains": [
+    {
+      "cnId": "bitcoin",
+      "cnName": "Bitcoin",
+      "cnTokens": [
+        "BTC"
+      ],
+      "cnAddress": "bc1qhf0ym26ag4l2nusgn74p8kg3y9dtgp5q8c6x7s",
+      "cnUri": "bitcoin:bc1qhf0ym26ag4l2nusgn74p8kg3y9dtgp5q8c6x7s",
+      "cnKind": "bech32:bc"
+    },
+    {
+      "cnId": "ethereum",
+      "cnName": "Ethereum",
+      "cnTokens": [
+        "ETH",
+        "USDC (ERC-20)"
+      ],
+      "cnAddress": "0xbd5fbdcc07cfce2a543013b14e2f873ab5a8bd4c",
+      "cnUri": "ethereum:0xbd5fbdcc07cfce2a543013b14e2f873ab5a8bd4c",
+      "cnKind": "hex20"
+    },
+    {
+      "cnId": "cardano",
+      "cnName": "Cardano",
+      "cnTokens": [
+        "ADA",
+        "USDC"
+      ],
+      "cnAddress": "addr1qyxkhv78u0j2fu4s5yzkmzgnn9pgm45el0dcxep0250enj289f3v39r6e7g92d5cng6jvfkstkg77u3s9wgswq38qr4quhycct",
+      "cnUri": null,
+      "cnKind": "bech32:addr"
+    },
+    {
+      "cnId": "solana",
+      "cnName": "Solana",
+      "cnTokens": [
+        "SOL",
+        "USDC (SPL)"
+      ],
+      "cnAddress": "jYUi7o3HrBz4AzxiPC8uSsLb7d3FRrjhr16BnRiLG4x",
+      "cnUri": "solana:jYUi7o3HrBz4AzxiPC8uSsLb7d3FRrjhr16BnRiLG4x",
+      "cnKind": "base58-32"
+    },
+    {
+      "cnId": "midnight",
+      "cnName": "Midnight",
+      "cnTokens": [
+        "shielded"
+      ],
+      "cnAddress": "mn_shield-addr1q4575djmzxneljkvzh3acwj6dh6usk6t8kr8vev9efc0lm9h6g6srraf2y328v4wmygh5mzdwvg90lt6wh3kasr8elq52jkpjnadvnsql89fs",
+      "cnUri": null,
+      "cnKind": "bech32m:mn_shield-addr"
+    }
+  ]
+}

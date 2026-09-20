@@ -19,9 +19,11 @@ data Route
   | RLevel WorldId Int (Maybe LangId)
   | RLesson WorldId LevelId (Maybe LangId)
   | RInventory
+  | RDonate
   deriving (Eq, Show)
 
--- | @#/@, @#/w/<world>@, @#/w/<world>/l/<n>[/<lang>]@, @#/inventory@.
+-- | @#\/@, @#\/w\/<world>@, @#\/w\/<world>\/l\/<n>[\/<lang>]@, @#\/inventory@,
+-- @#\/donate@.
 encodeRoute :: Route -> Text
 encodeRoute = \case
   RWorldMap                -> "#/"
@@ -33,6 +35,7 @@ encodeRoute = \case
     "#/w/" <> w <> "/level/" <> n
       <> maybe "" (\(LangId l) -> "/" <> l) ml
   RInventory               -> "#/inventory"
+  RDonate                  -> "#/donate"
 
 decodeRoute :: Text -> Maybe Route
 decodeRoute frag =
@@ -44,6 +47,7 @@ decodeRoute frag =
     ["w", w, "level", n]      -> Just (RLesson (WorldId w) (LevelId n) Nothing)
     ["w", w, "level", n, l]   -> Just (RLesson (WorldId w) (LevelId n) (Just (LangId l)))
     ["inventory"]             -> Just RInventory
+    ["donate"]                -> Just RDonate
     _                         -> Nothing
  where
   readInt = readMaybe . T.unpack

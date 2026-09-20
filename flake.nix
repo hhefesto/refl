@@ -123,11 +123,28 @@
             refl-protocol = protocolJs;
           }).overrideAttrs (_: { dontStrip = true; });
 
+          # donations.json is the one place an address is written. The page
+          # fetches it, this derivation turns it into QR codes, and the backend
+          # spec re-verifies every checksum, so the three can never disagree.
+          donations = builtins.fromJSON (builtins.readFile ./donations.json);
+          donationQrs = pkgs.runCommand "refl-donation-qr" {
+            nativeBuildInputs = [ pkgs.qrencode ];
+          } ''
+            mkdir -p $out
+            ${pkgs.lib.concatMapStringsSep "\n" (c: ''
+              qrencode -t SVG -l M -m 4 -o $out/${c.cnId}.svg -- ${pkgs.lib.escapeShellArg c.cnAddress}
+            '') donations.dnChains}
+            # a duplicate cnId would silently overwrite a QR: fail the build
+            test "$(ls $out | wc -l)" -eq ${toString (builtins.length donations.dnChains)}
+          '';
+
           website = pkgs.runCommand "refl-website" { } ''
-            mkdir -p $out/fonts
+            mkdir -p $out/fonts $out/qr
             cp -r ${frontendJs}/bin/refl-frontend.jsexe/. $out/
             install -m644 ${./index.html} $out/index.html
             install -m644 ${./fonts.css} $out/fonts.css
+            install -m644 ${./donations.json} $out/donations.json
+            cp ${donationQrs}/*.svg $out/qr/
             cp -r ${./fonts}/. $out/fonts/
             for f in JuliaMono-Regular JuliaMono-Bold; do
               src=$(find ${pkgs.julia-mono}/share/fonts -name "$f.ttf" | head -1)
@@ -336,6 +353,11 @@
             '';
             check-levels = self'.packages.check-levels;
             manifest = self'.packages.manifest;
+            # A mistyped donation address is the one bug here that costs
+            # money: re-derive every checksum from the shipped file.
+            donations = pkgs.runCommand "refl-donations" { } ''
+              ${backend}/bin/refl-check-donations ${./donations.json} | tee $out
+            '';
             # The server answers, serves the manifest and the client.
             # The HTTP/WebSocket contract (identities, origins, isolation, capacity,
             # message size, idle timeout) against the plain site; the isolated
@@ -371,6 +393,8 @@
               step index;    curl -fsS http://127.0.0.1:8123/              -o $TMPDIR/index.html;    grep -q '<script' $TMPDIR/index.html
               step bundle;   curl -fsS http://127.0.0.1:8123/all.js        -o $TMPDIR/all.js;        test -s $TMPDIR/all.js
               step fallback; curl -fsS http://127.0.0.1:8123/w/tutorial    -o $TMPDIR/deep.html;     grep -q '<script' $TMPDIR/deep.html
+              step donations; curl -fsS http://127.0.0.1:8123/donations.json -o $TMPDIR/donations.json; grep -q 'bc1qhf0ym26ag4l2nusgn74p8kg3y9dtgp5q8c6x7s' $TMPDIR/donations.json
+              step qr;       curl -fsS http://127.0.0.1:8123/qr/bitcoin.svg -o $TMPDIR/qr.svg;        grep -q '<svg' $TMPDIR/qr.svg
               echo ok > $out
             '';
           };

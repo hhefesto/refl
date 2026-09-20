@@ -17,6 +17,7 @@ library
         Refl.Protocol.Types
         Refl.Protocol.Manifest
         Refl.Protocol.Route
+        Refl.Protocol.Donate
         Refl.Protocol.Graph
     hs-source-dirs:   .
     default-language: Haskell2010

@@ -25,8 +25,12 @@ implementations).
   test (CDP over websockets, no Node).
 - `frontend` — `App` (router shell), `Client` (XHR + websocket),
   `Widgets.Editor` (textarea + highlight overlay + input method + chords),
-  `Widgets.LevelPage`, `WorldMap`, `Inventory`; `Widgets.InputTable` is
-  generated.
+  `Widgets.LevelPage`, `WorldMap`, `Inventory`, `Donate` (the support page);
+  `Widgets.InputTable` is generated.
+- `donations.json` at the root is the one place a donation address is
+  written: `Widgets.Donate` fetches it, the `website` derivation turns it
+  into `qr/<chain>.svg` with `qrencode`, and `refl-check-donations`
+  (`Refl.Donations`) re-derives every checksum.
 - `games/refl` — content: `docs/<lang>/` per-language inventory docs;
   `levels/NN-id/<lang>.md` optional lesson pages (each field overrides the
   level's) and `<lang>-example.<ext>` worked examples; the level `.md` stays
@@ -89,6 +93,20 @@ implementations).
   `Refl.arrive` helpers check computational paths; `Refl.meet` joins two
   paths at a common endpoint using symmetry and transitivity. The first
   lesson teaches these paths and offers native `%` rewrites after completion.
+- The donation addresses are checked by `checks.donations`, never by eye.
+  BTC (`bc`) and ADA (`addr`) are bech32 (polymod 1); Midnight
+  (`mn_shield-addr`) is **bech32m** (polymod 0x2bc830a3), so a uniform
+  bech32 test rejects it. Solana is base58, *not* base58check: it decodes to
+  exactly 32 bytes and carries no checksum at all, so what actually guards it
+  is that the address is written twice — `cnAddress` and the tail of `cnUri`
+  — and must agree. The ETH address is all-lowercase, which makes EIP-55
+  vacuous on it, so only the shape is checked. `haskellPackages.bech32` and
+  `keccak` are both broken in this pin; that is why `Refl.Donations` spells
+  the polymod out.
+- `qrencode -t SVG -m 4` keeps the spec's four-module quiet zone (`-m 1`
+  scans badly on phones), and the QR tile stays white in both themes because
+  an inverted QR often will not scan — the one place a literal colour is
+  correct rather than a token.
 - Only braces annotate in Bend: `{e : T}` is checked, `(e : T)` is the
   operator-namespace marker and its type term is silently discarded when no
   `.method` was parsed, so a wrong type there still prints `All terms check.`
@@ -174,4 +192,11 @@ implementations).
   earned vocabulary. Hidden hints can be revealed in order before any Check.
 - The dropdown only rewrites the hash on a level page; the route owns the
   language, so a switch mounts the page once and opens one prover session.
+- The support page is answered in `App.hs` *before* the manifest, so it
+  still renders when the backend is down, and it deliberately does not wear
+  the level chrome. `header.top a.support` is the only call to action in the
+  chrome — it needs its own rule because `.primary` is written
+  `button.primary` and does not apply to an `<a>`. The chrome wraps below
+  760px, where the language label is visually hidden but still labels the
+  select.
 - Commits: plain messages, no AI attribution trailers.

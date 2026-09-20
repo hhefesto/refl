@@ -453,6 +453,17 @@ main = do
           contrast
           snapshot "light-map"
           click "Theme: Light"
+          -- Support: every chain in donations.json must be on the page with
+          -- the address it names and a QR that actually loaded. The page is
+          -- the only place the addresses are read by a human, so a card that
+          -- silently disagrees with the file is the failure that matters.
+          run "location.hash='#/donate'; true"
+          run "window.__donations=null; fetch('/donations.json').then(r=>r.json()).then(j=>{window.__donations=j}); true"
+          wait "donations.json reaches the page" "Boolean(window.__donations)"
+          wait "every chain is shown with the address the file names" "(() => {const cs=window.__donations.dnChains; const cards=[...document.querySelectorAll('.chains .chain')]; if(cards.length!==cs.length||!cs.length) return false; return cs.every((c,i)=>cards[i].querySelector('h2')?.textContent===c.cnName && cards[i].querySelector('.addr code')?.textContent===c.cnAddress);})()"
+          wait "every QR image loaded" "(() => {const q=[...document.querySelectorAll('.chain .qr img')]; return q.length===window.__donations.dnChains.length && q.every(i=>i.complete && i.naturalWidth>0);})()"
+          wait "the chrome offers Support" "document.querySelector('header.top a.support')?.getAttribute('href') === '#/donate'"
+          snapshot "donate"
           route 9
           -- A real server failure must disable commands and offer Retry.
           when (isNothing existing) $ do
