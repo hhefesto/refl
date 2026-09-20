@@ -352,6 +352,50 @@
                 ${self'.packages.site}/bin/refl-site ${games}
               echo ok > $out
             '';
+            # The deployed ingress, checked by evaluation rather than by a
+            # VM: nginx drops every inherited proxy_set_header the moment a
+            # location defines one of its own, and proxyWebsockets defines
+            # two. If X-Real-IP ever falls out of this location the backend
+            # sees 127.0.0.1 for everyone and the map goes blank.
+            ingress = let
+              host = "refl.example";
+              sys = nixpkgs.lib.nixosSystem {
+                inherit system;
+                modules = [
+                  self.nixosModules.default
+                  { boot.loader.grub.enable = false;
+                    fileSystems."/" = { device = "/dev/vda"; fsType = "ext4"; };
+                    system.stateVersion = "26.05";
+                    services.refl.profile = {
+                      enable = true; hostname = host; ingress.enable = true;
+                      dashboard.password = "check";
+                    };
+                  }
+                ];
+              };
+              conf = sys.config.environment.etc."nginx/nginx.conf".source;
+              exec = sys.config.systemd.services.refl.serviceConfig.ExecStart;
+            in pkgs.runCommand "refl-ingress" { } ''
+              awk '/location \/ \{/,/^ *\}/' ${conf} > loc
+              grep -q 'proxy_set_header Upgrade' loc
+              grep -q 'recommended-proxy_set_header-headers.conf' loc
+              grep -q 'real_ip_header CF-Connecting-IP' ${conf}
+              grep -q 'set_real_ip_from 173.245.48.0/20;' ${conf}
+              # the password reaches the server as a credential, never as an
+              # argument, and analytics is on by default
+              case ${pkgs.lib.escapeShellArg exec} in
+                *--dashboard-password-file\ /run/credentials/*) ;;
+                *) echo "ExecStart does not read the password from a credential" >&2; exit 1 ;;
+              esac
+              case ${pkgs.lib.escapeShellArg exec} in
+                *--analytics*--geoip*) ;;
+                *) echo "ExecStart does not enable analytics" >&2; exit 1 ;;
+              esac
+              case ${pkgs.lib.escapeShellArg exec} in
+                *check*) echo "the password leaked into ExecStart" >&2; exit 1 ;;
+              esac
+              echo ok > $out
+            '';
             check-levels = self'.packages.check-levels;
             manifest = self'.packages.manifest;
             # A mistyped donation address is the one bug here that costs

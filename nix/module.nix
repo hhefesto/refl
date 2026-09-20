@@ -9,6 +9,11 @@ let
   address = if lib.hasInfix ":" cfg.backend.address then "[${cfg.backend.address}]" else cfg.backend.address;
   origin = if cfg.ingress.enable then "https://${cfg.hostname}${lib.optionalString (cfg.ingress.httpsPort != 443) ":${toString cfg.ingress.httpsPort}"}"
     else "http://${address}:${toString cfg.backend.port}";
+  credential = "/run/credentials/${cfg.serviceName}.service/dashboard-password";
+  passwordFile =
+    if cfg.dashboard.passwordFile != null then cfg.dashboard.passwordFile
+    else if cfg.dashboard.password != "" then pkgs.writeText "refl-dashboard-password" cfg.dashboard.password
+    else null;
 in {
   options.services.refl.profile = {
     enable = mkEnableOption "the Refl proof game";
@@ -37,6 +42,54 @@ in {
       enable = mkEnableOption "nginx and ACME public ingress (requires working DNS)";
       httpPort = mkOption { type = types.port; default = 80; };
       httpsPort = mkOption { type = types.port; default = 443; };
+      trustedProxyRanges = mkOption {
+        type = types.listOf types.str;
+        default = import ./cloudflare-ranges.nix;
+        description = ''
+          Networks whose CF-Connecting-IP header is believed. Empty disables
+          real-IP recovery, and every visit then geolocates to the proxy.
+        '';
+      };
+    };
+    analytics = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          Record visits under <state>/analytics. No IP address is ever
+          written: the address is resolved to a country on arrival and
+          dropped, and the only per-person key is the anonymous cookie the
+          site already sets for progress.
+        '';
+      };
+      retentionDays = mkOption { type = positive; default = 400; };
+      geoipDatabase = mkOption {
+        type = types.nullOr types.path;
+        default = "${pkgs.dbip-country-lite}/share/dbip/dbip-country-lite.mmdb";
+        defaultText = "dbip-country-lite (8 MiB)";
+        description = ''
+          MaxMind-format database used to turn an address into a country.
+          null drops it from the closure and leaves the map empty;
+          pkgs.dbip-city-lite is the same thing at city resolution and
+          125 MiB. Both are CC BY 4.0, so the dashboard credits DB-IP.
+        '';
+      };
+    };
+    dashboard = {
+      password = mkOption {
+        type = types.str;
+        default = "";
+        description = ''
+          Password for /dashboard/ (user: refl). Convenient, but it lands
+          in the world-readable Nix store -- prefer passwordFile. Empty and
+          no passwordFile means the dashboard is off and answers 403.
+        '';
+      };
+      passwordFile = mkOption {
+        type = types.nullOr types.path;
+        default = null;
+        description = "File holding the dashboard password, delivered by systemd LoadCredential.";
+      };
     };
     limits = {
       memoryMiB = mkOption { type = positive; default = 2048; };
@@ -53,6 +106,8 @@ in {
     assertions = [
       { assertion = cfg.ingress.enable -> cfg.hostname != null;
         message = "services.refl.profile.hostname is required when ingress.enable is set"; }
+      { assertion = !(cfg.dashboard.password != "" && cfg.dashboard.passwordFile != null);
+        message = "services.refl.profile.dashboard: set password or passwordFile, not both"; }
     ];
     users.groups.${cfg.group} = { };
     users.users.${cfg.user} = { isSystemUser = true; group = cfg.group; };
@@ -71,7 +126,7 @@ in {
         RuntimeDirectory = cfg.runtimeDirectory;
         RuntimeDirectoryMode = "0700";
         WorkingDirectory = "/run/${cfg.runtimeDirectory}";
-        ExecStart = lib.escapeShellArgs [
+        ExecStart = lib.escapeShellArgs ([
           "${package}/bin/refl-site"
           "--host" cfg.backend.address "--port" (toString cfg.backend.port)
           "--origin" origin
@@ -81,7 +136,14 @@ in {
           "--message-bytes" (toString cfg.limits.messageBytes)
           "--command-seconds" (toString cfg.limits.commandSeconds)
           "--idle-seconds" (toString cfg.limits.idleSeconds)
-        ];
+        ]
+        ++ lib.optionals cfg.analytics.enable
+          ([ "--analytics" "--analytics-days" (toString cfg.analytics.retentionDays) ]
+           ++ lib.optionals (cfg.analytics.geoipDatabase != null) [ "--geoip" cfg.analytics.geoipDatabase ])
+        # The password is read from the credentials directory, never from the
+        # command line: ExecStart is world-readable in the unit file.
+        ++ lib.optionals (passwordFile != null) [ "--dashboard-password-file" credential ]);
+        LoadCredential = lib.optional (passwordFile != null) "dashboard-password:${passwordFile}";
         Restart = "on-failure";
         RestartSec = 2;
         UMask = "0077";
@@ -125,9 +187,21 @@ in {
           { addr = "0.0.0.0"; port = cfg.ingress.httpPort; }
           { addr = "0.0.0.0"; port = cfg.ingress.httpsPort; ssl = true; }
         ];
+        # real_ip is a server-context directive and the location below
+        # defines none of its own, so it is inherited cleanly.
+        extraConfig = lib.optionalString (cfg.ingress.trustedProxyRanges != [ ]) (
+          lib.concatMapStrings (r: "set_real_ip_from ${r};\n") cfg.ingress.trustedProxyRanges
+          + "real_ip_header CF-Connecting-IP;\n");
         locations."/" = {
           proxyPass = "http://${address}:${toString cfg.backend.port}";
           proxyWebsockets = true;
+          # Must be set *in this location*. nginx inherits proxy_set_header
+          # as a whole array: the moment a location defines one of its own
+          # -- which proxyWebsockets does, for Upgrade and Connection --
+          # every header inherited from the server level is dropped. Asking
+          # for the recommended set here puts X-Real-IP in the same array,
+          # so it survives and the websocket upgrade keeps working.
+          recommendedProxySettings = true;
         };
       };
     };
