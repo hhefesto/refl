@@ -43,3 +43,6 @@ themselves. I believe the future of programming is asking good questions, good
 types, and letting the computer go find an answer; and nobody asks a good
 question without first knowing how an answer works. That is what the proofs
 here are for.
+
+This site is running on a potato server — see the [Support](#/donate) page if
+you would like to help me improve the potato.
