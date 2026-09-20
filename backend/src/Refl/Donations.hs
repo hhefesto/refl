@@ -17,7 +17,6 @@ module Refl.Donations
 
 import           Data.Bits    (shiftL, shiftR, testBit, xor, (.&.))
 import           Data.Char    (isDigit, ord)
-import           Data.List    (foldl')
 import qualified Data.Map     as M
 import           Data.Text    (Text)
 import qualified Data.Text    as T

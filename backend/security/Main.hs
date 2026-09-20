@@ -27,6 +27,16 @@ main = do
   let get path cookie = do
         req <- parseRequest (base ++ path)
         httpLbs req { requestHeaders = [("Cookie", cookie) | not (BS.null cookie)] } manager
+      post path cookie ori body = do
+        req <- parseRequest (base ++ path)
+        httpLbs req
+          { method = "POST"
+          , requestHeaders =
+              [("Content-Type", "application/json"), ("Origin", BS.pack ori)]
+              ++ [("Cookie", cookie) | not (BS.null cookie)]
+          , requestBody = RequestBodyLBS body
+          , checkResponse = \_ _ -> pure ()
+          } manager
       socket cookie ori = WS.runClientWith "127.0.0.1" port "/ws" WS.defaultConnectionOptions
         [("Cookie", cookie), ("Origin", ori)]
       send c = WS.sendTextData c . encode
@@ -94,4 +104,24 @@ main = do
     rejected "oversized message closes socket" (receive c)
   threadDelay 300000
   socket a origin $ \c -> rejected "idle timeout closes socket" (receive c)
+  -- The dashboard. This server is started without a password, which is the
+  -- state every check and the VM run in, so the assertion that matters is
+  -- that it is shut rather than open: the SPA fallback answers any unknown
+  -- path with a 200, so "not configured" must not mean "served to all".
+  dash <- get "/dashboard/" ""
+  assert "dashboard closed without a password" (statusCode (responseStatus dash) == 403)
+  dashData <- get "/dashboard/data.json" ""
+  assert "dashboard data closed without a password" (statusCode (responseStatus dashData) == 403)
+  assert "a refused dashboard hands out no identity"
+    (lookup "Set-Cookie" (responseHeaders dash) == Nothing)
+  -- The beacon must believe only this origin, and must not accept a body
+  -- large enough to be a way of filling the disk.
+  foreign' <- post "/api/hit" a "https://attacker.invalid" "{\"hiRoute\":\"#/\",\"hiLang\":\"agda\"}"
+  assert "beacon rejects a foreign origin" (statusCode (responseStatus foreign') == 403)
+  mine <- post "/api/hit" a (BS.unpack origin) "{\"hiRoute\":\"#/\",\"hiLang\":\"agda\"}"
+  assert "beacon accepts our own origin" (statusCode (responseStatus mine) == 200)
+  big <- post "/api/hit" a (BS.unpack origin)
+    (BL.concat ["{\"hiRoute\":\"", BL.replicate 4096 120, "\",\"hiLang\":\"agda\"}"])
+  assert "beacon rejects an oversized body" (statusCode (responseStatus big) == 413)
   putStrLn "security: cookies, origins, progress/drafts, concurrency, message and idle limits passed"
+  putStrLn "security: dashboard fails closed and the beacon checks origin and size"

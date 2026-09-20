@@ -15,27 +15,37 @@ import           Control.Concurrent.MVar
 import           Control.Concurrent             (threadDelay)
 import           Control.Concurrent.Async       (race)
 import           Control.Exception              (SomeException, finally, try, mask, mask_)
-import           Control.Monad                  (forever, void, when)
+import           Control.Monad                  (forever, unless, void, when)
+import           Control.Monad.Except           (throwError)
 import           Control.Monad.IO.Class         (liftIO)
 import           Data.Aeson                     (Value, eitherDecodeStrict, encode,
                                                  object, (.=))
+import           Data.Bits                      (xor, (.|.))
+import           Data.Word                      (Word8)
 import           Data.IORef
+import qualified Data.ByteString                as BS
 import qualified Data.ByteString.Char8          as BC
 import qualified Data.Map                       as M
 import           Data.Maybe                     (fromMaybe)
 import qualified Data.Set                       as S
 import           Data.Text                      (Text)
 import qualified Data.Text                      as T
-import           Network.HTTP.Types             (hContentType, status200,
-                                                 status404)
-import           Network.Wai                    (Application, responseFile,
+import           Data.Time                      (UTCTime, getCurrentTime, diffUTCTime)
+import           Network.HTTP.Types             (hContentLength, hContentType, hReferer,
+                                                 hUserAgent, status200, status302,
+                                                 status403, status404, status413)
+import           Network.Wai                    (Application, Middleware, Request, pathInfo,
+                                                 responseFile, responseHeaders,
                                                  responseLBS, requestHeaders, mapResponseHeaders)
 import           Network.Wai.Application.Static (defaultWebAppSettings,
                                                  staticApp)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
 import           Network.Wai.Middleware.AddHeaders (addHeaders)
+import           Network.Wai.Middleware.HttpAuth (AuthSettings, basicAuth')
 import qualified Network.WebSockets             as WS
-import           Servant                        hiding (ServerError)
+-- Servant.Summary is its Haddock-description combinator, which we do not
+-- use and which would shadow the dashboard payload.
+import           Servant                        hiding (ServerError, Summary)
 import           System.FilePath                ((</>))
 import           WaiAppStatic.Types             (MaxAge (NoMaxAge),
                                                  StaticSettings (..))
@@ -45,6 +55,7 @@ import           Refl.Content
 import           Refl.Language
 import           Refl.Language.Registry
 import           Refl.Protocol
+import           Refl.Server.Analytics
 import           Refl.Server.Progress
 import           Refl.Server.Identity
 
@@ -56,11 +67,23 @@ data ServerEnv = ServerEnv
   , seSources  :: SourceIndex
   , seProgress :: ProgressStore
   , seSlots :: MVar Int
+  , seAnalytics :: Analytics
+  , seDashPassword :: Maybe BS.ByteString
+  -- Per request, filled in by 'app' next to seProgress, so the websocket
+  -- handler can attribute what happens in a session to the same visitor.
+  , seVisitor :: Text
+  , seNewVisitor :: Bool
+  -- A global budget for /api/hit, so a script cannot fill the disk with
+  -- events: refilled by the clock, never per visitor (that would be a map
+  -- an attacker gets to grow).
+  , seHitBudget :: IORef (UTCTime, Int)
   }
 
-newServerEnv :: Config -> Env -> LoadedGame -> ProgressStore -> IO ServerEnv
-newServerEnv cfg env game store = do
+newServerEnv :: Config -> Env -> LoadedGame -> ProgressStore -> Analytics -> Maybe BS.ByteString -> IO ServerEnv
+newServerEnv cfg env game store analytics dashPassword = do
  slots <- newMVar 0
+ now <- getCurrentTime
+ budget <- newIORef (now, hitBurst)
  pure ServerEnv
   { seConfig = cfg
   , seEnv = env
@@ -69,6 +92,11 @@ newServerEnv cfg env game store = do
   , seSources = sourceIndex game
   , seProgress = store
   , seSlots = slots
+  , seAnalytics = analytics
+  , seDashPassword = dashPassword
+  , seVisitor = ""
+  , seNewVisitor = False
+  , seHitBudget = budget
   }
 
 -- | For each level, the lemma spellings unlocked by this level and earlier
@@ -108,31 +136,160 @@ restrictedSources game src = src { lsForbidsNames = S.toList forbids }
 type Api =
        "api" :> "health" :> Get '[JSON] Value
   :<|> "api" :> "progress" :> Get '[JSON] Progress
+  -- The SPA's own beacon: hash routes never reach the server, so nothing
+  -- else can say which page or level a visitor actually looked at.
+  :<|> "api" :> "hit" :> Header "Origin" Text :> ReqBody '[JSON] Hit :> Post '[JSON] Value
+  -- Deliberately under /dashboard/ rather than /api: HTTP basic credentials
+  -- are cached per directory, so the page and its data must share a prefix
+  -- or the browser will not resend them and the fetch just 401s.
+  :<|> "dashboard" :> "data.json" :> QueryParam "days" Int :> Get '[JSON] Summary
   :<|> "manifest.json" :> Get '[JSON] Manifest
   :<|> Raw
 
+-- | How many /api/hit events may be recorded per second, and the burst.
+hitRate, hitBurst :: Int
+hitRate = 20
+hitBurst = 200
+
 app :: ServerEnv -> Application
-app se req respond = do
-  let policy = cookiePolicy (cfgOriginString (seConfig se))
-      existing = identity policy (requestHeaders req)
-  player <- maybe newIdentity pure existing
-  let scoped = se { seProgress = playerStore (seProgress se) (BC.unpack player) }
-      cookie = [("Set-Cookie", identityCookie policy player) | existing == Nothing]
-      options = WS.defaultConnectionOptions
-        { WS.connectionFramePayloadSizeLimit = WS.SizeLimit (fromIntegral (cfgMessageBytes (seConfig se)))
-        , WS.connectionMessageDataSizeLimit = WS.SizeLimit (fromIntegral (cfgMessageBytes (seConfig se))) }
-  cors (websocketsOr options (wsApp scoped) (serve (Proxy :: Proxy Api) (server scoped))) req
-    (respond . mapResponseHeaders (cookie ++))
+app se = dashboardAuth se (core se)
+
+-- | @/dashboard@ and everything under it needs the configured password.
+-- This sits outside 'core' on purpose: a rejected request must not reach the
+-- identity code and be handed a fresh cookie.
+--
+-- With no password configured the dashboard does not exist. It must fail
+-- closed, because the SPA fallback answers /any/ unknown path with a 200,
+-- so "not wired up" would otherwise mean "served to everyone".
+dashboardAuth :: ServerEnv -> Middleware
+dashboardAuth se inner req respond
+  | not (onDashboard req) = inner req respond
+  | otherwise = case seDashPassword se of
+      Nothing -> respond (responseLBS status403 [(hContentType, "text/plain")]
+        "refl-server: the dashboard is off (no --dashboard-password-file).")
+      Just pw -> basicAuth' (\_ u p -> pure (u == "refl" && secretEq p pw)) realm inner req respond
+ where
+  realm = "refl dashboard" :: AuthSettings
+
+-- | The SPA fallback answers /any/ unknown path with HTML, so @\/favicon.ico@
+-- arrives looking exactly like a page and every visit would count twice.
+-- Two independent filters, because neither covers the other's gap: browsers
+-- label sub-resource fetches with @Sec-Fetch-Dest@, and a path ending in a
+-- known asset extension was never a page. A probe for @\/wp-login.php@ is
+-- deliberately still recorded — that is a crawler and worth seeing.
+isPage :: Request -> Bool
+isPage req = destOk && extOk
+ where
+  destOk = case lookup "Sec-Fetch-Dest" (requestHeaders req) of
+    Just d -> d == "document"
+    Nothing -> True
+  extOk = case reverse (pathInfo req) of
+    seg : _ -> not (any (`T.isSuffixOf` T.toLower seg) assetExtensions)
+    [] -> True
+
+assetExtensions :: [Text]
+assetExtensions =
+  [ ".ico", ".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp", ".avif"
+  , ".css", ".js", ".mjs", ".map", ".json", ".txt", ".xml", ".webmanifest"
+  , ".woff", ".woff2", ".ttf", ".otf", ".eot" ]
+
+onDashboard :: Request -> Bool
+onDashboard req = case pathInfo req of
+  "dashboard" : _ -> True
+  _ -> False
+
+-- | Comparison whose running time does not depend on how much of the
+-- password was right.
+secretEq :: BS.ByteString -> BS.ByteString -> Bool
+secretEq a b = BS.length a == BS.length b
+  && foldr (.|.) 0 (BS.zipWith xor a b) == (0 :: Word8)
+
+core :: ServerEnv -> Application
+core se req respond
+  -- the credentials are cached against the directory, so land on one
+  | pathInfo req == ["dashboard"] =
+      respond (responseLBS status302 [("Location", "/dashboard/")] "")
+  -- /api/hit carries two short strings; anything else is not the client
+  | pathInfo req == ["api", "hit"] && not (smallBody req) =
+      respond (responseLBS status413 [(hContentType, "text/plain")] "too large")
+  | otherwise = do
+      let policy = cookiePolicy (cfgOriginString (seConfig se))
+          existing = identity policy (requestHeaders req)
+      player <- maybe newIdentity pure existing
+      let scoped = se { seProgress = playerStore (seProgress se) (BC.unpack player)
+                      , seVisitor = T.pack (BC.unpack player)
+                      , seNewVisitor = existing == Nothing }
+          cookie = [("Set-Cookie", identityCookie policy player) | existing == Nothing]
+          options = WS.defaultConnectionOptions
+            { WS.connectionFramePayloadSizeLimit = WS.SizeLimit (fromIntegral (cfgMessageBytes (seConfig se)))
+            , WS.connectionMessageDataSizeLimit = WS.SizeLimit (fromIntegral (cfgMessageBytes (seConfig se))) }
+      cors (websocketsOr options (wsApp scoped) (serve (Proxy :: Proxy Api) (server scoped))) req $ \res -> do
+        -- One event per document served, which is every visitor including
+        -- the ones that never run the bundle. The SPA fallback answers any
+        -- unknown path with HTML, so the path is recorded: a crawler
+        -- probing /wp-login.php should be visible as that, not as traffic.
+        -- Looking at the dashboard is not a visit and must not show up as
+        -- one; it is also the only page whose reader is already known.
+        when (isDocument res && isPage req && not (onDashboard req)) (recordLoad scoped req)
+        respond (mapResponseHeaders (cookie ++) res)
  where
   cors | cfgDev (seConfig se) = addHeaders [("Access-Control-Allow-Origin", "*")]
        | otherwise = id
+  isDocument res = maybe False (BS.isPrefixOf "text/html")
+    (lookup hContentType (responseHeaders res))
+
+smallBody :: Request -> Bool
+smallBody req = case lookup hContentLength (requestHeaders req) of
+  Just v | [(n, "")] <- reads (BC.unpack v) -> (n :: Int) <= 2048
+  _ -> False
+
+recordLoad :: ServerEnv -> Request -> IO ()
+recordLoad se req = do
+  let hs = requestHeaders req
+      (agent, browser) = classifyAgent (fromMaybe "" (lookup hUserAgent hs))
+  ev <- newEvent "load" (seVisitor se) (seNewVisitor se)
+  emit (seAnalytics se) ev
+    { evPath = "/" <> T.intercalate "/" (pathInfo req)
+    , evCountry = clientCountry (seAnalytics se) req
+    , evRef = refererHost (fromMaybe "" (lookup hReferer hs))
+    , evAgent = agent
+    , evBrowser = browser
+    }
+
+-- | The beacon. Rejected unless the browser says it came from us, ignored
+-- unless the visitor already had a cookie (so a cookie-less flood cannot
+-- invent visitors), and rate limited globally.
+hit :: ServerEnv -> Maybe Text -> Hit -> Handler Value
+hit se origin h = do
+  let expected = T.pack (cfgOriginString (seConfig se))
+  unless (cfgDev (seConfig se) || origin == Just expected) (throwError err403)
+  liftIO $ when (not (seNewVisitor se)) $ do
+    allowed <- spend (seHitBudget se)
+    when allowed $ do
+      ev <- newEvent "route" (seVisitor se) False
+      emit (seAnalytics se) ev
+        { evPath = T.take 120 (hiRoute h), evLang = T.take 24 (hiLang h) }
+  pure (object ["ok" .= True])
+
+-- | A token bucket on the wall clock.
+spend :: IORef (UTCTime, Int) -> IO Bool
+spend ref = do
+  now <- getCurrentTime
+  atomicModifyIORef' ref $ \(at, n) ->
+    let gained = truncate (realToFrac (diffUTCTime now at) * fromIntegral hitRate :: Double)
+        n' = min hitBurst (n + gained)
+    in if n' > 0 then ((now, n' - 1), True) else ((at, n'), False)
 
 server :: ServerEnv -> Server Api
 server se =
        pure (object ["ok" .= True, "levels" .= M.size (seSources se)])
   :<|> liftIO (getProgress (seProgress se))
+  :<|> hit se
+  :<|> (\d -> liftIO (summarise (seAnalytics se) (clampDays d)))
   :<|> pure (seManifest se)
   :<|> Tagged (spaApp se)
+ where
+  clampDays = max 1 . min 400 . fromMaybe 30
 
 -- | Static file if it exists, else index.html (client-side routing).
 spaApp :: ServerEnv -> Application
@@ -222,6 +379,8 @@ wsApp se pending
               let initial = fromMaybe (lsTemplate src) draft
               ref <- newIORef initial
               void (swapMVar sessionVar (Just (Session l src prover ref key)))
+              ev <- newEvent "open" (seVisitor se) False
+              emit (seAnalytics se) ev { evLevel = key, evLang = unLangId lang }
               send conn (SessionOpened (langInfo l) (langCommands l) initial)
     Check txt -> withSession sessionVar conn $ \s -> do
       writeIORef (ssText s) txt
@@ -253,5 +412,14 @@ wsApp se pending
     let lang = liId (langInfo (ssLang s))
     txt <- readIORef (ssText s)
     saveDraft (seProgress se) (ssKey s) lang txt
+    ev <- newEvent "check" (seVisitor se) False
+    emit (seAnalytics se) ev
+      { evLevel = ssKey s, evLang = unLangId lang, evVerdict = verdictName (crVerdict res) }
     when (crVerdict res == Solved) $
       void (markSolved (seProgress se) lang (ssKey s))
+
+  verdictName = \case
+    Solved -> "solved"
+    Unsolved _ -> "unsolved"
+    Rejected _ -> "rejected"
+    Failed -> "failed"

@@ -5,6 +5,7 @@ module Client
   , fetchManifest
   , fetchProgress
   , fetchDonations
+  , postHit
   , Conn (..)
   , connect
   ) where
@@ -43,6 +44,15 @@ fetchDonations :: MonadWidget t m => Event t () -> m (Event t (Maybe Donations))
 fetchDonations e = do
   base <- backendBase
   getAndDecode ((base <> "/donations.json") <$ e)
+
+-- | Tell the server which page was opened. Hash routes never reach it, so
+-- this is the only way it learns anything past the first document. Errors
+-- are swallowed on purpose: a counter must never disturb the game.
+postHit :: MonadWidget t m => Event t Hit -> m ()
+postHit e = do
+  base <- backendBase
+  _ <- performRequestAsyncWithError (ffor e (postJson (base <> "/api/hit")))
+  pure ()
 
 data Conn t = Conn
   { connRecv  :: Event t ServerMsg

@@ -76,6 +76,12 @@ bodyW = mdo
           _ -> Nothing)
         (current routeDyn) chosenE
   langDyn <- holdUniqDyn =<< holdDyn (LangId "agda") (leftmost [routeLang, chosenElsewhere])
+  -- Which page was actually looked at. The server sees one document load
+  -- per visit and nothing after it, because the route lives in the fragment.
+  postHit $ fmapMaybe id $ attachWith
+    (\lg mr -> (\r -> Hit (encodeRoute r) (unLangId lg)) <$> mr)
+    (current langDyn)
+    (leftmost [tag (current routeDyn) pb, updated routeDyn])
   performEvent_ $ ffor chosenOnLevel $ \r -> liftJSM $ void $ eval
     ("window.location.hash = '" <> encodeRoute r <> "'" :: T.Text)
   pageDyn <- holdUniqDyn $ (\mm mr lg -> (mm, mr, case mr of

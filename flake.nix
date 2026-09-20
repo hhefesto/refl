@@ -378,9 +378,11 @@
             '';
             smoke = pkgs.runCommand "refl-smoke" ({ nativeBuildInputs = [ pkgs.curl ]; } // locale) ''
               export HOME=$TMPDIR
+              printf 'smoke\n' > $TMPDIR/dashpw
               ${backend}/bin/refl-server --www ${website} --games ${games} \
                 --port 8123 --data-dir $TMPDIR/data --agda ${agda}/bin/agda \
-                --bend ${bend}/bin/bend --bend-path ${bendSupport} &
+                --bend ${bend}/bin/bend --bend-path ${bendSupport} \
+                --analytics --dashboard-password-file $TMPDIR/dashpw &
               server=$!
               trap 'kill $server 2>/dev/null || true' EXIT
               for i in $(seq 1 100); do
@@ -395,6 +397,14 @@
               step fallback; curl -fsS http://127.0.0.1:8123/w/tutorial    -o $TMPDIR/deep.html;     grep -q '<script' $TMPDIR/deep.html
               step donations; curl -fsS http://127.0.0.1:8123/donations.json -o $TMPDIR/donations.json; grep -q 'bc1qhf0ym26ag4l2nusgn74p8kg3y9dtgp5q8c6x7s' $TMPDIR/donations.json
               step qr;       curl -fsS http://127.0.0.1:8123/qr/bitcoin.svg -o $TMPDIR/qr.svg;        grep -q '<svg' $TMPDIR/qr.svg
+              code() { curl -s -o "$2" -w '%{http_code}' "$1" ''${3:+-u "$3"}; }
+              step dashboard-locked;   test "$(code http://127.0.0.1:8123/dashboard/ /dev/null)" = 401
+              step dashboard-wrong-pw; test "$(code http://127.0.0.1:8123/dashboard/ /dev/null refl:nope)" = 401
+              step dashboard-open;     test "$(code http://127.0.0.1:8123/dashboard/ $TMPDIR/dash.html refl:smoke)" = 200; grep -q '<script' $TMPDIR/dash.html
+              step dashboard-slash;    test "$(curl -s -o /dev/null -w '%{http_code}' -u refl:smoke http://127.0.0.1:8123/dashboard)" = 302
+              step dashboard-data;     test "$(code http://127.0.0.1:8123/dashboard/data.json $TMPDIR/stats.json refl:smoke)" = 200; grep -q '"suTotals"' $TMPDIR/stats.json
+              step beacon;   curl -fsS -X POST -H 'Origin: http://127.0.0.1:8123' -H 'Content-Type: application/json' \
+                               -d '{"hiRoute":"#/","hiLang":"agda"}' http://127.0.0.1:8123/api/hit -o /dev/null
               echo ok > $out
             '';
           };

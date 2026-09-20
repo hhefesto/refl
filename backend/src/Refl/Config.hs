@@ -32,6 +32,10 @@ data Config = Config
   , cfgMessageBytes :: Int
   , cfgCommandSeconds :: Int
   , cfgIdleSeconds :: Int
+  , cfgAnalytics :: Bool            -- ^ record visits under <data-dir>/analytics
+  , cfgAnalyticsDays :: Int         -- ^ retention; older day files are deleted
+  , cfgGeoipDb :: Maybe FilePath    -- ^ MaxMind-format database, country level
+  , cfgDashboardPasswordFile :: Maybe FilePath
   } deriving (Show)
 
 -- | The exact browser origin: the configured one, else the listening address.
