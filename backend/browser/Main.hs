@@ -498,9 +498,11 @@ main = do
             let fixture = (Analytics.aggregate (Analytics.sanitizer [])
                   (UTCTime (fromGregorian 2026 9 20) 43200) 30 400 True False mempty [])
                   { suTotals = Totals 2 1 4 7 1 3 1
-                  , suDaily = [DayPoint "2026-09-20" 2 4 7 2]
+                  , suDaily = [DayPoint "2026-09-20" 2 4 7 2 3]
                   , suCountries = [Bucket "SG" "SG" 4]
-                  , suLevels = [LevelStat "tutorial/refl" 3 3] }
+                  , suLevels = [LevelStat "tutorial/refl" 3 3]
+                  , suSessions = 1, suSessionsMax = 4
+                  , suSessionPeak = 3, suRejected = 2 }
                 fixtureJSON = TL.toStrict (TLE.decodeUtf8 (encode fixture))
                 mock = T.unlines
                   [ "window.__dashMode='ready'; window.__dashPending=[];"
@@ -521,11 +523,12 @@ main = do
             installed <- rpc "Page.addScriptToEvaluateOnNewDocument" (object ["source" .= mock])
             let Just mockId = parseMaybe (withObject "reply" (\o -> o .: "result" >>= withObject "result" (.: "identifier"))) installed :: Maybe T.Text
             void (rpc "Page.reload" (object []))
-            wait "dashboard ready" "document.querySelectorAll('.tile').length===5"
+            wait "dashboard ready" "document.querySelectorAll('.tile').length===6"
             wait "missing map retains country values" "document.body.innerText.includes('Country outlines are unavailable.') && document.querySelector('.geo-row').textContent.includes('Singapore')"
             wait "coverage shown" "document.querySelector('.coverage')?.textContent.includes('incomplete recorded history') === true && !document.querySelector('.tile .d')"
             run "document.querySelector('.chart details').open=true; true"
             wait "textual daily chart" "document.querySelector('.daily-values')?.textContent.includes('2026-09-20') === true && document.querySelector('.daily-values').textContent.includes('Peak active (5 min)')"
+            wait "capacity tile" "[...document.querySelectorAll('.tile')].some(t=>t.textContent.includes('Prover sessions') && t.textContent.includes('of 4') && t.textContent.includes('peak 3') && t.textContent.includes('2 turned away'))"
             run "window.__dashMode='manual'; true"
             click "90 days"
             wait "90-day request queued" "window.__dashPending.length===1"
@@ -553,11 +556,11 @@ main = do
               wait "dashboard error" "Boolean(document.querySelector('[role=alert]'))"
               run "window.__dashMode='ready'; true"
               click "Retry"
-              wait "dashboard retry" "document.querySelectorAll('.tile').length===5"
+              wait "dashboard retry" "document.querySelectorAll('.tile').length===6"
             forM_ ["dark", "light"] $ \theme -> do
               run ("localStorage.setItem('refl-theme'," <> js theme <> "); true")
               void (rpc "Page.reload" (object []))
-              wait "dashboard stored theme" ("document.documentElement.dataset.theme===" <> js theme <> " && document.querySelectorAll('.tile').length===5")
+              wait "dashboard stored theme" ("document.documentElement.dataset.theme===" <> js theme <> " && document.querySelectorAll('.tile').length===6")
               contrast
               void (rpc "Emulation.setDeviceMetricsOverride" (object ["width" .= (320 :: Int), "height" .= (740 :: Int), "deviceScaleFactor" .= (1 :: Int), "mobile" .= True]))
               wait "mobile dashboard fits" "document.documentElement.scrollWidth<=window.innerWidth"

@@ -111,11 +111,19 @@ report shapes names s = do
     tile (suComparable s) "In-app navigations" (toViews t) (toViews p) (tshow (toLoads t) <> " documents served")
     tile (suComparable s) "Countries" (toCountries t) (toCountries p) (if suGeo s then "" else "no geolocation database loaded")
     tile (suComparable s) "Exercise completions" (toSolves t) (toSolves p) (tshow (toBots t) <> " crawler visits excluded")
+    -- The one tile that is about the machine rather than the audience: a
+    -- reader costs nothing, a held prover costs one of very few slots.
+    tile False "Prover sessions" (suSessions s) 0
+      ("of " <> tshow (suSessionsMax s) <> " · peak " <> tshow (suSessionPeak s)
+       <> " · " <> tshow (suRejected s) <> " turned away")
   elClass "p" "muted" $ text
     ("Active browsers are cookie identities seen within five minutes. Visible game tabs send a minute heartbeat; multiple tabs count once. "
      <> "Older history without heartbeats can undercount readers. Snapshot: " <> suAsOf s <> ". Refreshes each minute.")
   if suComparable s then blank else elClass "p" "coverage" $ text
     ("Comparison unavailable: incomplete recorded history (" <> tshow (suCoveredDays s) <> " complete UTC days).")
+  elClass "p" "muted" $ text
+    ("A prover session is one open level holding one checker process. Turned away counts connections refused "
+     <> "because every slot was busy; if that number is not zero, raise --max-sessions or the server is the limit. ")
   elClass "p" "muted" $ text
     ("Completions count each browser, lesson and language once per period; Agda and Lean count separately. "
      <> tshow (suUnknown s) <> " unclassified legacy events excluded from browser metrics.")
@@ -195,9 +203,9 @@ lineChart pts
       el "details" $ do
         el "summary" (text "Daily chart values")
         elClass "div" "daily-values" $ el "table" $ do
-          el "thead" $ el "tr" $ forM_ ["UTC day", "Browser identities", "Document loads", "Navigations", "Peak active (5 min)"] (el "th" . text)
+          el "thead" $ el "tr" $ forM_ ["UTC day", "Browser identities", "Document loads", "Navigations", "Peak active (5 min)", "Peak prover sessions"] (el "th" . text)
           el "tbody" $ forM_ pts $ \d -> el "tr" $
-            forM_ [dpDay d, tshow (dpVisitors d), tshow (dpLoads d), tshow (dpViews d), tshow (dpPeak d)] (el "td" . text)
+            forM_ [dpDay d, tshow (dpVisitors d), tshow (dpLoads d), tshow (dpViews d), tshow (dpPeak d), tshow (dpSessions d)] (el "td" . text)
  where
   ns = "http://www.w3.org/2000/svg" :: Text
   left = 44; top = 14; plotW = 900; plotH = 196 :: Double

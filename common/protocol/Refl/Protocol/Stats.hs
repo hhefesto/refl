@@ -35,6 +35,7 @@ data DayPoint = DayPoint
   , dpLoads    :: Int
   , dpViews    :: Int
   , dpPeak     :: Int   -- ^ peak distinct browser identities active within five minutes
+  , dpSessions :: Int   -- ^ peak prover sessions held at once that day
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
 
@@ -73,6 +74,13 @@ data Summary = Summary
   , suComparable :: Bool  -- ^ both periods have recorded history
   , suCoveredDays :: Int  -- ^ complete UTC days in the two periods
   , suUnknown   :: Int    -- ^ unclassified legacy events, excluded from human metrics
+  -- A reader costs nothing; a prover session costs a process, and there are
+  -- only 'suSessionsMax' of those. These four are the capacity picture:
+  -- what is held now, the most ever held at once, and who was turned away.
+  , suSessions    :: Int -- ^ prover sessions open at the snapshot
+  , suSessionsMax :: Int -- ^ the configured ceiling (--max-sessions)
+  , suSessionPeak :: Int -- ^ most prover sessions held at once in the period
+  , suRejected    :: Int -- ^ connections refused because the ceiling was reached
   , suGeo       :: Bool   -- ^ whether a geolocation database is loaded
   , suTotals    :: Totals
   , suPrevious  :: Totals -- ^ the window before this one, for the deltas

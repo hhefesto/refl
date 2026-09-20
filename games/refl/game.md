@@ -48,5 +48,10 @@ This is a work in progress. Only Tutorial World is anywhere near finished,
 and it still needs a lot of refining — truthfully, its first level is the only
 one I have polished to a standard I mostly approve of.
 
+The whole game is one Nix flake, and the source is on
+[GitHub](https://github.com/hhefesto/refl). You do not have to take my
+server's word for any of it: `nix run github:hhefesto/refl` builds your own
+copy — provers included — and serves it at `http://127.0.0.1:8090`.
+
 This site is running on a potato server — see the [Support](#/donate) page if
 you would like to help me improve the potato.

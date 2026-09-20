@@ -124,6 +124,19 @@ implementations).
   only for a whole day it observed from beginning to end — a restart on the
   day, or history predating collection, suppresses the deltas rather than
   understating them.
+- Presence and capacity are different questions and the dashboard answers
+  both separately. A browser "active" for five minutes may be reading the
+  map, which costs nothing; what runs out is `--max-sessions` prover slots,
+  one per open level. So a slot writes a `session` event **when it is given
+  back**, carrying how long it was held — one self-contained record, so
+  nothing has to be paired across a restart — and `overlapPeaks` sweeps
+  those intervals for the peak. Sessions are *not* unioned per browser the
+  way presence is: two tabs really do hold two slots. A refusal writes a
+  `capacity` event, and it must be emitted *before* `WS.rejectRequest`,
+  which is the only moment the server says it is full. `suSessions` and
+  `suSessionsMax` are not in the log at all: only the live `seSlots` counter
+  knows them, so `Refl.Server.capacity` stitches them onto the memoised
+  summary per request.
 - Two traps the analytics code exists to avoid, both found by running it:
   the GHC runtime refuses to open a file for reading while the same
   process holds it open for writing, so the writer must not keep a handle

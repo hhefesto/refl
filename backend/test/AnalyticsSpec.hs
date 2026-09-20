@@ -151,6 +151,35 @@ spec = do
       dpPeak (last (suDaily s)) `shouldBe` 2
     it "reads old beacons as navigations" $ do
       decodeStrict "{\"hiRoute\":\"#/\",\"hiLang\":\"agda\"}" `shouldBe` Just (Hit "#/" "agda" False)
+  describe "prover capacity" $ do
+    let held at seconds = sample { evKind = "session", evAt = at, evSeconds = seconds }
+    it "counts sessions that overlap, not sessions that merely happened" $ do
+      -- three held for a minute from the same instant, then one alone
+      let s = summary ([(held "2026-09-20T10:01:00Z" 60) { evVisitor = v }
+                       | v <- ["0123456789abcdef", "abcdef0123456789", "aaaabbbbccccdddd"]]
+                       ++ [held "2026-09-20T11:00:00Z" 60])
+      suSessionPeak s `shouldBe` 3
+      dpSessions (last (suDaily s)) `shouldBe` 3
+    it "does not union a browser's own sessions: two tabs hold two slots" $ do
+      let s = summary [held "2026-09-20T10:01:00Z" 60, held "2026-09-20T10:01:30Z" 60]
+      suSessionPeak s `shouldBe` 2
+    it "counts refusals, and keeps them out of the human metrics" $ do
+      let s = summary [sample { evKind = "capacity", evAt = "2026-09-20T10:00:00Z" }
+                      , sample { evKind = "capacity", evAt = "2026-09-20T10:00:01Z" }]
+      suRejected s `shouldBe` 2
+      toLoads (suTotals s) `shouldBe` 0
+      toViews (suTotals s) `shouldBe` 0
+      toSolves (suTotals s) `shouldBe` 0
+    it "leaves the live pair to the server, which is the only thing that knows it" $ do
+      let s = summary [held "2026-09-20T10:01:00Z" 60]
+      (suSessions s, suSessionsMax s) `shouldBe` (0, 0)
+    it "refuses a duration long enough to bend the chart" $ do
+      evSeconds (sanitizeEvent clean (held "2026-09-20T10:00:00Z" 99999999)) `shouldBe` 86400
+      evSeconds (sanitizeEvent clean (held "2026-09-20T10:00:00Z" (-5))) `shouldBe` 0
+    it "carries a session that spans midnight into both days" $ do
+      let s = summary [held "2026-09-20T00:10:00Z" 1200]
+      dpSessions (last (suDaily s)) `shouldBe` 1
+      lookup "2026-09-19" [(dpDay d, dpSessions d) | d <- suDaily s] `shouldBe` Just 1
   describe "dashboard access" $ do
     it "rejects empty and whitespace-only password files without echoing the secret" $ withDir $ \dir -> do
       forM_ ["", " \t\n", "\nnonempty", TE.encodeUtf8 "\x2003\x2002"] $ \pw -> do

@@ -28,6 +28,7 @@ module Refl.Server.Analytics
   , normalizeHost
   , decodeEvents
   , activeCounts
+  , overlapPeaks
   ) where
 
 import           Control.Concurrent       (forkIO)
@@ -84,6 +85,10 @@ data Event = Event
   , evRef     :: Text   -- ^ the referrer's host, never the whole URL
   , evAgent   :: Text   -- ^ @desktop@ | @mobile@ | @bot@
   , evBrowser :: Text
+  -- A @session@ event is written when a prover connection ends and says how
+  -- long it was held: one self-contained record, so nothing has to be paired
+  -- up across a restart to know what overlapped what.
+  , evSeconds :: Int
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (ToJSON)
 
@@ -95,10 +100,10 @@ instance FromJSON Event where
     <*> o .:? "evLang" .!= "" <*> o .:? "evLevel" .!= ""
     <*> o .:? "evVerdict" .!= "" <*> o .:? "evCountry" .!= ""
     <*> o .:? "evRef" .!= "" <*> o .:? "evAgent" .!= "unknown"
-    <*> o .:? "evBrowser" .!= ""
+    <*> o .:? "evBrowser" .!= "" <*> o .:? "evSeconds" .!= 0
 
 emptyEvent :: Event
-emptyEvent = Event "" "" "" False "" "" "" "" "" "" "" ""
+emptyEvent = Event "" "" "" False "" "" "" "" "" "" "" "" 0
 
 -- | An event stamped now, for a visitor. The identity cookie is 64 hex
 -- characters; a prefix is enough to tell visitors apart and is not the
@@ -287,6 +292,7 @@ sanitizeEvent clean e = e
   , evCountry = if T.length (evCountry e) == 2 && T.all isAsciiUpper (evCountry e) then evCountry e else ""
   , evVisitor = if T.length (evVisitor e) == 16 && T.all (`elem` ("0123456789abcdef" :: String)) (evVisitor e) then evVisitor e else ""
   , evVerdict = if evVerdict e `elem` ["solved", "unsolved", "rejected", "failed"] then evVerdict e else ""
+  , evSeconds = max 0 (min 86400 (evSeconds e))
   }
 
 -- | Parse the URL before extracting the authority. Only public-shaped DNS
@@ -352,10 +358,17 @@ aggregate clean now days retention enabled geo covered events = Summary
         && all (`S.member` covered) [prevFrom .. addDays (-1) today]
     , suCoveredDays = length (filter (`S.member` covered) [prevFrom .. addDays (-1) today])
     , suUnknown = length [e | e <- cur, evAgent e == "unknown"]
+    -- Capacity, not presence: a reader costs nothing, a held prover costs a
+    -- slot. 'suSessions' and 'suSessionsMax' are live and filled in by the
+    -- server, which is the only thing that knows them.
+    , suSessions = 0, suSessionsMax = 0
+    , suSessionPeak = maximum (0 : M.elems sessionPeaks)
+    , suRejected = length [e | e <- cur, evKind e == "capacity"]
     , suTotals = totals cur, suPrevious = totals prev
     , suDaily = [DayPoint (dayText d) (visitors (onDay d))
         (length (kind "load" (onDay d))) (length (kind "route" (onDay d)))
-        (M.findWithDefault 0 d peaks) | d <- [from .. today]]
+        (M.findWithDefault 0 d peaks) (M.findWithDefault 0 d sessionPeaks)
+        | d <- [from .. today]]
     , suCountries = buckets evCountry loads 250
     , suPages = buckets evPath (kind "route" human) 10
     , suLevels = [LevelStat k (S.size (exercises [e | e <- opened, evLevel e == k]))
@@ -381,6 +394,12 @@ aggregate clean now days retention enabled geo covered events = Summary
     isHuman e, not (T.null (evVisitor e)),
     evKind e `elem` ["load", "open", "check"] ||
       (evKind e `elem` ["route", "heartbeat"] && not (T.null (evPath e)))]
+  -- A session event is written when the connection closes, so the slot was
+  -- held over [end - duration, end]. Sessions are not unioned per browser:
+  -- two tabs from one reader really do hold two slots.
+  sessionPeaks = overlapPeaks from today
+    [(addUTCTime (negate (fromIntegral (evSeconds e))) t, t)
+    | (t,e) <- stamped, evKind e == "session"]
   human = filter isHuman cur
   loads = kind "load" human
   opened = [e | e <- human, evKind e `elem` ["open", "check"]]
@@ -433,6 +452,19 @@ activeCounts now from observations = (current, peaks)
   step (count, days) (at,delta) =
     let count' = count + delta
     in (count', if at < first then days else M.insertWith max (utctDay at) count' days)
+
+-- | The most intervals overlapping at once, per UTC day. Midnight is
+-- included as a zero-delta change so an interval that spans it counts
+-- towards the new day as well, without waiting for the next event.
+overlapPeaks :: Day -> Day -> [(UTCTime, UTCTime)] -> M.Map Day Int
+overlapPeaks from to intervals = snd (foldl' step (0, M.empty) (M.toAscList changes))
+ where
+  changes = M.fromListWith (+)
+    ([(at,delta) | (start,end) <- intervals, (at,delta) <- [(start,1),(end,-1)]]
+     ++ [(UTCTime d 0, 0) | d <- [from .. to]])
+  step (count, days) (at,delta) =
+    let count' = count + delta
+    in (count', if at < UTCTime from 0 then days else M.insertWith max (utctDay at) count' days)
 
 -- | Every retained event in @[from, to]@. A damaged line is skipped, not
 -- fatal: a half-written last line after a kill must not blank the dashboard.

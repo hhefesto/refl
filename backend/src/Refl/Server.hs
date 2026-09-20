@@ -260,11 +260,20 @@ server se =
        pure (object ["ok" .= True, "levels" .= M.size (seSources se)])
   :<|> liftIO (getProgress (seProgress se))
   :<|> hit se
-  :<|> (\d -> liftIO (summarise (seAnalytics se) (clampDays d)))
+  :<|> (\d -> liftIO (capacity se =<< summarise (seAnalytics se) (clampDays d)))
   :<|> pure (seManifest se)
   :<|> Tagged (spaApp se)
  where
   clampDays = max 1 . min 400 . fromMaybe 30
+
+-- | How full the server is right now. The log knows what /was/ held, because
+-- a session records itself when it closes; only the slot counter knows what
+-- is held at this instant, so the live pair is stitched on after the
+-- memoised summary rather than aggregated from disk.
+capacity :: ServerEnv -> Summary -> IO Summary
+capacity se s = do
+  used <- readMVar (seSlots se)
+  pure s { suSessions = used, suSessionsMax = cfgMaxSessions (seConfig se) }
 
 -- | Static file if it exists, else index.html (client-side routing).
 spaApp :: ServerEnv -> Application
@@ -298,7 +307,25 @@ wsApp se pending
       mask $ \restore -> do
         admitted <- modifyMVar (seSlots se) $ \n ->
           if n < cfgMaxSessions cfg then pure (n + 1, True) else pure (n, False)
-        if not admitted then WS.rejectRequest pending "session capacity reached" else
+        -- The refusal is the only moment that says the server is full, and
+        -- it happens before anything else is recorded: without this event
+        -- the dashboard cannot tell a quiet hour from a turned-away crowd.
+        if not admitted then do
+          ev <- newEvent "capacity" (seVisitor se) False
+          emit (seAnalytics se) ev { evAgent = seAgent se, evBrowser = seBrowser se }
+          WS.rejectRequest pending "session capacity reached"
+        else do
+          opened <- getCurrentTime
+          -- One record per slot, written when it is given back, carrying how
+          -- long it was held: enough to reconstruct what overlapped what,
+          -- with nothing to pair up across a restart.
+          let release = do
+                modifyMVar_ (seSlots se) (pure . subtract 1)
+                closed <- getCurrentTime
+                ev <- newEvent "session" (seVisitor se) False
+                emit (seAnalytics se) ev
+                  { evAgent = seAgent se, evBrowser = seBrowser se
+                  , evSeconds = round (diffUTCTime closed opened) }
           restore (do
             conn <- WS.acceptRequest pending
             sessionVar <- newMVar Nothing
@@ -307,7 +334,7 @@ wsApp se pending
                   mapM_ (\s -> void (try (psClose (ssProver s)) :: IO (Either SomeException ()))) ms
             WS.withPingThread conn 30 (pure ()) $
               (loop conn sessionVar `finally` closeSession))
-          `finally` modifyMVar_ (seSlots se) (pure . subtract 1)
+            `finally` release
   | otherwise = WS.rejectRequest pending "not found"
  where
   cfg = seConfig se

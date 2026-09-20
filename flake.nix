@@ -448,7 +448,7 @@
               step dashboard-wrong-pw; test "$(code http://127.0.0.1:8123/dashboard/ /dev/null refl:nope)" = 401
               step dashboard-open;     test "$(code http://127.0.0.1:8123/dashboard/ $TMPDIR/dash.html refl:smoke)" = 200; grep -q '<script' $TMPDIR/dash.html
               step dashboard-slash;    test "$(curl -s -o /dev/null -w '%{http_code}' -u refl:smoke http://127.0.0.1:8123/dashboard)" = 302
-              step dashboard-data;     test "$(code http://127.0.0.1:8123/dashboard/data.json $TMPDIR/stats.json refl:smoke)" = 200; grep -q '"suTotals"' $TMPDIR/stats.json
+              step dashboard-data;     test "$(code http://127.0.0.1:8123/dashboard/data.json $TMPDIR/stats.json refl:smoke)" = 200; grep -q '"suTotals"' $TMPDIR/stats.json; grep -q '"suSessionsMax":4' $TMPDIR/stats.json
               step beacon;   curl -fsS -X POST -H 'Origin: http://127.0.0.1:8123' -H 'Content-Type: application/json' \
                                -d '{"hiRoute":"#/","hiLang":"agda"}' http://127.0.0.1:8123/api/hit -o /dev/null
               echo ok > $out
