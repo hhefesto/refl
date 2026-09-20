@@ -11,7 +11,8 @@ example_explanation: |-
   ```
 
   The first line is notation, the second uses the successor rule, the third
-  the zero rule. Walking down from the right takes one step: `4` is `suc 3`.
-  Both sides read `suc 3`, so the chain needs only that one middle line. For
-  the exercise, find where its own two endpoints land before filling the holes.
+  the zero rule. Walking up from the right takes one step: `4` is `suc 3`.
+  Both sides read `suc 3`, so the chain needs only that one middle line. The
+  exercise starts you one step along each walk; work out the next step on each
+  side before filling its hole.
 ---

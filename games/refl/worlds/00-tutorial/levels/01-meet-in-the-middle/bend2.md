@@ -4,11 +4,11 @@ learning_goals:
   - "Compute Refl.add using its second argument."
   - "Build separate left and right paths to a common middle."
 hints:
-  - text: "Walk down from the left first. `Refl.add(2n, 2n)` is `Refl.add(2n, Succ{1n})`. The successor case gives `Succ{Refl.add(2n, 1n)}`: put that in `?left`. Another successor step gives `Succ{Succ{Refl.add(2n, 0n)}}`, and the zero case gives `Succ{Succ{2n}}`, our middle."
+  - text: "Take one step from the left. The left path already shows one: `Refl.add(2n, 2n)` is `Refl.add(2n, Succ{1n})`, and the successor case gives `Succ{Refl.add(2n, 1n)}`. Your step continues from there — another successor step gives `Succ{Succ{Refl.add(2n, 0n)}}`, which fills `?left`."
     hidden: true
-  - text: "Now walk down from the right. `4n` expands to `Succ{3n}`: put that in `?right`. Expand `3n` once more to get `Succ{Succ{2n}}`, the same middle."
+  - text: "Now take one step from the right. The right path already shows one: `4n` expands to `Succ{3n}`. Your step continues from there — expanding `3n` once more gives `Succ{Succ{2n}}`, which fills `?right` and is the middle itself."
     hidden: true
-  - text: "Both paths must end at the same number. Read each nested `Refl.step` from the outside inward: the current endpoint, your intermediate term, then `Refl.arrive(middle)`. Every adjacent pair must compute to the same number. You can add more steps to show smaller reductions."
+  - text: "Both paths must end at the same number. Read each nested `Refl.step` from the outside inward: the current endpoint, the step shown for you, your step, then `Refl.arrive(middle)`. Every adjacent pair must compute to the same number. You can add more steps to show smaller reductions."
     hidden: true
   - text: |-
       Here are the two completed paths:
@@ -18,10 +18,12 @@ hints:
         middle = {Succ{Succ{2n}} : Nat}
         left = Refl.step(Refl.add(2n, 2n), middle,
           Refl.step(Succ{Refl.add(2n, 1n)}, middle,
-            Refl.arrive(middle)))
+            Refl.step(Succ{Succ{Refl.add(2n, 0n)}}, middle,
+              Refl.arrive(middle))))
         right = Refl.step(4n, middle,
           Refl.step(Succ{3n}, middle,
-            Refl.arrive(middle)))
+            Refl.step(Succ{Succ{2n}}, middle,
+              Refl.arrive(middle))))
         Refl.meet(Refl.add(2n, 2n), 4n, middle, left, right)
       ```
 
@@ -39,8 +41,9 @@ example_explanation: |-
 
   The right path expands `4n` to `Succ{3n}`. `Refl.arrive(middle)` ends each
   path at that common term. `Refl.meet` joins the left path to the reverse
-  of the right path, proving the original equality. The exercise uses two
-  successor steps on the left, so work out its own intermediate term.
+  of the right path, proving the original equality. The exercise's sum is
+  further apart, so each of its paths shows a first step and leaves you the
+  next one.
 ---
 Natural numbers count **successors** from zero. Bend's type is `Nat`,
 `Zero{}` is zero, and `Succ{n}` is the successor of `n`, one more.
@@ -80,9 +83,9 @@ Refl.add(a, Succ{p}) → Succ{Refl.add(a, p)}
 ```
 
 Now build **two paths**. One starts at `Refl.add(2n, 2n)`, the other at
-`4n`. The proposed meeting point is `Succ{Succ{2n}}`. Each path has a hole
-for a number expression you reach on the way. Fill those holes by computing
-from their respective endpoints.
+`4n`. The proposed meeting point is `Succ{Succ{2n}}`. Each path already shows
+its first step and then leaves a hole for the next one. Fill those holes by
+computing on from the term shown just above each of them.
 
 The game's small proof library supplies three ordinary, checked functions:
 

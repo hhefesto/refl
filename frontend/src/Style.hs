@@ -40,6 +40,13 @@ appCss = T.unlines
   -- level page
   , ".level { display:grid; grid-template-columns: minmax(280px, 1fr) minmax(420px, 1.5fr) minmax(300px, 1fr); gap:1rem; align-items:start; }"
   , "@media (max-width: 1100px) { .level { grid-template-columns: 1fr; } }"
+  -- the explanation and the conclusion span every column; the working
+  -- aids, the editor and the prover panel share the row between them
+  , ".level-intro, .conclusion { grid-column: 1 / -1; }"
+  , ".level-intro h2 { text-align:center; margin:.2rem 0 .7rem; }"
+  -- verified pair: --warn on --warning-bg is contrast-checked
+  , ".spoiler-tag { margin-left:.5rem; font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; padding:.05rem .4rem; border-radius:4px; background:var(--warning-bg); color:var(--warn); }"
+  , ".spoiler-note { color:var(--muted); font-size:.9rem; }"
   , ".level h2 { font-size:1.3rem; } .level .goals-title { font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:.8rem 0 .3rem; }"
   , ".statement { background:var(--code); border-radius:6px; padding:.6rem .8rem; white-space:pre; overflow-x:auto; margin:0 0 .6rem; }"
   , ".editor-wrap { position:relative; border:1px solid var(--line); border-radius:6px; background:var(--card); overflow:hidden; }"
@@ -58,6 +65,9 @@ appCss = T.unlines
   , ".hl-terminationproblem, .hl-coverageproblem, .hl-positivityproblem { background:var(--error-bg); }"
   -- commands and panels
   , ".commands { display:flex; flex-wrap:wrap; gap:.4rem; margin:.6rem 0; }"
+  -- Reset sits apart from the prover commands: it is destructive and
+  -- client-side. Border only, so theme contrast is unaffected.
+  , ".commands button.reset { margin-left:auto; } .commands button.reset:hover { border-color:var(--err); }"
   , "button { font:inherit; font-size:.9rem; padding:.35rem .7rem; border-radius:6px; border:1px solid var(--line); background:var(--card); cursor:pointer; }"
   , "button:hover { border-color:var(--accent); } button.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }"
   , "button:disabled { opacity:.45; cursor:default; }"

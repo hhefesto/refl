@@ -66,7 +66,14 @@ implementations).
   a hole in a *rung* asks for a term (`?0 : ℕ`), not a proof.
 - Lean's meet-in-the-middle is core `conv`: `conv => lhs` / `conv => rhs` plus
   `change` restates one endpoint, and when both sides reach the same term
-  `conv` closes the goal with no `rfl` typed. `conv_lhs`/`conv_rhs` are
+  `conv` closes the goal with no `rfl` typed. Several `change` lines may be
+  stacked in one `conv` block, each walking that side one restatement further.
+  That auto-close needs *syntactic* agreement (reducible transparency), not
+  mere definitional equality: `conv => lhs; change succ 1 + succ 1` against
+  `conv => rhs; change succ 3` still reports `unsolved goals`. So Lean's two
+  sides must land on the same term, while an Agda `≡⟨⟩` chain's rungs need only
+  be definitionally equal and may be spelled differently.
+  `conv_lhs`/`conv_rhs` are
   Mathlib and are not available here (`unknown tactic`). `?_` cannot stand for
   a term in `calc` or `show`: it is a *synthetic opaque* metavariable, closed
   to unification, so a neighbouring `rfl` may not solve it (`rfl has type
@@ -105,6 +112,18 @@ implementations).
   reflexivity as syntax, so the primitive remains usable in level 1's
   native alternative without advertising the shortcut before it; world 1's
   `+-right-comm` no longer unlocks `≡-Reasoning`.
+- Level 1 shows **one computation step at each end and asks for the next one**,
+  in every language: Agda's chain scaffolds the `suc 1 + suc 1` and `suc 3`
+  rungs around two `?` rungs; Lean stacks two `change`s per `conv` block, the
+  first shown and the second the player's; Bend nests an extra `Refl.step`
+  waypoint per path above `?left`/`?right`. Lean's own placeholder is
+  `change ?_`: `?_` is term syntax and is a parse error on its own line in a
+  `conv` block (`unexpected token '?'; expected 'binder_predicate'`), but as
+  `change`'s argument it parses, acts as a no-op and leaves the goal open.
+  `change _`, `change ?name` and `skip` behave the same way.
+  This supersedes the earlier
+  "one `change` per side" for Lean. The Agda holes may be spelled differently
+  (`suc (suc 1 + 1)` and `suc (suc 2)`); Lean's two must coincide.
 - Tutorial is nine levels: 1 "Meet in the middle" and 2 "refl" pose the same
   `2 + 2 ≡ 4`. Their Agda lemmas must differ (`two-plus-two-by-hand` and
   `two-plus-two`) because `renderWorldModule` harvests every level's statement
@@ -144,6 +163,12 @@ implementations).
   and strings must reach it as UTF-8 text, never `BL.unpack` of JSON bytes.
 - What a prover can do lives in the plugin (`langCommands`) and travels in
   `LangInfo.liCommands`; nothing else hard-codes language ids for commands.
+  **Reset** is the exception that proves it: it is not a `CommandId` at all but
+  a client action that puts `llTemplate` back for the current language, so it
+  is always enabled, never gated by an unlock, and must also write the template
+  over the stored draft — otherwise the draft flushed on departure undoes it.
+  Adding a button to `.commands` breaks the browser test's two exact row
+  assertions (`Check,Goal,Reset` for Lean, `Check,Goal,Give,Reset` elsewhere).
 - A lesson must not mention a command its language lacks (`teachingProblems`
   fails CI); a worked example is a different statement, type-checked with the
   earned vocabulary. Hidden hints can be revealed in order before any Check.

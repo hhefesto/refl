@@ -77,41 +77,45 @@ levelPage m leaveE lang wid idx =
     -- editor --------------------------------------------------------------
     -- initial text: template until the session says otherwise
     let initialText = llTemplate ll
-    lastResult <- holdDyn Nothing (leftmost [ Nothing <$ eoEdited ed, Nothing <$ retryE, Just <$> resultE ])
-    checkedText <- holdDyn Nothing (leftmost [ Nothing <$ eoEdited ed, Nothing <$ retryE, Just <$> tag (current (eoText ed)) checked
+    lastResult <- holdDyn Nothing (leftmost [ Nothing <$ eoEdited ed, Nothing <$ retryE, Nothing <$ resetE, Just <$> resultE ])
+    checkedText <- holdDyn Nothing (leftmost [ Nothing <$ eoEdited ed, Nothing <$ retryE, Nothing <$ resetE, Just <$> tag (current (eoText ed)) checked
                                              , Just . fst <$> replaced ])
     let hlDyn = ffor ((,) <$> lastResult <*> checkedText) $ \(mr, mt) -> case (mr, mt) of
           (Just r, Just t) -> Just (t, crHighlight r, crHoles r)
           _ -> Nothing
     -- left column ---------------------------------------------------------
-    (ed, cmdE, exprDyn) <- mdo
-      elClass "div" "col-left" $ do
+    (ed, cmdE, exprDyn, resetE) <- mdo
+      -- The level's own explanation reads across the whole page, under a
+      -- centred title; only the working aids sit beside the editor.
+      elClass "div" "level-intro" $ do
         el "h2" (text (llTitle ll))
         elClass "div" "card prose" $ do
           rawHtml (llIntroHtml ll)
           elClass "ul" "goals" $ forM_ (llLearningGoals ll) $ \g -> el "li" (rawHtml g)
+      elClass "div" "col-left" $ do
         hintsW ll
         buildingBlocks m lang wid (lIndex l)
         when (not (T.null (llExampleCode ll))) $
           elClass "details" "worked-example prose card" $ do
-            el "summary" (text "A similar problem, worked out")
+            -- The warning has to live in the summary: anything inside is read
+            -- only after the spoiler has already been opened.
+            el "summary" $ do
+              text "A similar problem, worked out"
+              elClass "span" "spoiler-tag" (text "spoiler")
+            el "p" $ elClass "em" "spoiler-note"
+              (text "A different problem from the one you are proving, but carried all the way to a finished proof.")
             el "pre" $ el "code" (text (llExampleCode ll))
             rawHtml (llExampleHtml ll)
-        dyn_ $ ffor lastResult $ \mr -> case mr of
-          Just r | crVerdict r == Solved -> elClass "div" "conclusion prose" $ do
-            rawHtml (llConclusionHtml ll)
-            nextLink w l
-          _ -> blank
       -- middle column
-      (ed', cmdE', exprDyn') <- elClass "div" "col-mid" $ do
+      (ed', cmdE', exprDyn', resetE') <- elClass "div" "col-mid" $ mdo
         elClass "pre" "statement" (text (T.stripEnd (llStatement ll)))
         ed0 <- editor EditorConfig
           { ecInitial = initialText
-          , ecSetText = leftmost [ (\(_, _, t) -> t) <$> opened, fst <$> replaced ]
+          , ecSetText = leftmost [ (\(_, _, t) -> t) <$> opened, fst <$> replaced, initialText <$ resetE ]
           , ecHighlight = hlDyn
           , ecInputMethod = liInputMethod' lang
           }
-        (cmdE0, exprDyn0) <- commandsW lang supported available canUse ed0
+        (cmdE0, exprDyn0, resetE0) <- commandsW lang supported available canUse ed0
         elClass "div" "editor-status" $ do
           dynText (ffor status $ \case Checking -> "checking…"; _ -> "")
           elClass "span" "im" $ text $ T.intercalate " · " $
@@ -119,8 +123,8 @@ levelPage m leaveE lang wid idx =
             ++ [ "C-c C-l check", if lang == LangId "lean" then "C-c C-, goal at cursor" else "C-c C-, goal" ]
             ++ [ "C-c C-SPC give" | CmdGive `elem` supported, CmdGive `elem` available ]
             ++ [ "C-c C-c case" | CmdCase `elem` supported, CmdCase `elem` available ]
-        pure (ed0, cmdE0, exprDyn0)
-      pure (ed', cmdE', exprDyn')
+        pure (ed0, cmdE0, exprDyn0, resetE0)
+      pure (ed', cmdE', exprDyn', resetE')
     -- right column --------------------------------------------------------
     (sendHoleE, retryE) <- elClass "div" "col-right" $ mdo
       retry <- switchHold never =<< dyn (ffor session $ \s -> do
@@ -141,7 +145,7 @@ levelPage m leaveE lang wid idx =
         Done r -> elClass "div" ("verdict " <> verdictClass (crVerdict r)) (text (verdictText (crVerdict r) <> " — " <> crStatus r))
       -- holes
       elClass "div" "goals-title" (text "Holes")
-      sel <- holdDyn Nothing (leftmost [ pickHole <$> resultE, holeClickE, cursorHoleE ])
+      sel <- holdDyn Nothing (leftmost [ Nothing <$ resetE, pickHole <$> resultE, holeClickE, cursorHoleE ])
       holeClickE <- switchHold never . fmap leftmost =<< (elClass "div" "holes" $ dyn $ ffor ((,) <$> lastResult <*> sel) $ \(mr, s) ->
         case mr of
           Just r | not (null (crHoles r)) -> forM_' (crHoles r) $ \h -> do
@@ -158,7 +162,7 @@ levelPage m leaveE lang wid idx =
             (current lastResult) (updated (eoCursor ed))
       -- goal
       elClass "div" "goals-title" (text "Goal")
-      goalDyn <- holdDyn Nothing (leftmost [ Just . Left <$> goalShown, Just . Right <$> info, Nothing <$ resultE ])
+      goalDyn <- holdDyn Nothing (leftmost [ Just . Left <$> goalShown, Just . Right <$> info, Nothing <$ resultE, Nothing <$ resetE ])
       dyn_ $ ffor goalDyn $ \case
         Nothing -> elClass "div" "goal muted" (text (if lang == LangId "lean" then "Place the cursor in the proof and press Goal (C-c C-,)." else "Select a hole and press Goal (C-c C-,)."))
         Just (Left g) -> elClass "div" "goal" $ do
@@ -172,7 +176,7 @@ levelPage m leaveE lang wid idx =
           elClass "div" "ty" (text b)
       -- diagnostics
       elClass "div" "goals-title" (text "Messages")
-      errDyn <- holdDyn Nothing (leftmost [Just <$> serverErr, Nothing <$ resultE])
+      errDyn <- holdDyn Nothing (leftmost [Just <$> serverErr, Nothing <$ resultE, Nothing <$ resetE])
       dyn_ $ ffor errDyn $ \case
         Just e -> elClass "div" "diag error" (text e)
         Nothing -> blank
@@ -197,6 +201,12 @@ levelPage m leaveE lang wid idx =
             ((,,) <$> current sel <*> current exprDyn <*> current (eoCursor ed)) cmdE
           target s cur = maybe (TargetPos cur) TargetHole s
       pure (holeOpE, retry)
+    -- the conclusion reads across the whole page, like the intro
+    dyn_ $ ffor lastResult $ \mr -> case mr of
+      Just r | crVerdict r == Solved -> elClass "div" "conclusion prose" $ do
+        rawHtml (llConclusionHtml ll)
+        nextLink w l
+      _ -> blank
     -- outgoing --------------------------------------------------------------
     let checkE = Check <$> tag (current (eoText ed)) (ffilter (== CmdLoad) cmdE)
         draftE = SaveDraft <$> eoEdited ed
@@ -209,11 +219,11 @@ levelPage m leaveE lang wid idx =
     -- This also takes precedence over a stale debounce firing in this frame.
     leavingDraft <- performEvent $ ffor leaveE $ \_ ->
       SaveDraft <$> liftJSM (TA.getValue (eoRaw ed))
-    let draftSaves = leftmost [ leavingDraft, SaveDraft <$> tagPromptlyDyn (eoText ed) (() <$ checkE), debounced ]
+    let draftSaves = leftmost [ leavingDraft, SaveDraft initialText <$ resetE, SaveDraft <$> tagPromptlyDyn (eoText ed) (() <$ checkE), debounced ]
         requestE = leftmost [() <$ checkE, () <$ sendHoleE]
         sendE = mergeWith (++) [ (: []) <$> openE, (: []) <$> checkE, (: []) <$> sendHoleE
                               , (: []) <$> gate (current ((== Ready) <$> session)) draftSaves ]
-    status <- holdDyn Idle (leftmost [ Idle <$ eoEdited ed, Idle <$ retryE, Done <$> resultE, Idle <$ finished, Checking <$ requestE ])
+    status <- holdDyn Idle (leftmost [ Idle <$ eoEdited ed, Idle <$ retryE, Idle <$ resetE, Done <$> resultE, Idle <$ finished, Checking <$ requestE ])
     pure (() <$ ffilter ((== Solved) . crVerdict) resultE)
 
   liInputMethod' lg = case unLangId lg of
@@ -235,19 +245,25 @@ levelPage m leaveE lang wid idx =
       (n : _) -> el "p" $ routeLinkClass "primary" (levelRoute (wId w) n (Just lang)) (text ("Next: " <> maybe (lTitle n) llTitle (M.lookup lang (lLanguages n)) <> " →"))
       [] -> el "p" $ routeLink (RWorld (wId w)) (text "World complete — back to the world page →")
 
--- | Command buttons (only the unlocked ones) and the expression field.
-commandsW :: Widget' t m => LangId -> [CommandId] -> [CommandId] -> (CommandId -> Dynamic t Bool) -> EditorOut t -> m (Event t CommandId, Dynamic t Text)
+-- | Command buttons (only the unlocked ones), Reset, and the expression field.
+-- Reset is not a prover command: it is the client putting the level's own
+-- template back, so it is always enabled and never gated by an unlock.
+commandsW :: Widget' t m => LangId -> [CommandId] -> [CommandId] -> (CommandId -> Dynamic t Bool) -> EditorOut t -> m (Event t CommandId, Dynamic t Text, Event t ())
 commandsW lang supported unlocked canUse ed = do
-  clicks <- elClass "div" "commands" $ mapM btn $ filter (\(c, _, _, _) -> c `elem` supported && c `elem` unlocked)
-    [ (CmdLoad, "Check", "C-c C-l", True)
-    , (CmdGoal, "Goal", "C-c C-,", False)
-    , (CmdGive, "Give", "C-c C-SPC", False)
-    , (CmdRefine, "Refine", "C-c C-r", False)
-    , (CmdCase, "Case split", "C-c C-c", False)
-    , (CmdAuto, "Auto", "C-c C-a", False)
-    , (CmdInfer, "Infer", "C-c C-d", False)
-    , (CmdNormalise, "Normalise", "C-c C-n", False)
-    ]
+  (clicks, resetE) <- elClass "div" "commands" $ do
+    cs <- mapM btn $ filter (\(c, _, _, _) -> c `elem` supported && c `elem` unlocked)
+      [ (CmdLoad, "Check", "C-c C-l", True)
+      , (CmdGoal, "Goal", "C-c C-,", False)
+      , (CmdGive, "Give", "C-c C-SPC", False)
+      , (CmdRefine, "Refine", "C-c C-r", False)
+      , (CmdCase, "Case split", "C-c C-c", False)
+      , (CmdAuto, "Auto", "C-c C-a", False)
+      , (CmdInfer, "Infer", "C-c C-d", False)
+      , (CmdNormalise, "Normalise", "C-c C-n", False)
+      ]
+    (r, _) <- elAttr' "button" ("class" =: "reset" <> "type" =: "button"
+                <> "title" =: "Discard your work and start this level over") (text "Reset")
+    pure (cs, domEvent Click r)
   expr <- if lang == LangId "lean" then pure (constDyn "") else elClass "div" "expr" $ do
     i <- inputElement $ def
       & inputElementConfig_elementConfig . elementConfig_initialAttributes .~
@@ -257,7 +273,7 @@ commandsW lang supported unlocked canUse ed = do
         ChordLoad -> CmdLoad; ChordGoal -> CmdGoal; ChordGive -> CmdGive; ChordRefine -> CmdRefine
         ChordCase -> CmdCase; ChordAuto -> CmdAuto; ChordNormalise -> CmdNormalise; ChordInfer -> CmdInfer
       allowed = attachWithMaybe (\ok c -> if ok c then Just c else Nothing) (current (allowedSet canUse)) chordE
-  pure (leftmost (allowed : clicks), expr)
+  pure (leftmost (allowed : clicks), expr, resetE)
  where
   btn (c, label, chord, primary) = do
     let attrs = ffor (canUse c) $ \ok ->

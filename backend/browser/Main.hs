@@ -174,7 +174,7 @@ main = do
                 buildingBlocks lang
                 count <- eval "document.querySelectorAll('.hints .hint.revealed').length"
                 forM_ [asInt count .. 3] $ \_ -> hint
-                wait "both sides before the meeting point" "(() => {const h=[...document.querySelectorAll('.hints .hint')]; return h.length===4 && h[0].textContent.includes('Walk down from the left') && h[1].textContent.includes('Now walk down from the right') && h[2].textContent.includes('same number') && Boolean(h[3].querySelector('pre code'));})()"
+                wait "both sides before the meeting point" "(() => {const h=[...document.querySelectorAll('.hints .hint')]; return h.length===4 && h[0].textContent.includes('one step from the left') && h[1].textContent.includes('one step from the right') && h[2].textContent.includes('same number') && Boolean(h[3].querySelector('pre code'));})()"
                 proof <- eval "document.querySelectorAll('.hints .hint')[3].querySelector('pre code').textContent"
                 code <- case proof of
                   String code -> pure code
@@ -195,15 +195,25 @@ main = do
                     _ -> fail "Missing native rewrite alternative"
                 -- Wrong numbers in otherwise well-formed demonstrations must
                 -- fail on either path, not merely on supplying a wrong type.
-                let (leftTerm, rightTerm, bad, hole) = case lang of
-                      "agda" -> ("suc (suc 2)", "suc 3", "zero", "?")
-                      "lean" -> ("lhs\n    change succ (succ 2)", "rhs\n    change succ (succ 2)", "", "")
-                      _ -> ("Succ{Refl.add(2n, 1n)}", "Succ{3n}", "3n", "?remaining")
-                    wrongPaths | lang == "lean" =
-                      [T.replace leftTerm "lhs\n    change zero" code, T.replace rightTerm "rhs\n    change zero" code]
-                      | otherwise = [T.replace leftTerm bad code, T.replace rightTerm bad code]
-                    partial | lang == "lean" = "  conv =>\n    lhs\n    change succ (succ 2)\n  sorry\n"
-                            | otherwise = T.replace rightTerm hole code
+                -- Each term names the step the *player* supplies, never the one
+                -- the level already shows, and occurs exactly once in the proof.
+                let (leftTerm, leftBad, rightTerm, rightBad, rightHole) = case lang of
+                      "agda" -> ("suc (suc 1 + 1)", "zero", "suc (suc 2)", "zero", "?")
+                      "lean" -> ( "lhs\n    change succ 1 + succ 1\n    change succ (succ 2)"
+                                , "lhs\n    change succ 1 + succ 1\n    change zero"
+                                , "rhs\n    change succ 3\n    change succ (succ 2)"
+                                , "rhs\n    change succ 3\n    change zero"
+                                , "" )
+                      _ -> ( "Succ{Succ{Refl.add(2n, 0n)}}", "3n"
+                           , "Refl.step(Succ{Succ{2n}}, middle,", "Refl.step(3n, middle,"
+                           , "Refl.step(?remaining, middle," )
+                    wrongPaths = [T.replace leftTerm leftBad code, T.replace rightTerm rightBad code]
+                    partial | lang == "lean" = "  conv =>\n    lhs\n    change succ 1 + succ 1\n    change succ (succ 2)\n  sorry\n"
+                            | otherwise = T.replace rightTerm rightHole code
+                -- A needle that no longer occurs would silently leave the proof
+                -- intact and make "failed" below mean nothing.
+                forM_ [leftTerm, rightTerm] $ \needle ->
+                  unless (needle `T.isInfixOf` code) (fail ("Authored proof lacks " ++ T.unpack needle))
                 forM_ wrongPaths $ \wrongPath -> do
                   editor wrongPath
                   click "Check"
@@ -242,8 +252,13 @@ main = do
           contrast
           wait "default dark colors" "getComputedStyle(document.body).backgroundColor === 'rgb(21, 25, 31)'"
           wait "example collapsed" "document.querySelector('.worked-example')?.open === false"
+          -- layout: the lesson reads across the page under a centred title,
+          -- and only the working aids share the row with the editor.
+          wait "explanation spans the page under a centred title" "(() => {const i=document.querySelector('.level-intro'); if(!i) return false; const h=i.querySelector('h2'); const cs=getComputedStyle(i); return Boolean(h && i.querySelector('.card.prose')) && cs.gridColumnStart==='1' && cs.gridColumnEnd==='-1' && getComputedStyle(h).textAlign==='center';})()"
+          wait "working aids sit beside the editor" "(() => {const l=document.querySelector('.col-left'); return Boolean(l && l.querySelector('.hints') && l.querySelector('.building-blocks') && l.querySelector('.worked-example')) && !l.querySelector('.goals');})()"
+          wait "the worked example warns before it is opened" "document.querySelector('.worked-example summary .spoiler-tag')?.textContent === 'spoiler'"
           buildingBlocks "agda"
-          wait "first lesson does not reveal the shortcut" "![...document.querySelectorAll('.col-left code')].some(c => ['refl','rfl','{==}'].includes(c.textContent.trim()))"
+          wait "first lesson does not reveal the shortcut" "![...document.querySelectorAll('.level-intro code, .col-left code')].some(c => ['refl','rfl','{==}'].includes(c.textContent.trim()))"
           hint
           click "Check"
           verdict "unsolved"
@@ -278,20 +293,33 @@ main = do
           theme "dark"
           -- The chain skeleton the level ships: every bracket empty, and a
           -- hole per endpoint asking for the term it lands on, not a proof.
-          editor "two-plus-two-by-hand =\n  begin\n    2 + 2        ≡⟨⟩\n    ?            ≡⟨⟩\n    ?            ≡⟨⟩\n    4            ∎\n"
+          editor "two-plus-two-by-hand =\n  begin\n    2 + 2           ≡⟨⟩\n    suc 1 + suc 1   ≡⟨⟩\n    ?               ≡⟨⟩   -- walk the left endpoint down to here\n    ?               ≡⟨⟩   -- walk the right endpoint up to here\n    suc 3           ≡⟨⟩\n    4               ∎\n"
           click "Check"
           verdict "unsolved"
           click "Goal"
           wait "the holes ask for a number" "document.querySelector('.goal .ty')?.textContent.includes('ℕ') === true"
-          expression "suc (suc 2)"
+          expression "suc (suc 1 + 1)"
           click "Give"
-          wait "Give edits the textarea" "document.querySelector('textarea').value.includes('suc (suc 2)')"
-          expression "suc 3"
+          wait "Give edits the textarea" "document.querySelector('textarea').value.includes('suc (suc 1 + 1)')"
+          expression "suc (suc 2)"
           click "Give"
           verdict "solved"
           snapshot "dark-solved"
           clipboardKeys
           verdict "solved"
+          -- Reset is the client putting the level's own template back: the
+          -- Gives are gone, the two holes are back, the verdict clears, and
+          -- because it replaces the stored draft it survives a reload.
+          let templateRestored = "(() => {const v=document.querySelector('textarea').value; return v.split('?').length === 3 && v.includes('suc 1 + suc 1') && v.includes('suc 3') && !v.includes('suc (suc 1 + 1)') && !v.includes('suc (suc 2)');})()"
+          click "Reset"
+          wait "Reset restores the shipped template" templateRestored
+          verdict "idle"
+          wait "Reset clears holes and goal" "document.querySelectorAll('.holes button').length === 0 && Boolean(document.querySelector('.goal.muted'))"
+          reload
+          wait "Reset replaced the stored draft" templateRestored
+          -- and it is reachable again from a solved state
+          click "Check"
+          verdict "unsolved"
           firstProofs "agda" "two-plus-two-by-hand = zero\n"
           editor "two-plus-two-by-hand = zero\n"
           click "Check"
@@ -304,7 +332,7 @@ main = do
           wait "Unicode draft restored" "document.querySelector('textarea').value.includes('λ → ℕ 😀')"
           forM_ [1 :: Int .. 5] $ \i -> immediateDraft "agda" ("two-plus-two-by-hand = ?\n-- λ → ℕ 😀 immediate " <> T.pack (show i) <> "\n")
           choose "lean"
-          wait "Lean instructions and commands" "document.querySelector('.col-left').textContent.includes('conv') && !document.querySelector('.expr') && [...document.querySelectorAll('.commands button')].map(b => b.textContent).join(',') === 'Check,Goal'"
+          wait "Lean instructions and commands" "document.querySelector('.col-left').textContent.includes('conv') && !document.querySelector('.expr') && [...document.querySelectorAll('.commands button')].map(b => b.textContent).join(',') === 'Check,Goal,Reset'"
           wait "language change resets help" "document.querySelectorAll('.hints .hint.revealed').length === 0 && !document.querySelector('.worked-example').open"
           buildingBlocks "lean"
           unless skipLean $ do
@@ -328,16 +356,16 @@ main = do
             firstProofs "lean" "  exact (zero : MyNat)\n"
             immediateDraft "lean" "  sorry\n  -- Lean draft\n"
           tab "bend2"
-          wait "Bend instructions and commands" "document.querySelector('.col-left').textContent.includes('Refl.step') && document.querySelector('.expr input').placeholder.includes('Bend') && [...document.querySelectorAll('.commands button')].map(b => b.textContent).join(',') === 'Check,Goal,Give'"
+          wait "Bend instructions and commands" "document.querySelector('.col-left').textContent.includes('Refl.step') && document.querySelector('.expr input').placeholder.includes('Bend') && [...document.querySelectorAll('.commands button')].map(b => b.textContent).join(',') === 'Check,Goal,Give,Reset'"
           buildingBlocks "bend2"
           click "Check"
           verdict "unsolved"
           click "Goal"
           wait "Bend goal" "document.querySelector('.goal .ty')?.textContent.includes('Nat') === true"
           snapshot "bend-goal"
-          expression "Succ{Succ{2n}}"
+          expression "Succ{Succ{Refl.add(2n, 0n)}}"
           click "Give"
-          wait "Give edits the textarea" "document.querySelector('textarea').value.includes('Succ{Succ{2n}}')"
+          wait "Give edits the textarea" "document.querySelector('textarea').value.includes('Succ{Succ{Refl.add(2n, 0n)}}')"
           verdict "unsolved"
           expression "Succ{Succ{2n}}"
           click "Give"

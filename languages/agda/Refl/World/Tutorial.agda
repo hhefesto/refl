@@ -11,10 +11,12 @@ two-plus-two-by-hand : 2 + 2 ≡ 4
 
 two-plus-two-by-hand =
   begin
-    2 + 2        ≡⟨⟩
-    suc (suc 2)  ≡⟨⟩
-    suc 3        ≡⟨⟩
-    4            ∎
+    2 + 2           ≡⟨⟩
+    suc 1 + suc 1   ≡⟨⟩
+    suc (suc 1 + 1) ≡⟨⟩
+    suc (suc 2)     ≡⟨⟩
+    suc 3           ≡⟨⟩
+    4               ∎
 
 
 -- refl

@@ -31,11 +31,11 @@ unlocks:
       bend2: "Refl.step, Refl.arrive, Refl.meet"
       doc: "reasoning.md"
 hints:
-  - text: "Walk down from the left first. `2 + 2` is `2 + suc (suc zero)`. The successor rule `m + suc n = suc (m + n)` applies twice, then the zero rule `m + zero = m`: `2 + 2` → `suc (2 + suc zero)` → `suc (suc (2 + zero))` → `suc (suc 2)`."
+  - text: "Take one step from the left. The rung above the first hole has already expanded both copies of `2` to `suc 1`; your step continues from there. Apply `m + suc n = suc (m + n)` to `suc 1 + suc 1`: that gives `suc (suc 1 + 1)`, which fills the first hole."
     hidden: true
-  - text: "Now walk down from the right. Nothing computes here — `4` is simply notation for a stack of successors, and peeling one off gives `suc 3`."
+  - text: "Now take one step from the right, reading up from the bottom of the chain. `4` has already been expanded to the supplied `suc 3`; your step continues from there. Expanding `3` to `suc 2` gives `suc (suc 2)` for the second hole. Up and down describe your direction through the displayed chain; both walks unfold the numbers toward a common term."
     hidden: true
-  - text: "Compare what you have: `suc (suc 2)` on the left, `suc 3` on the right. `suc 2` is `3`, so these are the same number written two ways. That is where the endpoints meet, and either spelling may go in the holes."
+  - text: "Compare the two middle lines: `suc (suc 1 + 1)` computes to `suc (suc 2)`. They are the same number, so the empty bracket between them checks. The holes may contain different expressions, provided they compute to the same term."
     hidden: true
   - text: |-
       Fill the two holes with where each side landed:
@@ -43,10 +43,12 @@ hints:
       ```agda
       two-plus-two-by-hand =
         begin
-          2 + 2        ≡⟨⟩
-          suc (suc 2)  ≡⟨⟩
-          suc 3        ≡⟨⟩
-          4            ∎
+          2 + 2           ≡⟨⟩
+          suc 1 + suc 1   ≡⟨⟩
+          suc (suc 1 + 1) ≡⟨⟩
+          suc (suc 2)     ≡⟨⟩
+          suc 3           ≡⟨⟩
+          4               ∎
       ```
 
       Select a hole and **Give** the term, or edit the definition and **Check**. `≡⟨⟩` asks the checker to verify that adjacent terms compute to the same thing; you do not supply a separate proof argument for that step.
@@ -85,26 +87,30 @@ smaller addition. The `=` in these defining equations explains computation;
 `≡` in your statement is the proposition you must prove.
 
 Now **meet in the middle**. Walk the left endpoint `2 + 2` down by those
-rules, walk the right endpoint `4` down by unfolding its successors, and stop
-as soon as the two sides read the same term. The editor starts from that
-shape:
+rules, walk the right endpoint `4` up from the bottom by unfolding its
+successors, and stop as soon as the two sides read the same term. The editor
+starts you one step along each walk, and asks you for the next one:
 
 ```agda
 two-plus-two-by-hand =
   begin
-    2 + 2        ≡⟨⟩
-    ?            ≡⟨⟩
-    ?            ≡⟨⟩
-    4            ∎
+    2 + 2           ≡⟨⟩
+    suc 1 + suc 1   ≡⟨⟩
+    ?               ≡⟨⟩   -- walk the left endpoint down to here
+    ?               ≡⟨⟩   -- walk the right endpoint up to here
+    suc 3           ≡⟨⟩
+    4               ∎
 ```
 
 `begin` opens a chain of terms and `∎` closes it on the last one. Between two
 lines, `≡⟨⟩` claims that they **compute** to the same thing — it carries no
 explicit proof argument, and it does not have to be a single step, so you may travel as far as
-you like between one line and the next. The first hole is where the left
-endpoint lands; the second is where the right endpoint lands. Both holes ask
-for a **number**, not for a proof, and the whole chain works out only if the
-two numbers you write are the same one.
+you like between one line and the next. The second rung takes one step from
+the left for you and the second-to-last takes one step from the right; the
+first hole is your next step from the left, the second is your next step from
+the right. Both holes ask for a **number**, not for a proof. They need not be
+written the same way — only to be the same number, since `≡⟨⟩` closes whatever
+gap computation can still cross.
 
 **Check** (`C-c C-l`) finds holes and errors. Select a hole and press
 **Goal** (`C-c C-,`) to see what it wants. Edit the definition and Check
@@ -112,7 +118,7 @@ again, or **Give** (`C-c C-SPC`) a term for the selected hole. Hints and
 **Available building blocks** are available before any Check.
 
 <!-- @conclusion -->
-You brought `2 + 2` down and `4` down until both read the same number, and
+You brought `2 + 2` down and `4` up until both read the same number, and
 the chain closed with nothing to prove in between. That is what `≡⟨⟩` means:
 the two terms around it are **definitionally equal**, the checker can see it
 by computing. The chain functions construct the proof for these computational steps.
