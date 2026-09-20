@@ -44,5 +44,9 @@ types, and letting the computer go find an answer; and nobody asks a good
 question without first knowing how an answer works. That is what the proofs
 here are for.
 
+This is a work in progress. Only Tutorial World is anywhere near finished,
+and it still needs a lot of refining — truthfully, its first level is the only
+one I have polished to a standard I mostly approve of.
+
 This site is running on a potato server — see the [Support](#/donate) page if
 you would like to help me improve the potato.
