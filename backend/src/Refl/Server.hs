@@ -16,12 +16,9 @@ import           Control.Concurrent             (threadDelay)
 import           Control.Concurrent.Async       (race)
 import           Control.Exception              (SomeException, finally, try, mask, mask_)
 import           Control.Monad                  (forever, unless, void, when)
-import           Control.Monad.Except           (throwError)
 import           Control.Monad.IO.Class         (liftIO)
 import           Data.Aeson                     (Value, eitherDecodeStrict, encode,
                                                  object, (.=))
-import           Data.Bits                      (xor, (.|.))
-import           Data.Word                      (Word8)
 import           Data.IORef
 import qualified Data.ByteString                as BS
 import qualified Data.ByteString.Char8          as BC
@@ -33,15 +30,15 @@ import qualified Data.Text                      as T
 import           Data.Time                      (UTCTime, getCurrentTime, diffUTCTime)
 import           Network.HTTP.Types             (hContentLength, hContentType, hReferer,
                                                  hUserAgent, status200, status302,
-                                                 status403, status404, status413)
-import           Network.Wai                    (Application, Middleware, Request, pathInfo,
+                                                 status404, status413)
+import           Network.Wai                    (Request, pathInfo,
                                                  responseFile, responseHeaders,
                                                  responseLBS, requestHeaders, mapResponseHeaders)
 import           Network.Wai.Application.Static (defaultWebAppSettings,
                                                  staticApp)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
 import           Network.Wai.Middleware.AddHeaders (addHeaders)
-import           Network.Wai.Middleware.HttpAuth (AuthSettings, basicAuth')
+import           Refl.Server.Access
 import qualified Network.WebSockets             as WS
 -- Servant.Summary is its Haddock-description combinator, which we do not
 -- use and which would shadow the dashboard payload.
@@ -73,6 +70,8 @@ data ServerEnv = ServerEnv
   -- handler can attribute what happens in a session to the same visitor.
   , seVisitor :: Text
   , seNewVisitor :: Bool
+  , seAgent :: Text
+  , seBrowser :: Text
   -- A global budget for /api/hit, so a script cannot fill the disk with
   -- events: refilled by the clock, never per visitor (that would be a map
   -- an attacker gets to grow).
@@ -96,6 +95,8 @@ newServerEnv cfg env game store analytics dashPassword = do
   , seDashPassword = dashPassword
   , seVisitor = ""
   , seNewVisitor = False
+  , seAgent = "unknown"
+  , seBrowser = ""
   , seHitBudget = budget
   }
 
@@ -152,24 +153,7 @@ hitRate = 20
 hitBurst = 200
 
 app :: ServerEnv -> Application
-app se = dashboardAuth se (core se)
-
--- | @/dashboard@ and everything under it needs the configured password.
--- This sits outside 'core' on purpose: a rejected request must not reach the
--- identity code and be handed a fresh cookie.
---
--- With no password configured the dashboard does not exist. It must fail
--- closed, because the SPA fallback answers /any/ unknown path with a 200,
--- so "not wired up" would otherwise mean "served to everyone".
-dashboardAuth :: ServerEnv -> Middleware
-dashboardAuth se inner req respond
-  | not (onDashboard req) = inner req respond
-  | otherwise = case seDashPassword se of
-      Nothing -> respond (responseLBS status403 [(hContentType, "text/plain")]
-        "refl-server: the dashboard is off (no --dashboard-password-file).")
-      Just pw -> basicAuth' (\_ u p -> pure (u == "refl" && secretEq p pw)) realm inner req respond
- where
-  realm = "refl dashboard" :: AuthSettings
+app se = dashboardAuth (seDashPassword se) (core se)
 
 -- | The SPA fallback answers /any/ unknown path with HTML, so @\/favicon.ico@
 -- arrives looking exactly like a page and every visit would count twice.
@@ -193,17 +177,6 @@ assetExtensions =
   , ".css", ".js", ".mjs", ".map", ".json", ".txt", ".xml", ".webmanifest"
   , ".woff", ".woff2", ".ttf", ".otf", ".eot" ]
 
-onDashboard :: Request -> Bool
-onDashboard req = case pathInfo req of
-  "dashboard" : _ -> True
-  _ -> False
-
--- | Comparison whose running time does not depend on how much of the
--- password was right.
-secretEq :: BS.ByteString -> BS.ByteString -> Bool
-secretEq a b = BS.length a == BS.length b
-  && foldr (.|.) 0 (BS.zipWith xor a b) == (0 :: Word8)
-
 core :: ServerEnv -> Application
 core se req respond
   -- the credentials are cached against the directory, so land on one
@@ -214,11 +187,13 @@ core se req respond
       respond (responseLBS status413 [(hContentType, "text/plain")] "too large")
   | otherwise = do
       let policy = cookiePolicy (cfgOriginString (seConfig se))
+          (agent, browser) = classifyAgent (fromMaybe "" (lookup hUserAgent (requestHeaders req)))
           existing = identity policy (requestHeaders req)
       player <- maybe newIdentity pure existing
       let scoped = se { seProgress = playerStore (seProgress se) (BC.unpack player)
                       , seVisitor = T.pack (BC.unpack player)
-                      , seNewVisitor = existing == Nothing }
+                      , seNewVisitor = existing == Nothing
+                      , seAgent = agent, seBrowser = browser }
           cookie = [("Set-Cookie", identityCookie policy player) | existing == Nothing]
           options = WS.defaultConnectionOptions
             { WS.connectionFramePayloadSizeLimit = WS.SizeLimit (fromIntegral (cfgMessageBytes (seConfig se)))
@@ -226,8 +201,7 @@ core se req respond
       cors (websocketsOr options (wsApp scoped) (serve (Proxy :: Proxy Api) (server scoped))) req $ \res -> do
         -- One event per document served, which is every visitor including
         -- the ones that never run the bundle. The SPA fallback answers any
-        -- unknown path with HTML, so the path is recorded: a crawler
-        -- probing /wp-login.php should be visible as that, not as traffic.
+        -- unknown path with HTML; analytics maps these to a fixed category.
         -- Looking at the dashboard is not a visit and must not show up as
         -- one; it is also the only page whose reader is already known.
         when (isDocument res && isPage req && not (onDashboard req)) (recordLoad scoped req)
@@ -266,9 +240,10 @@ hit se origin h = do
   liftIO $ when (not (seNewVisitor se)) $ do
     allowed <- spend (seHitBudget se)
     when allowed $ do
-      ev <- newEvent "route" (seVisitor se) False
+      ev <- newEvent (if hiHeartbeat h then "heartbeat" else "route") (seVisitor se) False
       emit (seAnalytics se) ev
-        { evPath = T.take 120 (hiRoute h), evLang = T.take 24 (hiLang h) }
+        { evPath = hiRoute h, evLang = hiLang h
+        , evAgent = seAgent se, evBrowser = seBrowser se }
   pure (object ["ok" .= True])
 
 -- | A token bucket on the wall clock.
@@ -380,7 +355,7 @@ wsApp se pending
               ref <- newIORef initial
               void (swapMVar sessionVar (Just (Session l src prover ref key)))
               ev <- newEvent "open" (seVisitor se) False
-              emit (seAnalytics se) ev { evLevel = key, evLang = unLangId lang }
+              emit (seAnalytics se) ev { evLevel = key, evLang = unLangId lang, evAgent = seAgent se, evBrowser = seBrowser se }
               send conn (SessionOpened (langInfo l) (langCommands l) initial)
     Check txt -> withSession sessionVar conn $ \s -> do
       writeIORef (ssText s) txt
@@ -414,7 +389,8 @@ wsApp se pending
     saveDraft (seProgress se) (ssKey s) lang txt
     ev <- newEvent "check" (seVisitor se) False
     emit (seAnalytics se) ev
-      { evLevel = ssKey s, evLang = unLangId lang, evVerdict = verdictName (crVerdict res) }
+      { evLevel = ssKey s, evLang = unLangId lang, evVerdict = verdictName (crVerdict res)
+      , evAgent = seAgent se, evBrowser = seBrowser se }
     when (crVerdict res == Solved) $
       void (markSolved (seProgress se) lang (ssKey s))
 

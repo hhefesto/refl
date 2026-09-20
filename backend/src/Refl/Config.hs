@@ -36,6 +36,7 @@ data Config = Config
   , cfgAnalyticsDays :: Int         -- ^ retention; older day files are deleted
   , cfgGeoipDb :: Maybe FilePath    -- ^ MaxMind-format database, country level
   , cfgDashboardPasswordFile :: Maybe FilePath
+  , cfgTrustedProxies :: [String]
   } deriving (Show)
 
 -- | The exact browser origin: the configured one, else the listening address.

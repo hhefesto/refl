@@ -27,6 +27,11 @@ in {
       default = "127.0.0.1";
       description = "Listening address: loopback behind the ingress, or a public address for plain-http operation without it (the browser then gets a non-Secure cookie).";
     };
+    backend.trustedProxyRanges = mkOption {
+      type = types.listOf types.str;
+      default = lib.optionals cfg.ingress.enable [ "127.0.0.1/32" "::1/128" ];
+      description = "Peer CIDRs allowed to supply X-Real-IP. Standalone defaults to none.";
+    };
     backend.port = mkOption { type = types.port; default = 3007; };
     backend.openFirewall = mkOption {
       type = types.bool;
@@ -143,6 +148,7 @@ in {
           "--command-seconds" (toString cfg.limits.commandSeconds)
           "--idle-seconds" (toString cfg.limits.idleSeconds)
         ]
+        ++ lib.concatMap (r: [ "--trusted-proxy" r ]) cfg.backend.trustedProxyRanges
         ++ lib.optionals cfg.analytics.enable
           ([ "--analytics" "--analytics-days" (toString cfg.analytics.retentionDays) ]
            ++ lib.optionals (cfg.analytics.geoipDatabase != null) [ "--geoip" cfg.analytics.geoipDatabase ])

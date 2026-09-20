@@ -28,6 +28,9 @@ import System.Timeout (timeout)
 
 import Refl.Content
 import Refl.Protocol.Types
+import Refl.Protocol.Stats
+import qualified Refl.Server.Analytics as Analytics
+import Data.Time (UTCTime (..), fromGregorian)
 
 main :: IO ()
 main = do
@@ -41,10 +44,11 @@ main = do
   hClose h
   removeFile dir
   createDirectory dir
+  writeFile (dir </> "dashboard-password") "browser-test\n"
   let launch = if isNothing existing then do
         -- The server's output goes to ours: a closed stdout would kill it on
         -- its first banner line, and the log is the only diagnostic in CI.
-        (_, _, _, p) <- createProcess (proc site (["--port", "8124", "--data-dir", dir </> "data"] ++ extra))
+        (_, _, _, p) <- createProcess (proc site (["--port", "8124", "--data-dir", dir </> "data", "--dashboard-password-file", dir </> "dashboard-password"] ++ extra))
           { std_out = Inherit, std_err = Inherit }
         pure (Just p)
         else pure Nothing
@@ -246,6 +250,8 @@ main = do
           void (rpc "Runtime.enable" (object []))
           -- Page.addScriptToEvaluateOnNewDocument is honoured only with Page events enabled
           void (rpc "Page.enable" (object []))
+          when (isNothing existing) $ void $ rpc "Page.addScriptToEvaluateOnNewDocument" (object
+            ["source" .= ("window.__reflHits=[]; const hitOpen=XMLHttpRequest.prototype.open, hitSend=XMLHttpRequest.prototype.send; XMLHttpRequest.prototype.open=function(m,u,...a){this.__hitUrl=u;return hitOpen.call(this,m,u,...a)}; XMLHttpRequest.prototype.send=function(body){if(this.__hitUrl?.includes('/api/hit')) {try{window.__reflHits.push(JSON.parse(body))}catch(_){}} return hitSend.call(this,body)};" :: T.Text)])
           void (rpc "Page.navigate" (object ["url" .= (base ++ "/#/w/tutorial/level/meet-in-the-middle/agda")]))
           wait "first Check enabled" ("Boolean(" <> button ("Check" :: T.Text) <> " && !" <> button ("Check" :: T.Text) <> ".disabled)")
           theme "dark"
@@ -477,6 +483,88 @@ main = do
             wait "retry opens prover" "document.querySelector('.session-status')?.textContent === 'Ready'"
             click "Check"
             verdict "solved"
+          when (isNothing existing) $ do
+            wait "visible game heartbeat" "window.__reflHits.some(h=>h.hiHeartbeat===true) && window.__reflHits.some(h=>h.hiHeartbeat===false)"
+            -- The real server challenges both page and aggregate requests.
+            forM_ ["/dashboard/", "/dashboard/data.json"] $ \path -> do
+              status <- readProcess "curl" ["-s", "-o", "/dev/null", "-w", "%{http_code}", base ++ path] ""
+              unless (status == "401") (fail "dashboard did not challenge anonymous browser")
+            void (rpc "Network.enable" (object []))
+            void (rpc "Network.setExtraHTTPHeaders" (object ["headers" .= object ["Authorization" .= ("Basic cmVmbDpicm93c2VyLXRlc3Q=" :: T.Text)]]))
+            void (rpc "Page.navigate" (object ["url" .= (base ++ "/dashboard/")]))
+            wait "disabled analytics" "document.body.innerText.includes('Analytics collection is disabled.')"
+            -- Controlled XHR completion lets us reverse responses without
+            -- depending on server latency, and exercise actual DOM controls.
+            let fixture = (Analytics.aggregate (Analytics.sanitizer [])
+                  (UTCTime (fromGregorian 2026 9 20) 43200) 30 400 True False mempty [])
+                  { suTotals = Totals 2 1 4 7 1 3 1
+                  , suDaily = [DayPoint "2026-09-20" 2 4 7 2]
+                  , suCountries = [Bucket "SG" "SG" 4]
+                  , suLevels = [LevelStat "tutorial/refl" 3 3] }
+                fixtureJSON = TL.toStrict (TLE.decodeUtf8 (encode fixture))
+                mock = T.unlines
+                  [ "window.__dashMode='ready'; window.__dashPending=[];"
+                  , "const fixture=" <> fixtureJSON <> ";"
+                  , "const open=XMLHttpRequest.prototype.open, send=XMLHttpRequest.prototype.send;"
+                  , "XMLHttpRequest.prototype.open=function(m,u,...args){this.__url=u;return open.call(this,m,u,...args)};"
+                  , "XMLHttpRequest.prototype.send=function(...args){"
+                  , " if(!this.__url.includes('/dashboard/data.json') && !this.__url.includes('/world-countries.json')) return send.apply(this,args);"
+                  , " const x=this, d=Number(new URL(x.__url,location.href).searchParams.get('days'));"
+                  , " const finish=(mode, label) => {const body={...fixture,suDays:d,suTo:label||('range-'+d),suEnabled:mode!=='disabled'};"
+                  , " const text=mode==='invalid'?'broken':JSON.stringify(body);"
+                  , " Object.defineProperties(x,{readyState:{value:4},status:{value:mode==='error'?503:mode==='network'?0:200},statusText:{value:''},responseText:{value:text},response:{value:text}});"
+                  , " x.dispatchEvent(new Event('readystatechange')); };"
+                  , " if(this.__url.includes('/world-countries.json')) {setTimeout(()=>finish('invalid'),0);return;}"
+                  , " if(window.__dashMode==='manual') window.__dashPending.push(finish); else setTimeout(()=>finish(window.__dashMode),0);"
+                  , "};"
+                  ]
+            installed <- rpc "Page.addScriptToEvaluateOnNewDocument" (object ["source" .= mock])
+            let Just mockId = parseMaybe (withObject "reply" (\o -> o .: "result" >>= withObject "result" (.: "identifier"))) installed :: Maybe T.Text
+            void (rpc "Page.reload" (object []))
+            wait "dashboard ready" "document.querySelectorAll('.tile').length===5"
+            wait "missing map retains country values" "document.body.innerText.includes('Country outlines are unavailable.') && document.querySelector('.geo-row').textContent.includes('Singapore')"
+            wait "coverage shown" "document.querySelector('.coverage')?.textContent.includes('incomplete recorded history') === true && !document.querySelector('.tile .d')"
+            run "document.querySelector('.chart details').open=true; true"
+            wait "textual daily chart" "document.querySelector('.daily-values')?.textContent.includes('2026-09-20') === true && document.querySelector('.daily-values').textContent.includes('Peak active (5 min)')"
+            run "window.__dashMode='manual'; true"
+            click "90 days"
+            wait "90-day request queued" "window.__dashPending.length===1"
+            click "a year"
+            wait "year request queued" "window.__dashPending.length===2"
+            run "window.__dashPending[1]('ready'); true"
+            wait "year response displayed" "document.querySelector('.when')?.textContent.includes('range-365') === true"
+            run "window.__dashPending[0]('ready'); true"
+            settle
+            wait "obsolete range ignored" "document.querySelector('.when')?.textContent.includes('range-365') === true && [...document.querySelectorAll('.ranges button')].find(b=>b.textContent==='a year').getAttribute('aria-pressed')==='true'"
+            -- Also supersede a refresh of the same range.
+            run "window.__dashPending=[]; true"
+            click "Refresh"
+            wait "first refresh" "window.__dashPending.length===1"
+            click "Refresh"
+            wait "second refresh" "window.__dashPending.length===2"
+            run "window.__dashPending[1]('ready','newest'); true"
+            wait "new refresh displayed" "document.querySelector('.when')?.textContent.includes('newest') === true"
+            run "window.__dashPending[0]('ready','obsolete'); true"
+            settle
+            wait "obsolete refresh ignored" "document.querySelector('.when')?.textContent.includes('newest') === true"
+            forM_ ["error", "network", "invalid"] $ \mode -> do
+              run ("window.__dashMode=" <> js mode <> "; true")
+              click "Refresh"
+              wait "dashboard error" "Boolean(document.querySelector('[role=alert]'))"
+              run "window.__dashMode='ready'; true"
+              click "Retry"
+              wait "dashboard retry" "document.querySelectorAll('.tile').length===5"
+            forM_ ["dark", "light"] $ \theme -> do
+              run ("localStorage.setItem('refl-theme'," <> js theme <> "); true")
+              void (rpc "Page.reload" (object []))
+              wait "dashboard stored theme" ("document.documentElement.dataset.theme===" <> js theme <> " && document.querySelectorAll('.tile').length===5")
+              contrast
+              void (rpc "Emulation.setDeviceMetricsOverride" (object ["width" .= (320 :: Int), "height" .= (740 :: Int), "deviceScaleFactor" .= (1 :: Int), "mobile" .= True]))
+              wait "mobile dashboard fits" "document.documentElement.scrollWidth<=window.innerWidth"
+              snapshot ("dashboard-" <> T.unpack theme)
+            void (rpc "Emulation.clearDeviceMetricsOverride" (object []))
+            void (rpc "Page.removeScriptToEvaluateOnNewDocument" (object ["identifier" .= mockId]))
+            putStrLn "browser: dashboard authentication, disabled state, coverage, reversed requests, errors/retry, missing map, themes and mobile layout passed"
           putStrLn ("browser: language routes, help, inventory, isolated drafts, themes and prover flows passed" ++ if skipLean then " (Lean prover sessions skipped in sandbox)" else " (all three provers)")
           putStrLn (if isNothing existing then "browser: failure and retry passed" else "browser: verified existing service; lifecycle checks skipped")
 

@@ -12,6 +12,7 @@ module Client
   , connect
   ) where
 
+import           Control.Monad.IO.Class (liftIO)
 import           Control.Lens                ((&), (.~))
 import           Data.Aeson                  (eitherDecodeStrict, encode)
 import qualified Data.ByteString.Lazy        as BL
@@ -50,10 +51,18 @@ fetchDonations e = do
 
 -- | The dashboard's aggregate. Under @\/dashboard\/@ rather than @\/api@ so
 -- the browser resends the basic credentials it was already asked for.
-fetchStats :: MonadWidget t m => Event t Int -> m (Event t (Maybe Summary))
+fetchStats :: MonadWidget t m => Event t (Int, Int) -> m (Event t (Int, Either Text Summary))
 fetchStats e = do
   base <- backendBase
-  getAndDecode (ffor e (\d -> base <> "/dashboard/data.json?days=" <> T.pack (show d)))
+  performEventAsync $ ffor e $ \(requestId, days) done -> do
+    let req = XhrRequest "GET" (base <> "/dashboard/data.json?days=" <> T.pack (show days)) (def :: XhrRequestConfig ())
+        decode (Left _) = Left "Could not reach the dashboard."
+        decode (Right r)
+          | _xhrResponse_status r /= 200 = Left ("Dashboard request failed (HTTP " <> T.pack (show (_xhrResponse_status r)) <> ").")
+          | otherwise = maybe (Left "Invalid dashboard response.")
+              (either (const (Left "Invalid dashboard response.")) Right . eitherDecodeStrict . TE.encodeUtf8) (_xhrResponse_responseText r)
+    _ <- newXMLHttpRequestWithError req (liftIO . done . (requestId,) . decode)
+    pure ()
 
 -- | Country outlines, fetched only when the dashboard mounts: 130 kB of
 -- geometry has no business in the bundle every visitor downloads.

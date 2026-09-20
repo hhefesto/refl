@@ -1,12 +1,13 @@
 module Main (main) where
 
+import qualified Data.Map.Strict as M
+import           Refl.Content (sourceIndex)
 import           Control.Monad                        (unless)
 import           Data.Maybe                           (fromMaybe)
 import           Data.String                          (fromString)
 import qualified Data.Text.IO                         as TIO
-import qualified Data.ByteString.Char8                as BC
 import qualified Network.Wai.Handler.Warp             as Warp
-import           Network.Wai.Middleware.RealIp        (defaultTrusted, ipInRange, realIpTrusted)
+import           Refl.Server.Access (readSecret, proxyHeaders)
 import           Network.Wai.Middleware.RequestLogger (logStdout)
 import           Options.Applicative
 import           System.Directory                     (createDirectoryIfMissing)
@@ -18,7 +19,7 @@ import           System.IO
 import           Refl.Config
 import           Refl.Content                         (loadGame)
 import           Refl.Server
-import           Refl.Server.Analytics                (openAnalytics)
+import           Refl.Server.Analytics                (openAnalytics, sanitizer)
 import           Refl.Server.Progress
 
 opts :: Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Parser Config
@@ -46,6 +47,7 @@ opts eGames eAgda eAgdaDir eLean eLeanPath eBend eBendPath eOrigin eGeoip eDashP
   <*> option positive (long "analytics-days" <> metavar "N" <> value 400 <> showDefault <> help "Delete recorded days older than this")
   <*> optional (strOption (long "geoip" <> metavar "PATH" <> help "MaxMind-format database used to turn an address into a country") <|> pure' eGeoip)
   <*> optional (strOption (long "dashboard-password-file" <> metavar "PATH" <> help "Password for /dashboard (user: refl). Without one the dashboard is off.") <|> pure' eDashPass)
+  <*> many (strOption (long "trusted-proxy" <> metavar "CIDR" <> help "Trust X-Real-IP from this peer range (repeatable; default: none)"))
  where
   pure' = maybe empty pure
   positive = eitherReader $ \s -> case reads s of
@@ -68,6 +70,8 @@ main = do
   eDashPass <- lookupEnv "REFL_DASHBOARD_PASSWORD_FILE"
   cfg <- execParser (info (opts eGames eAgda eAgdaDir eLean eLeanPath eBend eBendPath eOrigin eGeoip eDashPass <**> helper)
            (fullDesc <> progDesc "The Refl Game server"))
+  realIp <- either fail pure (proxyHeaders (cfgTrustedProxies cfg))
+  dashPassword <- traverse readSecret (cfgDashboardPasswordFile cfg)
   dataDir <- maybe defaultDataDir pure (cfgDataDir cfg)
   let workDir = fromMaybe (dataDir </> "work") (cfgWorkDir cfg)
   createDirectoryIfMissing True (workDir </> "sessions")
@@ -76,24 +80,14 @@ main = do
     Left err -> TIO.hPutStrLn stderr ("content error: " <> err) >> exitFailure
     Right g -> do
       store <- openStore (dataDir </> "progress.json")
-      analytics <- openAnalytics
+      analytics <- openAnalytics (sanitizer (M.keys (sourceIndex g)))
         (if cfgAnalytics cfg then Just (dataDir </> "analytics") else Nothing)
         (cfgGeoipDb cfg) (cfgAnalyticsDays cfg)
-      dashPassword <- traverse readSecret (cfgDashboardPasswordFile cfg)
       let env = envFromConfig cfg workDir
       se <- newServerEnv cfg env g store analytics dashPassword
       unless (cfgWww cfg /= Nothing) $
         putStrLn "no --www given: serving the API only"
       putStrLn ("The Refl Game at http://" ++ cfgHost cfg ++ ":" ++ show (cfgPort cfg))
       let settings = Warp.setPort (cfgPort cfg) $ Warp.setHost (fromString (cfgHost cfg)) Warp.defaultSettings
-      -- Behind nginx every peer is 127.0.0.1, so geolocation would see
-      -- nothing. realIpTrusted believes X-Real-IP only when the peer itself
-      -- is loopback or private, which is exactly "the proxy told us".
-      let realIp = realIpTrusted "X-Real-IP" (\ip -> any (ipInRange ip) defaultTrusted)
+      -- Only explicitly configured peers may supply the client address.
       Warp.runSettings settings (realIp (if cfgVerbose cfg then logStdout (app se) else app se))
-
--- | A password from a file, so it never appears in the process table or in
--- the unit's ExecStart. Trailing newline stripped: the file is usually
--- written by hand or by systemd's LoadCredential.
-readSecret :: FilePath -> IO BC.ByteString
-readSecret p = BC.takeWhile (\c -> c /= '\n' && c /= '\r') <$> BC.readFile p

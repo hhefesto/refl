@@ -210,3 +210,47 @@ cabal run refl-check-levels -- games/refl --emit-world-modules languages/agda
 Worlds 0–4 (Tutorial, Addition, Multiplication, Logic, Equality: 46 levels)
 are fully playable in Agda; the Tutorial is also playable in Lean 4 and in
 Bend 2. Worlds 5–18 are planned with learning goals per level (see the map).
+
+## Private dashboard
+
+`/dashboard/` and every path below it require HTTP Basic authentication with
+user `refl` and the password from `--dashboard-password-file`. An empty or
+whitespace-only password fails startup. Dashboard responses use
+`Cache-Control: private, no-store`.
+
+Enable collection with `--analytics`. Retention remains 400 UTC days by default.
+The collector keeps validated game routes, known language/lesson identifiers,
+normalized DNS referrer hosts and coarse browser/country classifications.
+Unknown document paths become `other`. It never writes an IP address to the
+analytics log. Older files are sanitized when read, not rewritten; unclassified
+legacy events are shown separately and excluded from browser metrics.
+
+A visitor means a browser cookie identity, not an identifiable person.
+Document loads and in-app navigations are separate counts. A completion is a
+distinct `(browser, lesson, language)` within the selected UTC period: repeated
+checks count once, while Agda and Lean count as two exercises. Each check also
+establishes an opening, so solved exercises cannot exceed opened exercises.
+
+Comparisons require complete recorded history for both periods. The collector
+certifies complete UTC days in small `.covered` files; a startup day, interrupted
+day or historical log without such a certificate does not establish coverage.
+The dashboard suppresses percentage comparisons when coverage is incomplete.
+In particular, a yearly comparison needs 730 days and is unavailable with the
+default 400-day retention. The selected range includes the current partial UTC
+day. Collection can be disabled independently of dashboard access.
+
+Standalone servers trust no proxy headers. Repeat `--trusted-proxy CIDR` for
+peers explicitly allowed to supply `X-Real-IP`. The NixOS module's
+`backend.trustedProxyRanges` defaults to loopback only when its nginx ingress
+is enabled; the ingress separately restricts `CF-Connecting-IP` to its configured
+proxy ranges.
+
+Concurrency is an estimate of distinct browser identities seen in the last
+five minutes. Visible game tabs send a heartbeat each minute; repeated tabs
+and activity extend one browser's interval rather than adding users. The
+private dashboard shows the current count, the selected period's peak, and
+per-day peaks in the daily chart's value table. Intervals expire exactly five
+minutes after the last activity and carry across UTC midnight. Heartbeats do
+not add document loads, navigations or completions. The dashboard refreshes
+each minute and labels its snapshot time. Older history without heartbeats
+can undercount readers; a visible idle tab still counts until it stops sending.

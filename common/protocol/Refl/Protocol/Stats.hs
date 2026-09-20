@@ -3,7 +3,7 @@
 -- already sets, so nothing here identifies a person.
 module Refl.Protocol.Stats where
 
-import           Data.Aeson   (FromJSON, ToJSON)
+import           Data.Aeson   (FromJSON (..), ToJSON, withObject, (.:), (.:?), (.!=))
 import           Data.Text    (Text)
 import           GHC.Generics (Generic)
 
@@ -13,8 +13,12 @@ import           GHC.Generics (Generic)
 data Hit = Hit
   { hiRoute :: Text
   , hiLang  :: Text
+  , hiHeartbeat :: Bool -- ^ presence only; never an in-app navigation
   } deriving stock (Eq, Show, Generic)
-    deriving anyclass (ToJSON, FromJSON)
+    deriving anyclass (ToJSON)
+
+instance FromJSON Hit where
+  parseJSON = withObject "Hit" $ \o -> Hit <$> o .: "hiRoute" <*> o .: "hiLang" <*> o .:? "hiHeartbeat" .!= False
 
 -- | One ranked row of a breakdown. 'buKey' is the machine value (an ISO
 -- country code, a route, a language id); 'buLabel' is what to print.
@@ -30,11 +34,12 @@ data DayPoint = DayPoint
   , dpVisitors :: Int
   , dpLoads    :: Int
   , dpViews    :: Int
+  , dpPeak     :: Int   -- ^ peak distinct browser identities active within five minutes
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
 
--- | Opened versus solved is the only number that says whether the game
--- teaches, so levels get their own shape rather than a 'Bucket'.
+-- | Distinct browser-language pairs per lesson in this period. Every check
+-- establishes an opening; completions are a subset of openings.
 data LevelStat = LevelStat
   { lvKey    :: Text     -- ^ @world/level@
   , lvOpened :: Int
@@ -45,10 +50,10 @@ data LevelStat = LevelStat
 data Totals = Totals
   { toVisitors :: Int   -- ^ distinct identities, bots excluded
   , toNew      :: Int   -- ^ arrived without a cookie
-  , toLoads    :: Int   -- ^ documents served (every visitor, JS or not)
+  , toLoads    :: Int   -- ^ document loads from classified browsers, JS or not
   , toViews    :: Int   -- ^ in-app navigations (JS only)
   , toCountries :: Int
-  , toSolves   :: Int
+  , toSolves   :: Int   -- ^ distinct (browser, lesson, language) completions
   , toBots     :: Int   -- ^ loads classed as crawlers, kept out of the rest
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
@@ -60,7 +65,14 @@ data Summary = Summary
   { suDays      :: Int    -- ^ the window, in days
   , suFrom      :: Text
   , suTo        :: Text
+  , suAsOf      :: Text   -- ^ snapshot time, UTC
+  , suActive    :: Int    -- ^ distinct browser identities active within five minutes
+  , suPeak      :: Int    -- ^ highest five-minute concurrency in the selected period
   , suRetention :: Int    -- ^ how long events are kept at all
+  , suEnabled   :: Bool   -- ^ collection is enabled
+  , suComparable :: Bool  -- ^ both periods have recorded history
+  , suCoveredDays :: Int  -- ^ complete UTC days in the two periods
+  , suUnknown   :: Int    -- ^ unclassified legacy events, excluded from human metrics
   , suGeo       :: Bool   -- ^ whether a geolocation database is loaded
   , suTotals    :: Totals
   , suPrevious  :: Totals -- ^ the window before this one, for the deltas

@@ -113,7 +113,17 @@ implementations).
   progress cookie. Four event kinds land in
   `<data-dir>/analytics/YYYY-MM-DD.jsonl`: a document load, the SPA's
   `/api/hit` beacon (hash routes never reach the server), a level opening
-  and a check verdict.
+  and a check verdict; the beacon carries `hiHeartbeat` and a visible tab
+  sends one a minute, which is what "active now" and the daily peak are
+  counted from. Nothing is written that the loaded game does not vouch for:
+  `Refl.Server.Analytics.sanitizer` builds the allowed routes, lesson keys
+  and languages from the content tree and `sanitizeEvent` blanks anything
+  else, so an unknown document path is recorded as `other` rather than
+  verbatim. A period comparison is only shown when every UTC day in both
+  periods carries a `<day>.covered` certificate, and the writer issues one
+  only for a whole day it observed from beginning to end — a restart on the
+  day, or history predating collection, suppresses the deltas rather than
+  understating them.
 - Two traps the analytics code exists to avoid, both found by running it:
   the GHC runtime refuses to open a file for reading while the same
   process holds it open for writing, so the writer must not keep a handle
@@ -122,9 +132,13 @@ implementations).
   with HTML, so `/favicon.ico` counted as a page load until `Sec-Fetch-Dest`
   and an asset-extension list ruled it out.
 - `Network.Wai.Middleware.RealIp.realIpTrusted` gates on the *peer* before
-  it reads the header, so `realIpTrusted "X-Real-IP" (private peers)` is
-  safe unconditionally — no flag needed. It is load-bearing: behind nginx
-  every peer is 127.0.0.1 and nothing would geolocate.
+  it reads the header, and `Refl.Server.Access.proxyHeaders` gives it an
+  **explicit** peer list: with no `--trusted-proxy CIDR` nothing at all may
+  supply `X-Real-IP`, not even loopback. The module passes loopback only
+  when `ingress.enable` is set (`backend.trustedProxyRanges`), so a
+  standalone server on a public address cannot be told who its callers are.
+  It is load-bearing the other way too: behind nginx every peer is 127.0.0.1,
+  so without that range nothing would geolocate.
 - nginx inherits `proxy_set_header` as a whole array: a location that
   defines any of its own discards every one inherited from the server
   level, and `proxyWebsockets` defines two. So `recommendedProxySettings`
@@ -134,7 +148,10 @@ implementations).
 - The dashboard is at the path `/dashboard/`, not a hash route, because
   HTTP basic credentials are cached per directory — the page and
   `/dashboard/data.json` must share one or the XHR just 401s with no
-  prompt. `Servant.Summary` clashes with the payload type and is hidden.
+  prompt. Every answer under it, challenge and error included, leaves
+  through `Refl.Server.Access` wearing `Cache-Control: private, no-store`,
+  and an empty or whitespace-only password file is refused at startup
+  rather than accepted as a password. `Servant.Summary` clashes with the payload type and is hidden.
   With no password configured both answer **403**, never nothing: the SPA
   fallback would otherwise serve the page to everyone.
 - The dashboard palettes come from the dataviz skill's validator, not from

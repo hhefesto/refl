@@ -57,6 +57,7 @@ library
         Refl.Server
         Refl.Server.Progress
         Refl.Server.Analytics
+        Refl.Server.Access
         Refl.Server.Identity
         Refl.Config
         Refl.Process
@@ -70,6 +71,7 @@ library
       , servant
       , servant-server
       , wai
+      , network-uri
       , geoip2
       , iproute
       , wai-app-static
@@ -132,6 +134,8 @@ test-suite spec
     type:             exitcode-stdio-1.0
     main-is:          Main.hs
     hs-source-dirs:   test
+    other-modules: AnalyticsSpec
+    build-depends: wai, wai-extra, http-types, network
     build-depends:
         hspec
       , refl-backend

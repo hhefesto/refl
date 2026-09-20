@@ -7,7 +7,7 @@ import qualified Data.Map        as M
 import           Data.Maybe      (fromMaybe)
 import qualified Data.Text       as T
 import           Network.URI     (uriFragment)
-import           Language.Javascript.JSaddle (eval, liftJSM)
+import           Language.Javascript.JSaddle (eval, fromJSVal, liftJSM)
 import           Reflex.Dom.Core
 
 import           Client
@@ -88,10 +88,16 @@ gameW = mdo
   langDyn <- holdUniqDyn =<< holdDyn (LangId "agda") (leftmost [routeLang, chosenElsewhere])
   -- Which page was actually looked at. The server sees one document load
   -- per visit and nothing after it, because the route lives in the fragment.
+  ticks <- tickLossyFromPostBuildTime 60
+  visible <- performEvent $ ffor ticks $ \_ -> liftJSM $ do
+    v <- eval ("document.visibilityState === 'visible'" :: T.Text)
+    fromJSVal v
+  let heartbeat = () <$ ffilter (== Just True) visible
+      navigation = leftmost [tag (current routeDyn) pb, updated routeDyn]
   postHit $ fmapMaybe id $ attachWith
-    (\lg mr -> (\r -> Hit (encodeRoute r) (unLangId lg)) <$> mr)
+    (\lg (beat,mr) -> (\r -> Hit (encodeRoute r) (unLangId lg) beat) <$> mr)
     (current langDyn)
-    (leftmost [tag (current routeDyn) pb, updated routeDyn])
+    (leftmost [(False,) <$> navigation, (True,) <$> tag (current routeDyn) heartbeat])
   performEvent_ $ ffor chosenOnLevel $ \r -> liftJSM $ void $ eval
     ("window.location.hash = '" <> encodeRoute r <> "'" :: T.Text)
   pageDyn <- holdUniqDyn $ (\mm mr lg -> (mm, mr, case mr of
