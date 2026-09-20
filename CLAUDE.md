@@ -213,6 +213,16 @@ implementations).
   time (user decision, 2026-09-18). The consumer is
   `~/src/etc-nixos-configuration` (input `github:hhefesto/refl`); production
   is xty at https://refl.hhefesto.dev (Cloudflare-proxied, since 2026-09-19).
+  The dashboard is at `/dashboard/` (user `refl`) on both hosts; its
+  password is `secrets/refl-dashboard-password.age` in *this* repo, which
+  is the house convention (a project keeps its own secrets; the system repo
+  keeps only the login hash). The host config declares
+  `age.secrets.refl-dashboard-password` from `${inputs.refl}/secrets/…` and
+  passes its path as `dashboard.passwordFile`; the module stays
+  agenix-agnostic, because making the `age` option conditional on a config
+  value makes the attribute set depend on config and the module system
+  cannot resolve that. The consumer's `pre-deploy-xty` refuses to deploy
+  without the password file or without the CF-Connecting-IP block.
 - A load is Solved only with positive evidence: one goals report, one
   interaction-point list and a checked status. An Error display is the
   whole answer to a failing load; do not demand the goals report then.
