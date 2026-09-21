@@ -1,3 +1,122 @@
+# Dashboard and deployment cache review — 2026-09-21
+
+This entry supersedes the older rollout status below. Dashboard security and
+statistics work from review base `d945d39` is now in `3599898`; subsequent
+published changes through `16253c2` add curriculum links, presentation edits
+and prover-slot counts. Those later changes are retained.
+
+## Production assessment
+
+The user reported a short in-page 404, then successful dashboard login followed
+by the normal game page. Read-only production checks found:
+
+- Refl restarted cleanly at 10:59:34 CST and remained active. No matching
+  HTTP 404 appeared among the day's requests carrying a Refl referrer.
+- Unauthenticated `/dashboard/` returned 401 with the Basic-auth challenge.
+  The configured credential returned 200 for both `/dashboard/` and
+  `/dashboard/data.json`, at the origin and through Cloudflare. The credential
+  was consumed on the host without printing it or putting it in arguments.
+- The current CDN JavaScript matched the deployed bundle byte for byte.
+  However, `/all.js` used a fixed name and was cached for four hours, while
+  Nix store files reported an invariant 1970 modification time. Date-only
+  revalidation returned 304. A stale client can show the game at `/dashboard/`;
+  clients predating the donation route also show an in-page 404 at `#/donate`.
+
+An authenticated clean Chromium session on September 21 rendered all six
+metric tiles and range controls on the live site before this fix was deployed.
+This confirms that the dashboard itself worked with the then-current client.
+The browser's historical fragment/cache contents were unavailable, so the
+exact earlier 404 remains unconfirmed. Server authentication is working;
+stale client code is consistent with both reports.
+
+## Cache correction
+
+The built entry document now references `/all-<SHA256>.js`. The legacy
+`/all.js` remains available for compatibility. HTML entry responses use
+`Cache-Control: no-store` and bypass both static middleware and Warp's
+file-mtime conditional responses. Dashboard responses retain their stronger
+`private, no-store` header and authentication boundary.
+
+Smoke checks verify that the referenced bundle's bytes match its filename,
+that both game and dashboard HTML use that URL, and that a 1970
+If-Modified-Since request still returns the current HTML with 200. Browser
+checks block the old `/all.js` URL while exercising game, dashboard, themes,
+mobile layout, request races, errors/retry and all prover flows.
+
+## Retained analytics semantics
+
+Completions are distinct `(browser identity, lesson, language)` tuples per
+UTC period; Agda and Lean count separately. Checking establishes an opening.
+Bots and unclassified legacy events are excluded from browser metrics.
+Referrers, routes and language/lesson identifiers are sanitized on recording
+and historical reads, without automatically rewriting old logs. Full UTC
+collection days receive `.covered` sidecars; incomplete coverage suppresses
+percentage comparisons. Retention stays 400 days, insufficient for a yearly
+comparison. Active browsers means identities seen in the last five minutes,
+with minute heartbeats from visible tabs, deduplication across tabs and daily
+peaks. Heartbeats do not inflate navigation or completion counts.
+
+## Verification and consumer build
+
+Published fix: `0392db026c8c381e0a8a20cbba54aef9f6fb3581`.
+Native suites passed 98 examples; full flake checks passed. Isolated host
+verification passed 128 content checks, Chromium dashboard and game checks,
+all three provers including Lean outside the sandbox, and security checks.
+Evidence is in `/tmp/refl-dashboard-cache-native.log`,
+`/tmp/refl-dashboard-cache-flake-verified.log` and
+`/tmp/refl-dashboard-cache-isolated-verified.log`.
+
+Only the consumer's refl lock node was updated to the published fix. Other
+lock nodes and the existing flake.nix, olimpo.nix and workstation configuration
+were verified unchanged. `nixos-rebuild build` succeeded for Olimpo:
+`/nix/store/5pqsarm94r0famym0nk8psmx98hamnbi-nixos-system-olimpo-26.11.20260919.20b1ddd`.
+Log: `/tmp/refl-cache-olimpo-build.log`. Local activation remains the user's
+`ns`; this agent did not switch Olimpo.
+
+## Rollout and rollback
+
+The user authorized production deployment on September 21. The production
+candidate is
+`/nix/store/lr6j88jqwfnnrzfabzp81a1zwmklclb8-nixos-system-xty-26.11.20260919.20b1ddd`.
+Before activation, the backup integrity, pure configuration and live health
+gates passed. Recursive comparison of the entire generated `/etc` differs
+only for `refl.service` and its target link. The NixOS dry activation explicitly
+listed only stopping and starting `refl.service`. Encrypted password bytes
+are unchanged. The guarded deployment script checks the exact running system,
+profile and dry activation output before switching. Activation succeeded;
+only Refl was stopped/started as a system service. NixOS also ran its standard
+user activation units and sysinit-reactivation target. Protected nginx,
+PostgreSQL, networking and application service PIDs, start timestamps and
+restart counts are unchanged.
+
+Production now runs the candidate above. Authenticated origin and public
+dashboard HTML/data requests return 200. A clean Chromium session renders all
+six metric tiles and the range controls. Public HTML contains the fingerprinted
+bundle and `Cache-Control: no-store`; a date-only conditional request returns
+200. Evidence: `/tmp/refl-cache-deploy.log`, `/tmp/refl-cache-auth-after.log`
+and `/tmp/refl-cache-live-browser-after.log`.
+
+The remote directory `/var/backups/refl/cache-fix-20260921` (root-only) contains
+the Refl state backup, previous system/profile paths, dry activation output,
+activation log and protected-service comparisons. The previous system and
+deploy-rs profile are retained as GC roots. The deployment script is
+`/tmp/refl-cache-deploy.sh`; it fails closed on an unexpected activation plan.
+No automatic whole-system rollback was enabled.
+
+Only the consumer's refl lock node may change; preserve its unrelated edits
+and dependency pins. The pre-fix lock is `/tmp/refl-cache-consumer-before.lock`,
+pinning `16253c2c85936fdbf68f54b6dc728095ea61695d`. Re-pin that node on the
+current consumer and rebuild for a refl-only rollback, accepting that it
+restores the cache issue. Keep player state and analytics data. Do not use a
+whole-system rollback.
+
+Future production updates still require approval and a candidate-versus-running
+system gate against unrelated service restarts/reloads. The consumer's generic
+deploy app does not yet enforce the additional gate used for this release.
+Preserve backup checks and disabled automatic rollback. The KVM module test
+remains unverified because `/dev/kvm` is absent.
+
+---
 # Meet in the middle review — 2026-09-19
 
 ## Scope and revisions
