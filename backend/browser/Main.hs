@@ -140,7 +140,7 @@ main = do
                 run ("[...document.querySelectorAll('.nav-row a.pill')].find(a => a.textContent === " <> js lang <> ").click(); true")
                 wait "tab synchronizes header" ("document.querySelector('#language')?.value === " <> js lang <> " && document.querySelector('.pill.on')?.textContent === " <> js lang)
                 unless (skipLean && lang == "lean") ready
-              theme name = wait ("theme " ++ T.unpack name) ("document.documentElement.dataset.theme === " <> js name)
+              theme name = wait ("theme " ++ T.unpack name) ("document.documentElement?.dataset.theme === " <> js name)
               contrast = do
                 result <- eval contrastCheck
                 unless (result == Array mempty) (fail ("Insufficient theme contrast: " ++ show result))
@@ -151,11 +151,11 @@ main = do
                 raw <- either fail pure (B64.decode (TE.encodeUtf8 bytes))
                 BS.writeFile (out </> name ++ ".png") raw
               -- a fresh document: mark the old one and wait until the mark is gone
-              reload = do
+              reloadDocument = do
                 run "window.__reflOld = true; true"
                 void (rpc "Page.reload" (object []))
                 await "new document after reload" ((== Bool True) <$> eval "typeof window.__reflOld === 'undefined' && document.readyState === 'complete'")
-                ready
+              reload = reloadDocument >> ready
               -- reveal one more hidden hint (revealed ones carry .revealed)
               hint = do
                 before <- eval "document.querySelectorAll('.hints .hint.revealed').length"
@@ -250,6 +250,11 @@ main = do
           void (rpc "Runtime.enable" (object []))
           -- Page.addScriptToEvaluateOnNewDocument is honoured only with Page events enabled
           void (rpc "Page.enable" (object []))
+          -- A fresh document must boot without consulting the old, possibly
+          -- cached /all.js URL, including after authenticating /dashboard/.
+          when (isNothing existing) $ do
+            void (rpc "Network.enable" (object []))
+            void (rpc "Network.setBlockedURLs" (object ["urls" .= (["*/all.js"] :: [T.Text])]))
           when (isNothing existing) $ void $ rpc "Page.addScriptToEvaluateOnNewDocument" (object
             ["source" .= ("window.__reflHits=[]; const hitOpen=XMLHttpRequest.prototype.open, hitSend=XMLHttpRequest.prototype.send; XMLHttpRequest.prototype.open=function(m,u,...a){this.__hitUrl=u;return hitOpen.call(this,m,u,...a)}; XMLHttpRequest.prototype.send=function(body){if(this.__hitUrl?.includes('/api/hit')) {try{window.__reflHits.push(JSON.parse(body))}catch(_){}} return hitSend.call(this,body)};" :: T.Text)])
           void (rpc "Page.navigate" (object ["url" .= (base ++ "/#/w/tutorial/level/meet-in-the-middle/agda")]))
@@ -522,7 +527,7 @@ main = do
                   ]
             installed <- rpc "Page.addScriptToEvaluateOnNewDocument" (object ["source" .= mock])
             let Just mockId = parseMaybe (withObject "reply" (\o -> o .: "result" >>= withObject "result" (.: "identifier"))) installed :: Maybe T.Text
-            void (rpc "Page.reload" (object []))
+            reloadDocument
             wait "dashboard ready" "document.querySelectorAll('.tile').length===6"
             wait "missing map retains country values" "document.body.innerText.includes('Country outlines are unavailable.') && document.querySelector('.geo-row').textContent.includes('Singapore')"
             wait "coverage shown" "document.querySelector('.coverage')?.textContent.includes('incomplete recorded history') === true && !document.querySelector('.tile .d')"
@@ -559,8 +564,8 @@ main = do
               wait "dashboard retry" "document.querySelectorAll('.tile').length===6"
             forM_ ["dark", "light"] $ \theme -> do
               run ("localStorage.setItem('refl-theme'," <> js theme <> "); true")
-              void (rpc "Page.reload" (object []))
-              wait "dashboard stored theme" ("document.documentElement.dataset.theme===" <> js theme <> " && document.querySelectorAll('.tile').length===6")
+              reloadDocument
+              wait "dashboard stored theme" ("document.documentElement?.dataset.theme===" <> js theme <> " && document.querySelectorAll('.tile').length===6")
               contrast
               void (rpc "Emulation.setDeviceMetricsOverride" (object ["width" .= (320 :: Int), "height" .= (740 :: Int), "deviceScaleFactor" .= (1 :: Int), "mobile" .= True]))
               wait "mobile dashboard fits" "document.documentElement.scrollWidth<=window.innerWidth"

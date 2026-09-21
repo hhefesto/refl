@@ -142,6 +142,12 @@
             mkdir -p $out/fonts $out/qr
             cp -r ${frontendJs}/bin/refl-frontend.jsexe/. $out/
             install -m644 ${./index.html} $out/index.html
+            # The HTML and client must agree across deployments. A fixed
+            # /all.js URL can keep an old router in browsers and CDN caches.
+            bundleHash=$(sha256sum $out/all.js | cut -d ' ' -f 1)
+            cp $out/all.js "$out/all-$bundleHash.js"
+            substituteInPlace $out/index.html \
+              --replace-fail 'src="/all.js"' "src=\"/all-$bundleHash.js\""
             install -m644 ${./fonts.css} $out/fonts.css
             install -m644 ${./donations.json} $out/donations.json
             install -m644 ${./world-countries.json} $out/world-countries.json
@@ -437,8 +443,19 @@
               step() { echo "smoke: $1"; }
               step health;   curl -fsS http://127.0.0.1:8123/api/health   -o $TMPDIR/health.json;   grep -q '"ok":true' $TMPDIR/health.json
               step manifest; curl -fsS http://127.0.0.1:8123/manifest.json -o $TMPDIR/manifest.json; grep -q '"mWorlds"' $TMPDIR/manifest.json
-              step index;    curl -fsS http://127.0.0.1:8123/              -o $TMPDIR/index.html;    grep -q '<script' $TMPDIR/index.html
-              step bundle;   curl -fsS http://127.0.0.1:8123/all.js        -o $TMPDIR/all.js;        test -s $TMPDIR/all.js
+              step index;    curl -fsS -D $TMPDIR/index.headers http://127.0.0.1:8123/ -o $TMPDIR/index.html
+              grep -qi '^cache-control: no-store' $TMPDIR/index.headers
+              bundle=$(sed -nE 's/.*src="(\/all-[0-9a-f]{64}\.js)".*/\1/p' $TMPDIR/index.html)
+              test -n "$bundle"
+              step bundle; curl -fsS "http://127.0.0.1:8123$bundle" -o $TMPDIR/all.js
+              bundleHash=$(sha256sum $TMPDIR/all.js | cut -d ' ' -f 1)
+              test "$bundle" = "/all-$bundleHash.js"
+              # Nix store files share a 1970 mtime; old HTML must not be
+              # validated using that timestamp and retain an old bundle URL.
+              step index-revalidation
+              test "$(curl -sS -H 'If-Modified-Since: Thu, 01 Jan 1970 00:00:01 GMT' \
+                -o $TMPDIR/revalidated.html -w '%{http_code}' http://127.0.0.1:8123/)" = 200
+              cmp $TMPDIR/index.html $TMPDIR/revalidated.html
               step fallback; curl -fsS http://127.0.0.1:8123/w/tutorial    -o $TMPDIR/deep.html;     grep -q '<script' $TMPDIR/deep.html
               step donations; curl -fsS http://127.0.0.1:8123/donations.json -o $TMPDIR/donations.json; grep -q 'bc1qhf0ym26ag4l2nusgn74p8kg3y9dtgp5q8c6x7s' $TMPDIR/donations.json
               step qr;       curl -fsS http://127.0.0.1:8123/qr/bitcoin.svg -o $TMPDIR/qr.svg;        grep -q '<svg' $TMPDIR/qr.svg
@@ -447,6 +464,7 @@
               step dashboard-locked;   test "$(code http://127.0.0.1:8123/dashboard/ /dev/null)" = 401
               step dashboard-wrong-pw; test "$(code http://127.0.0.1:8123/dashboard/ /dev/null refl:nope)" = 401
               step dashboard-open;     test "$(code http://127.0.0.1:8123/dashboard/ $TMPDIR/dash.html refl:smoke)" = 200; grep -q '<script' $TMPDIR/dash.html
+              grep -q "$bundle" $TMPDIR/dash.html
               step dashboard-slash;    test "$(curl -s -o /dev/null -w '%{http_code}' -u refl:smoke http://127.0.0.1:8123/dashboard)" = 302
               step dashboard-data;     test "$(code http://127.0.0.1:8123/dashboard/data.json $TMPDIR/stats.json refl:smoke)" = 200; grep -q '"suTotals"' $TMPDIR/stats.json; grep -q '"suSessionsMax":4' $TMPDIR/stats.json
               step beacon;   curl -fsS -X POST -H 'Origin: http://127.0.0.1:8123' -H 'Content-Type: application/json' \

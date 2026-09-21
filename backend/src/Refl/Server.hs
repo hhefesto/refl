@@ -22,6 +22,7 @@ import           Data.Aeson                     (Value, eitherDecodeStrict, enco
 import           Data.IORef
 import qualified Data.ByteString                as BS
 import qualified Data.ByteString.Char8          as BC
+import qualified Data.ByteString.Lazy           as BL
 import qualified Data.Map                       as M
 import           Data.Maybe                     (fromMaybe)
 import qualified Data.Set                       as S
@@ -32,7 +33,7 @@ import           Network.HTTP.Types             (hContentLength, hContentType, h
                                                  hUserAgent, status200, status302,
                                                  status404, status413)
 import           Network.Wai                    (Request, pathInfo,
-                                                 responseFile, responseHeaders,
+                                                 responseHeaders,
                                                  responseLBS, requestHeaders, mapResponseHeaders)
 import           Network.Wai.Application.Static (defaultWebAppSettings,
                                                  staticApp)
@@ -279,13 +280,22 @@ capacity se s = do
 spaApp :: ServerEnv -> Application
 spaApp se = case cfgWww (seConfig se) of
   Nothing -> \_ send -> send (responseLBS status404 [(hContentType, "text/plain")] "refl-server: started without --www; only /api, /manifest.json and /ws are served.")
-  Just dir -> staticApp (defaultWebAppSettings dir)
-    { ss404Handler = Just (serveIndex dir)
-    , ssMaxAge = NoMaxAge
-    }
+  Just dir -> \req send ->
+    if pathInfo req `elem` [[], ["index.html"]] || onDashboard req
+      then serveIndex dir req send
+      else staticApp ((defaultWebAppSettings dir)
+        { ss404Handler = Just (serveIndex dir)
+        , ssMaxAge = NoMaxAge
+        }) req send
  where
-  serveIndex dir _req send = send $
-    responseFile status200 [(hContentType, "text/html; charset=utf-8")] (dir </> "index.html") Nothing
+  serveIndex dir _req send = do
+    -- Warp also conditionally validates responseFile using its mtime. Read
+    -- the small entry document explicitly: Nix's fixed mtime cannot tell
+    -- whether this document names a different client bundle after deployment.
+    html <- BS.readFile (dir </> "index.html")
+    send $ responseLBS status200
+      [(hContentType, "text/html; charset=utf-8"), ("Cache-Control", "no-store")]
+      (BL.fromStrict html)
 
 -- ---------------------------------------------------------------------------
 -- WebSocket: one prover session per connection
