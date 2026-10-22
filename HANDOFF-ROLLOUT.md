@@ -6,7 +6,7 @@ descriptions of lesson pages, hints and drafts.
 ## State
 
 - `github:hhefesto/refl` (public) is the source the consumer flake
-  `~/src/etc-nixos-configuration` pins (input `refl`, no `follows`: the
+  `~/src/enc` pins (input `refl`, no `follows`: the
   provers keep their own nixpkgs pins).
 - **olimpo**: `refl.service` on http://127.0.0.1:3007 (loopback, ingress off).
 - **xty** (production, 62.238.6.4): first deployed 2026-09-18 as plain http
@@ -16,7 +16,7 @@ descriptions of lesson pages, hints and drafts.
   server on loopback). Deployment goes through `nix run .#deploy-xty`
   (docxty backup health → pure checks → live checks → build → deploy-rs).
   The consumer handoff for the domain move is
-  `~/src/etc-nixos-configuration/HANDOFF.md`.
+  `~/src/enc/HANDOFF.md`.
 
 ## What the Codex pass added (commit `985ff80`) and what the review changed
 
@@ -101,7 +101,7 @@ REFL_BROWSER_EXISTING_URL=http://62.238.6.4:3007 FONTCONFIG_FILE=/etc/fonts/font
 
 (filled in below as the xty deployment proceeds)
 
-2026-09-18/19, before the deploy (all run from `~/src/etc-nixos-configuration`,
+2026-09-18/19, before the deploy (all run from `~/src/enc`,
 branch `refl-xty`, commit `b2fe757`, refl input `f529203`):
 
 - refl: `cabal test all` 6 + 32 + 29; `nix flake check` exit 0 (website,
@@ -118,7 +118,7 @@ branch `refl-xty`, commit `b2fe757`, refl input `f529203`):
   switch itself does not reboot).
 
 2026-09-18 21:00–21:30 CST, the deploy itself (`nix run .#deploy-xty` from
-`~/src/etc-nixos-configuration`, branch `refl-xty`):
+`~/src/enc`, branch `refl-xty`):
 
 1. First run failed before touching xty: deploy-rs' `nix eval` hit a stale
    evaluation-cache entry ("path …-source is not a valid store path"). A
@@ -148,13 +148,13 @@ branch `refl-xty`, commit `b2fe757`, refl input `f529203`):
    and refl at 200 throughout. refl is now in the live pre-deploy check.
 
 Pending on the operator's side: olimpo has not been switched to the branch
-(`nixos-rebuild switch --sudo --flake ~/src/etc-nixos-configuration#olimpo`);
+(`nixos-rebuild switch --sudo --flake ~/src/enc#olimpo`);
 xty runs kernel 6.12 until a reboot (6.18 is installed); branch `refl-xty`
 is not merged into master (the stash "WIP before refl-xty" holds the cardano
 work); the https ingress waits for DNS.
 
 2026-09-19, the move to hhefesto.dev (consumer handoff:
-`~/src/etc-nixos-configuration/HANDOFF.md`): proxied A record
+`~/src/enc/HANDOFF.md`): proxied A record
 `refl.hhefesto.dev` → xty on Cloudflare, module ingress on (`hostname`,
 nginx + ACME, Let's Encrypt cert issued during the switch, valid to
 2026-12-18), game server back on loopback, port 3007 closed. Verified:

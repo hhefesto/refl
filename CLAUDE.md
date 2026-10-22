@@ -241,7 +241,7 @@ implementations).
   debounced 1 s and flushed on Check and on leaving (departure reads the live
   textarea because reactive input processing can lag); hidden hints open at any
   time (user decision, 2026-09-18). The consumer is
-  `~/src/etc-nixos-configuration` (input `github:hhefesto/refl`); production
+  `~/src/enc` (input `github:hhefesto/refl`); production
   is xty at https://refl.hhefesto.dev (Cloudflare-proxied, since 2026-09-19).
   The dashboard is at `/dashboard/` (user `refl`) on both hosts; its
   password is `secrets/refl-dashboard-password.age` in *this* repo, which

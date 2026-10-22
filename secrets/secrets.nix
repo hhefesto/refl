@@ -1,6 +1,6 @@
 # agenix recipients for this project's secrets.
 #
-# House convention (see ~/src/etc-nixos-configuration): a project's secrets
+# House convention (see ~/src/enc): a project's secrets
 # live in the project repo and the host config reaches them through
 # ${inputs.refl}/secrets/*.age. Only the login hash lives in the system repo.
 #

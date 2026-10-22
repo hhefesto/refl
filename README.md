@@ -55,15 +55,15 @@ Defaults are 2 GiB aggregate memory, no swap, one CPU quota, four sessions,
 300-second idle sessions. See [the module](nix/module.nix) for typed options.
 Ingress is opt-in; local operation needs neither nginx nor PostgreSQL.
 
-The consumer is `~/src/etc-nixos-configuration` (input `github:hhefesto/refl`,
+The consumer is `~/src/enc` (input `github:hhefesto/refl`,
 profile blocks for olimpo on loopback and xty behind nginx at
 https://refl.hhefesto.dev).
 Build as your user and activate with `--sudo` so evaluation keeps your private
 Git access:
 
 ```sh
-nixos-rebuild build --flake ~/src/etc-nixos-configuration#olimpo
-nixos-rebuild switch --sudo --flake ~/src/etc-nixos-configuration#olimpo
+nixos-rebuild build --flake ~/src/enc#olimpo
+nixos-rebuild switch --sudo --flake ~/src/enc#olimpo
 ```
 
 For local review, publish the reviewed refl revision to GitHub and update only

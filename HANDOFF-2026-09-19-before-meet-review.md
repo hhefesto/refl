@@ -227,7 +227,7 @@ reports 61; that is the previous build, not acceptance of this candidate.
 
 User requests the consumer NixOS module for local assessment, with the reviewed
 snapshot persisted in its refl input, then `nixos-rebuild build --flake
-~/src/etc-nixos-configuration`. The user performs the matching `switch --sudo`.
+~/src/enc`. The user performs the matching `switch --sudo`.
 Add `ns` as that switch alias (existing `sn` retained). No activation performed.
 After the user switches, verify http://127.0.0.1:3007, then await explicit
 approval before xty. Production remains https://refl.hhefesto.dev at the old
@@ -293,7 +293,7 @@ Consumer configuration commit: `188cc609869d70a929c6c4bad882eb86f49a858d`
 (subsequent commits only finalize handoff records). It has the requested `ns`
 alias, confirmed in the built `etc/zshrc`.
 
-`nixos-rebuild build --flake /home/hhefesto/src/etc-nixos-configuration` passed.
+`nixos-rebuild build --flake /home/hhefesto/src/enc` passed.
 System: `/nix/store/yqsv22fni68nggn5q0iakm088d86yavd-nixos-system-olimpo-26.11.20260831.34ab990`.
 Refl ExecStart: `/nix/store/f8lx96yyy0hjswwgsk1h8v25447dw793-refl-site/bin/refl-site`.
 Build log: `/tmp/refl-olimpo-build.log`.
@@ -307,6 +307,6 @@ resolve this drift. `/tmp/refl-olimpo-unit-diff.txt` records the comparison.
 The user was informed before activation; this build is not a refl-only switch.
 
 Matching activation command, left to the user:
-`nixos-rebuild switch --sudo --flake ~/src/etc-nixos-configuration`.
+`nixos-rebuild switch --sudo --flake ~/src/enc`.
 Start a new zsh after switching for `ns`. Local activation/lesson approval and
 production approval remain pending. No production deployment or push occurred.

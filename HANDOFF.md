@@ -264,9 +264,9 @@ No wire-protocol or NixOS option changes.
 
 Publish the verified refl HEAD, update only the consumer's GitHub refl lock
 node, then build Olimpo with `nixos-rebuild build --flake
-~/src/etc-nixos-configuration`. Preserve the user's refreshed dependencies and
+~/src/enc`. Preserve the user's refreshed dependencies and
 kernel. `ns` already lives in `configuration-workstation.nix` and expands to
-`nixos-rebuild switch --sudo --flake ~/src/etc-nixos-configuration`.
+`nixos-rebuild switch --sudo --flake ~/src/enc`.
 The user performs activation and assesses http://127.0.0.1:3007. Local approval
 is pending. Production has not been changed by this work.
 
