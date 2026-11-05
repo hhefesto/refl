@@ -135,5 +135,5 @@ This uses the same checked equality machinery as the named paths, with the
 rewrites written explicitly instead of composed by `Refl.meet`.
 
 Try this second approach if you like; both are accepted. In the next lesson
-we return to the original equality and discover why a single reflexivity
-proof is enough, with no paths or rewrites written out.
+we return to the original equality and find out how much of this you needed
+to write at all.

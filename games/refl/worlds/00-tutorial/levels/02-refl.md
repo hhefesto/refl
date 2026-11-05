@@ -1,7 +1,7 @@
 ---
 id: refl
 index: 2
-title: "refl"
+title: "Let the checker walk"
 unlocks:
   syntax:
     - name: "reflexivity"
@@ -10,18 +10,14 @@ unlocks:
       bend2: "{==}"
       doc: "refl.md"
 learning_goals:
-  - "`refl` proves any equality whose two sides compute to the same term."
-  - "The checker performs the walk you just did by hand."
-  - "Reflexivity is not a universal proof: it needs the sides to meet."
+  - "Compare a goal as written with the same goal after computing."
+  - "Prove an equality from its constructor alone when both sides compute to the same term."
+  - "Know the limit: the sides have to meet by computing."
 hints:
-  - text: "The statement is the one you just proved the long way. Press **Check** to turn the `?` into a numbered goal, then **Goal** (`C-c C-,`) to see what it asks for: `2 + 2 ≡ 4`."
-    hidden: true
-  - text: "Equality has one constructor, `refl : x ≡ x`: a proof that something equals itself. More elaborate proofs can use hypotheses, induction and lemmas; here we can use the constructor directly."
-    hidden: true
-  - text: "For bare `refl` to fit `2 + 2 ≡ 4`, the endpoints must compute to the same term. That is what you established by hand last level. The checker performs that computation when checking the proof's type."
+  - text: "Press **Check** and read the type beside the hole. Select the hole, press **Goal** and read it again. What did the checker do between the two, and what does the second one say about the two sides?"
     hidden: true
   - text: |-
-      The whole proof is one word:
+      **Goal** shows `4 ≡ 4`: the same term on both sides, which is exactly what `refl : x ≡ x` proves.
 
       ```agda
       two-plus-two = refl
@@ -30,9 +26,13 @@ hints:
       Type it into the editor and **Check**, or select the hole and **Give** `refl`.
     hidden: true
 ---
-The statement is the one you just finished: `two-plus-two : 2 + 2 ≡ 4`, the
-same proposition, the same two endpoints. Last level you walked them together
-by hand. This time, say nothing about the walk at all.
+The statement is the one you just finished: `two-plus-two : 2 + 2 ≡ 4`. Last
+level you wrote out the walk between its two sides. This time, let the checker
+take the walk, and read what it found.
+
+Press **Check** (`C-c C-l`). The hole appears with the type as you wrote it,
+`2 + 2 ≡ 4`. Now select the hole and press **Goal** (`C-c C-,`), which shows the
+same type computed as far as it will go. Compare the two.
 
 Equality has exactly **one constructor**:
 
@@ -41,30 +41,20 @@ data _≡_ {A : Set} (x : A) : A → Set where
   refl : x ≡ x
 ```
 
-Read it carefully. `refl` proves `x ≡ x` — a thing equal to *itself*, with the
-same `x` on both sides. This describes when the constructor fits directly.
-Equality proofs can also use hypotheses, induction and existing lemmas;
-their endpoints need not be definitionally equal. In this example they are,
-so we can use bare `refl`.
+It proves only that a thing equals *itself*, with the same `x` on both sides.
+That looks far too weak for `2 + 2 ≡ 4`, where the sides are plainly not written
+the same. But "written the same" is not the test: the checker compares the two
+sides after computing them.
 
-That looks far too weak for `2 + 2 ≡ 4`, where the two sides are plainly not
-written the same. But "written the same" is not the test. When Agda checks
-whether `refl` fits, it **computes both sides** and compares the results — the
-very walk you did by hand, performed silently. `2 + 2` reduces to
-`suc (suc (suc (suc zero)))`, `4` denotes that same term, and so `refl` fits.
-
-This is why the `≡⟨⟩` steps last level needed no justification: each was a
-claim that the checker could get from one line to the next on its own. Writing
-the middle out taught you what happens; it was never something Agda needed.
-
-**Check** (`C-c C-l`) finds holes and errors. Select a hole and press
-**Goal** (`C-c C-,`) to inspect its required type, then **Give**
-(`C-c C-SPC`) an expression, or edit the definition and Check again.
+So which term fits the goal you just read? **Give** (`C-c C-SPC`) it to the
+selected hole, or edit the definition and **Check** again.
 
 <!-- @conclusion -->
 Two proofs, one statement. The long one showed the computation; the short one
 asked the checker to do it. Both rest on the same fact: the endpoints are
-**definitionally equal**, the same term once you compute.
+**definitionally equal**, the same term once you compute. It is also why the
+`≡⟨⟩` steps last level needed no justification: each was a claim the checker
+could settle on its own.
 
 That word *definitionally* is the limit. `refl` proves `2 + 2 ≡ 4` because
 computation finishes the job, but it will not prove `zero + x ≡ x`: addition

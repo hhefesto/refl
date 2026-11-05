@@ -119,4 +119,4 @@ the proof, which Lean's kernel checks.
 
 Which raises a fair question. If Lean was willing to compute that far inside
 every `change`, why did you have to write the middle at all? The next level
-asks the very same thing — `(2 : MyNat) + 2 = 4` — and answers it in one word.
+asks the very same thing, `(2 : MyNat) + 2 = 4`, and this time the kernel does the walking.

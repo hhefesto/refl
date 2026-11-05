@@ -125,4 +125,4 @@ by computing. The chain functions construct the proof for these computational st
 
 Which raises a fair question. If the checker is willing to compute that far
 on every line, why did you have to write the middle at all? The next level
-asks the very same thing — `2 + 2 ≡ 4` — and answers it in one word.
+asks the very same thing, `2 + 2 ≡ 4`, and this time the checker does the walking.

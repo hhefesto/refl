@@ -1,8 +1,7 @@
 ---
 example_explanation: |-
-  A different sum, `3 + 1`, and the same one-word proof. `3 + 1` computes to
-  `suc 3`, which is what `4` denotes, so the two sides of the equality are the
-  same term and `refl` fits. Nothing about the proof changed when the numbers
-  did — that is the point. Only the arithmetic the checker performs is
-  different.
+  The same one-word proof for a longer walk. Computing `20 + 22` applies
+  `m + suc n = suc (m + n)` twenty-two times, so last level's chain would need
+  dozens of rungs. `refl` does not grow with the computation: the checker does
+  the extra work, and the proof stays one word.
 ---

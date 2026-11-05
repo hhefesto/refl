@@ -5,7 +5,7 @@ module Example where
 open import Refl.Nat
 open import Refl.Eq
 -- @statement
-example : 3 + 1 ≡ 4
+example : 20 + 22 ≡ 42
 -- @template
 -- The complete worked proof is below.
 -- @solution

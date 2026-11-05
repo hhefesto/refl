@@ -52,6 +52,10 @@ implementations).
   `Refl.Language.Agda.command` starts another process; the next hole command
   loads the file first. `spec` must be `-threaded`, because `stopAgda`'s
   `timeout` cannot fire around `waitForProcess` otherwise.
+- What a player sees for the tutorial's `2 + 2 ≡ 4`, which level 2's prose
+  relies on and CI does not check: Agda's hole list says `2 + 2 ≡ 4` and Goal
+  (normalised) says `4 ≡ 4`; Bend's Check says `Goal ?goal : {4n == 4n : Nat}`,
+  not the raw `expected :` line; Lean's Goal says `2 + 2 = 4` until `change 4 = 4`.
 - `~/.agda/libraries` on this machine is stale; the flake generates its own
   `AGDA_DIR`. Agda needs `LC_ALL=en_US.UTF-8` and `LOCALE_ARCHIVE` in the
   sandbox.
@@ -217,7 +221,8 @@ implementations).
   This supersedes the earlier
   "one `change` per side" for Lean. The Agda holes may be spelled differently
   (`suc (suc 1 + 1)` and `suc (suc 2)`); Lean's two must coincide.
-- Tutorial is nine levels: 1 "Meet in the middle" and 2 "refl" pose the same
+- Tutorial is nine levels: 1 "Meet in the middle" and 2 "Let the checker
+  walk" (id `refl`) pose the same
   `2 + 2 ≡ 4`. Their Agda lemmas must differ (`two-plus-two-by-hand` and
   `two-plus-two`) because `renderWorldModule` harvests every level's statement
   and solution into one `Refl/World/Tutorial.agda` with no exclusion flag.

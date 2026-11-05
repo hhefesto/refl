@@ -406,8 +406,8 @@ main = do
           -- actual teaching snippet, in addition to private canonical proofs.
           forM_ (if skipLean then ["agda", "bend2"] else ["agda", "lean", "bend2"]) $ \lg -> do
             routeLang lg 2
-            forM_ [1 :: Int .. 4] $ \_ -> hint
-            short <- eval "document.querySelectorAll('.hints .hint')[3].querySelector('pre code').textContent"
+            forM_ [1 :: Int .. 2] $ \_ -> hint
+            short <- eval "document.querySelectorAll('.hints .hint')[1].querySelector('pre code').textContent"
             case short of
               String code -> editor code
               _ -> fail "Missing authored short proof"

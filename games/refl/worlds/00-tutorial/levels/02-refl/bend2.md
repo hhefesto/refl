@@ -1,17 +1,13 @@
 ---
 learning_goals:
-  - "`{==}` proves any equality whose two sides compute to the same term."
-  - "The checker performs the walk you just did by hand."
-  - "Reflexivity is not a universal proof: it needs the sides to meet."
+  - "Compare a law as written with the goal Bend computes from it."
+  - "Prove an equality with reflexivity alone when both sides compute to the same term."
+  - "Know the limit: the sides have to meet by computing."
 hints:
-  - text: "The law is the one you just proved the long way. Press **Check**; `?goal` is reported as the open goal, with its type normalised."
-    hidden: true
-  - text: "Look at what **Check** printed. Bend normalised the goal for you: both endpoints appear as the same numeral. That is the meeting point you wrote out by hand last level, found by the checker on its own."
-    hidden: true
-  - text: "`{==}` is the reflexivity proof. It fits any equality whose two sides are the same term — and after normalisation, these are."
+  - text: "Press **Check** on the untouched `?goal` and read the type Bend reports for it. Compare it with the law as you wrote it. What did Bend do between the two, and what does the report say about the two sides?"
     hidden: true
   - text: |-
-      The whole proof is one token, and no annotation this time:
+      Bend reports `{4n == 4n : Nat}`: the same term on both sides, which is exactly what the reflexivity proof `{==}` proves.
 
       ```bend
       def two_plus_two():
@@ -21,34 +17,27 @@ hints:
       Select the hole and **Give** `{==}`, or edit the definition and **Check**.
     hidden: true
 example_explanation: |-
-  A different sum, `3n + 1n`, and the same one-token proof. It computes to
-  `Succ{3n}`, which is what `4n` denotes, so the two sides are the same term
-  and `{==}` proves the law. Nothing about the proof changed when the numbers
-  did — only the arithmetic the checker performs.
+  The same one-token proof for a longer walk. Computing `Refl.add(20n, 22n)`
+  takes twenty-two steps, so last level's paths would need dozens of waypoints.
+  `{==}` does not grow with the computation: the checker does the extra work,
+  and the proof stays one token.
 ---
-The law is the one you just finished: `{Refl.add(2n, 2n) == 4n : Nat}`, the
-same proposition, the same two endpoints. Last level you built paths from
-both sides to a common middle. This time, supply just the proof token.
+The law is the one you just finished: `{Refl.add(2n, 2n) == 4n : Nat}`. Last
+level you built paths from both sides to a common middle. This time, let the
+checker take the walk, and read what it found.
 
-`{==}` is the **reflexivity proof**. It proves an equality whose two sides are
-the same term. Other equality proofs can use hypotheses, induction or lemmas;
-they do not all require definitionally equal endpoints. Here computation
-makes the endpoints identical, so reflexivity fits directly.
+Press **Check** (`C-c C-l`) on the untouched `?goal` and read the type Bend
+reports for it. That is the law with both sides computed as far as they will
+go. Compare it with the law as you wrote it.
 
-That looks far too weak for `{Refl.add(2n, 2n) == 4n : Nat}`, where the sides
-are plainly not written the same. But "written the same" is not the test.
-Bend **normalises both sides** and compares the results — the very walk you
-did by hand, performed silently. You can watch it happen: press **Check** on
-the untouched `?goal` and read the type Bend reports. It has already brought
-both endpoints to one numeral.
+`{==}` is the **reflexivity proof**. It proves only that a thing equals *itself*,
+with the same term on both sides; last level `Refl.arrive` supplied it at the
+middle. That looks far too weak for `{Refl.add(2n, 2n) == 4n : Nat}`, where the
+sides are plainly not written the same. But "written the same" is not the test:
+Bend compares the two sides after computing them.
 
-Last level `Refl.arrive` supplied reflexivity at the middle, `Refl.step`
-checked each computational step, and `Refl.meet` composed the two paths.
-Here Bend performs the endpoint computation without those intermediate terms.
-
-**Check** (`C-c C-l`) reports holes with their normalised types. Select a
-hole and press **Goal** (`C-c C-,`) to inspect it, then **Give**
-(`C-c C-SPC`) an expression, or edit the definition and Check again.
+So which proof fits the goal you just read? Select the hole and **Give**
+(`C-c C-SPC`) it, or edit the definition and **Check** again.
 
 <!-- @conclusion -->
 Two proofs, one law. The long one displayed two paths; the short one

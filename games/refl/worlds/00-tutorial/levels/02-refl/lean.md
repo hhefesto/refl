@@ -1,17 +1,13 @@
 ---
 learning_goals:
-  - "`rfl` proves any equality whose two sides compute to the same value."
-  - "The kernel performs the walk you just did by hand."
-  - "Reflexivity is not a universal proof: it needs the sides to meet."
+  - "Use `change` to see a goal after computing."
+  - "Prove an equality from its constructor alone when both sides compute to the same value."
+  - "Know the limit: the sides have to meet by computing."
 hints:
-  - text: "The statement is the one you just proved the long way. Replace `sorry` and press **Check**; the goal in the right panel is `2 + 2 = 4`."
-    hidden: true
-  - text: "Equality in Lean is an inductive type with a single constructor, `Eq.refl : a = a` — a proof that something equals *itself*. The tactic `rfl` is how you hand it to a goal."
-    hidden: true
-  - text: "For bare `rfl` to close this goal, the endpoints must compute to the same term. Last level both reached `succ (succ 2)`. The kernel performs that computation when checking the proof. Other equalities may require hypotheses, induction or lemmas."
+  - text: "Put `change 4 = 4` on the line above `sorry`, then put the cursor on `sorry` and press **Goal**. Lean accepted the change, so the two goals are the same by computing. What does the new goal say about its two sides?"
     hidden: true
   - text: |-
-      The whole proof is one indented word:
+      The goal `4 = 4` has the same value on both sides, which is exactly what `Eq.refl` proves, and the tactic `rfl` hands it to the goal. The `change` was only there to show you; the proof needs just one indented word:
 
       ```lean
         rfl
@@ -20,14 +16,25 @@ hints:
       Replace the block with that and press **Check**.
     hidden: true
 example_explanation: |-
-  A different sum, `(3 : MyNat) + 1`, and the same one-word proof. It computes
-  to `succ 3`, which is what `4` denotes, so the two sides are the same value
-  and `rfl` closes the goal. Nothing about the proof changed when the numbers
-  did — only the arithmetic the kernel performs.
+  The same one-word proof for a longer walk. Computing `(20 : MyNat) + 22`
+  applies `m + succ n = succ (m + n)` twenty-two times, so last level's `change`
+  steps would have to spell out a long walk. `rfl` does not grow with the
+  computation: the kernel does the extra work, and the proof stays one word.
 ---
-The statement is the one you just finished: `(2 : MyNat) + 2 = 4`, the same
-proposition, the same two endpoints. Last level you brought them together with
-two `conv` blocks. This time, say nothing about the walk at all.
+The statement is the one you just finished: `(2 : MyNat) + 2 = 4`. Last level
+you brought its two sides together with two `conv` blocks. This time, let the
+kernel take the walk, and read what it found.
+
+Put the cursor on `sorry` and press **Goal** (`C-c C-,`). Lean shows the goal as
+you wrote it, `2 + 2 = 4`; it does not compute a goal just to display it. So ask
+it to, with the `change` you learned last level. Put this above `sorry` and look
+at the goal again:
+
+```lean
+  change 4 = 4
+```
+
+Lean accepts that, because `2 + 2` and `4` compute to the same value.
 
 Equality is an inductive type with exactly **one constructor**:
 
@@ -36,29 +43,21 @@ inductive Eq : α → α → Prop where
   | refl (a : α) : Eq a a
 ```
 
-Read it carefully. It proves `a = a` — a thing equal to *itself*, the same `a`
-on both sides. The tactic `rfl` offers reflexivity to this equality goal.
-Other equality proofs can use hypotheses, induction or lemmas, even when
-their endpoints do not compute to the same term.
+It proves only that a thing equals *itself*, with the same `a` on both sides,
+and the tactic `rfl` hands it to a goal. That looks far too weak for `2 + 2 = 4`,
+where the sides are plainly not written the same. But "written the same" is not
+the test: Lean compares the two sides after computing them.
 
-That looks far too weak for `2 + 2 = 4`, where the sides are plainly not
-written the same. But "written the same" is not the test. When Lean checks
-`rfl`, it **computes both sides** and compares the results — the very walk you
-did by hand, performed silently. `2 + 2` reduces to `succ (succ (succ (succ
-zero)))`, `4` denotes that same value, and `rfl` closes the goal.
-
-This is why `change` accepted each of your rewrites last level, and why `conv`
-finished the proof the moment both sides agreed: every step was a claim the
-kernel could verify by computing. Writing the middle out taught you what
-happens; it was never something Lean needed.
-
-Edit the block and **Check** (`C-c C-l`). To inspect the goal, put the cursor
-inside the block and press **Goal** (`C-c C-,`).
+So which tactic closes the goal you just read? Edit the block and **Check**
+(`C-c C-l`).
 
 <!-- @conclusion -->
 Two proofs, one statement. The long one showed the computation; the short one
-asked the kernel to do it. Both rest on the same fact: the endpoints are
-**definitionally equal**, the same value once you compute.
+asked the kernel to do it. You did not even need the `change`: `rfl` alone
+computes both sides. Both proofs rest on the same fact: the endpoints are
+**definitionally equal**, the same value once you compute. It is also why
+`change` accepted each of your rewrites last level: every step was a claim the
+kernel could settle on its own.
 
 That word *definitionally* is the limit. `rfl` proves `2 + 2 = 4` because
 computation finishes the job, but it will not prove `zero + x = x`: addition
