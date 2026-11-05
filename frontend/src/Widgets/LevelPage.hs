@@ -201,12 +201,14 @@ levelPage m leaveE lang wid idx =
             ((,,) <$> current sel <*> current exprDyn <*> current (eoCursor ed)) cmdE
           target s cur = maybe (TargetPos cur) TargetHole s
       pure (holeOpE, retry)
-    -- the conclusion reads across the whole page, like the intro
-    dyn_ $ ffor lastResult $ \mr -> case mr of
-      Just r | crVerdict r == Solved -> elClass "div" "conclusion prose" $ do
-        rawHtml (llConclusionHtml ll)
-        nextLink w l
-      _ -> blank
+    -- the conclusion reads across the whole page, like the intro. A Solved
+    -- verdict earns it, and it stays while the player goes on editing: the
+    -- next keystroke clears the verdict, but not the fact that they got there.
+    -- Only Reset, which starts the level over, takes it back.
+    earned <- holdDyn False (leftmost [False <$ resetE, True <$ ffilter ((== Solved) . crVerdict) resultE])
+    dyn_ $ ffor earned $ \e -> when e $ elClass "div" "conclusion prose" $ do
+      rawHtml (llConclusionHtml ll)
+      nextLink w l
     -- outgoing --------------------------------------------------------------
     let checkE = Check <$> tag (current (eoText ed)) (ffilter (== CmdLoad) cmdE)
         draftE = SaveDraft <$> eoEdited ed

@@ -57,10 +57,21 @@
             cp ${./languages/bend2}/*.bend $out/
             for f in $out/*.bend; do bend $f; done
           '';
+          # lean --server's watchdog logs the local time, so it dies without an
+          # /etc/localtime, and the /etc in a build sandbox is read-only and has none.
+          # A user namespace can mount a copy over it that does. Without this,
+          # nix flake check would have to leave Lean out.
+          withLocaltime = pkgs.writeShellScript "refl-with-localtime" ''
+            export REFL_ETC=$(mktemp -d)
+            cp -r /etc/. "$REFL_ETC"/
+            ln -sf ${pkgs.tzdata}/share/zoneinfo/UTC "$REFL_ETC/localtime"
+            exec ${pkgs.util-linux}/bin/unshare -Urm ${pkgs.runtimeShell} -c \
+              '${pkgs.util-linux}/bin/mount --bind "$REFL_ETC" /etc && exec "$@"' sh "$@"
+          '';
           locale = {
             LOCALE_ARCHIVE = "${pkgs.glibcLocales}/lib/locale/locale-archive";
             LC_ALL = "en_US.UTF-8";
-            TZ = "UTC";   # lean --server reads /etc/localtime otherwise, which the sandbox lacks
+            TZ = "UTC";
           };
 
           # A private AGDA_DIR so ~/.agda/libraries (stale on this machine) is
@@ -252,14 +263,7 @@
               AGDA_DIR = agdaDir;
             } // locale) ''
               export HOME=$TMPDIR
-              # lean --server's watchdog opens /etc/localtime; give the sandbox one
-              # if it lets us, otherwise check the Lean levels in the dev shell only.
-              skip=""
-              if ln -s ${pkgs.tzdata}/share/zoneinfo/UTC /etc/localtime 2>/dev/null; then :; else
-                echo "note: no writable /etc in the sandbox; Lean levels are checked by 'nix run .#check-levels' in a dev shell" >&2
-                skip="--skip lean"
-              fi
-              ${backend}/bin/refl-check-levels ${games} $skip \
+              ${withLocaltime} ${backend}/bin/refl-check-levels ${games} \
                 --agda ${agda}/bin/agda --agda-dir ${agdaDir} \
                 --lean ${lean}/bin/lean --lean-path ${leanSupport} \
                 --bend ${bend}/bin/bend --bend-path ${bendSupport} | tee $out
@@ -352,9 +356,7 @@
               FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; };
             } // locale) ''
               export HOME=$TMPDIR
-              # lean --server needs /etc/localtime; skip its sessions only where the sandbox refuses
-              if ln -s ${pkgs.tzdata}/share/zoneinfo/UTC /etc/localtime 2>/dev/null; then :; else export REFL_BROWSER_SKIP_LEAN=1; fi
-              ${backend}/bin/refl-browser-test ${pkgs.chromium}/bin/chromium \
+              ${withLocaltime} ${backend}/bin/refl-browser-test ${pkgs.chromium}/bin/chromium \
                 ${self'.packages.site}/bin/refl-site ${games}
               echo ok > $out
             '';

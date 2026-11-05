@@ -35,7 +35,6 @@ import Data.Time (UTCTime (..), fromGregorian)
 main :: IO ()
 main = do
   chrome : site : games : extra <- getArgs
-  skipLean <- (== Just "1") <$> lookupEnv "REFL_BROWSER_SKIP_LEAN"
   artifacts <- lookupEnv "REFL_BROWSER_ARTIFACTS"
   existing <- lookupEnv "REFL_BROWSER_EXISTING_URL"
   let base = fromMaybe "http://127.0.0.1:8124" existing
@@ -130,16 +129,16 @@ main = do
                     hash = "#/w/tutorial/level/" <> lid <> "/" <> lang
                 run ("if(location.hash !== " <> js hash <> ") {const e=document.querySelector('textarea'); if(e) e.dataset.departing='true'; location.hash=" <> js hash <> ";} true")
                 wait "language and editor agree" ("document.querySelector('#language')?.value === " <> js lang <> " && Boolean(document.querySelector('textarea')) && !document.querySelector('textarea').dataset.departing")
-                unless (skipLean && lang == "lean") ready
+                ready
               route = routeLang "agda"
               choose lang = do
                 run ("(() => { const s=document.querySelector('#language'); s.value=" <> js lang <> "; s.dispatchEvent(new Event('change',{bubbles:true})); })(); true")
                 wait "header navigates" ("location.hash.endsWith('/" <> lang <> "') && document.querySelector('.pill.on')?.textContent === " <> js lang)
-                unless (skipLean && lang == "lean") ready
+                ready
               tab lang = do
                 run ("[...document.querySelectorAll('.nav-row a.pill')].find(a => a.textContent === " <> js lang <> ").click(); true")
                 wait "tab synchronizes header" ("document.querySelector('#language')?.value === " <> js lang <> " && document.querySelector('.pill.on')?.textContent === " <> js lang)
-                unless (skipLean && lang == "lean") ready
+                ready
               theme name = wait ("theme " ++ T.unpack name) ("document.documentElement?.dataset.theme === " <> js name)
               contrast = do
                 result <- eval contrastCheck
@@ -346,13 +345,13 @@ main = do
           wait "Lean instructions and commands" "document.querySelector('.col-left').textContent.includes('conv') && !document.querySelector('.expr') && [...document.querySelectorAll('.commands button')].map(b => b.textContent).join(',') === 'Check,Goal,Reset'"
           wait "language change resets help" "document.querySelectorAll('.hints .hint.revealed').length === 0 && !document.querySelector('.worked-example').open"
           buildingBlocks "lean"
-          unless skipLean $ do
+          do
             click "Check"
             verdict "unsolved"
             hint
             reload
             wait "Lean deep link synchronizes header" "document.querySelector('#language')?.value === 'lean' && document.querySelector('.col-left')?.textContent.includes('conv') === true"
-          unless skipLean $ do
+          do
             editor "  sorry\n  -- Lean draft\n"
             click "Check"
             verdict "unsolved"
@@ -393,7 +392,7 @@ main = do
           tab "bend2"
           run "history.back(); true"
           wait "back restores Lean selector" "document.querySelector('#language')?.value === 'lean' && document.querySelector('.pill.on')?.textContent === 'lean'"
-          unless skipLean $ wait "Lean draft isolated" "document.querySelector('textarea')?.value.includes('Lean draft') === true && !document.querySelector('textarea').value.includes('Bend draft')"
+          wait "Lean draft isolated" "document.querySelector('textarea')?.value.includes('Lean draft') === true && !document.querySelector('textarea').value.includes('Bend draft')"
           run "history.forward(); true"
           wait "forward restores Bend selector" "document.querySelector('#language')?.value === 'bend2' && document.querySelector('textarea')?.value.includes('Bend draft') === true"
           tab "agda"
@@ -404,7 +403,7 @@ main = do
           routeLang "bend2" 1
           -- Reflexivity is documented only in the follow-up lesson. Test its
           -- actual teaching snippet, in addition to private canonical proofs.
-          forM_ (if skipLean then ["agda", "bend2"] else ["agda", "lean", "bend2"]) $ \lg -> do
+          forM_ ["agda", "lean", "bend2"] $ \lg -> do
             routeLang lg 2
             forM_ [1 :: Int .. 2] $ \_ -> hint
             short <- eval "document.querySelectorAll('.hints .hint')[1].querySelector('pre code').textContent"
@@ -413,6 +412,16 @@ main = do
               _ -> fail "Missing authored short proof"
             click "Check"
             verdict "solved"
+            -- The conclusion is earned, not a reading of the current text: it
+            -- stays through an edit, and only Reset takes it back.
+            wait "the conclusion appears" "Boolean(document.querySelector('.conclusion'))"
+            case short of
+              String code -> editor (code <> "\n")
+              _ -> pure ()
+            wait "an edit clears the verdict" "!document.querySelector('.verdict.solved')"
+            wait "an edit leaves the conclusion" "Boolean(document.querySelector('.conclusion'))"
+            click "Reset"
+            wait "Reset takes the conclusion back" "!document.querySelector('.conclusion')"
           routeLang "bend2" 2
           run "location.hash='#/inventory'; true"
           wait "Bend inventory" "document.querySelector('.inventory')?.textContent.includes('{==}') === true && !document.querySelector('.inventory').textContent.includes('Refine')"
@@ -422,7 +431,7 @@ main = do
           -- the app must have taken the selection before the next navigation,
           -- or it will follow the selector instead of the hash
           wait "inventory follows the selector" "!document.querySelector('.inventory').textContent.includes('{==}')"
-          unless skipLean $ wait "Lean inventory" "document.querySelector('.inventory')?.textContent.includes('rfl') === true"
+          wait "Lean inventory" "document.querySelector('.inventory')?.textContent.includes('rfl') === true"
           route 1
           run "location.hash='#/w/tutorial/l/2/agda'; true"
           wait "legacy bookmark opens variable, not refl" "document.querySelector('.statement')?.textContent.includes('same :') === true"
@@ -446,7 +455,7 @@ main = do
             verdict "solved"
           -- The pinned Lean server needs host /etc/localtime; CI's sandbox
           -- explicitly skips these sessions, and the host run exercises them.
-          forM_ (if skipLean then ["bend2"] else ["lean", "bend2"]) $ \lang ->
+          forM_ ["lean", "bend2"] $ \lang ->
             forM_ (lwLevels tutorial) $ \level -> do
               routeLang lang (lmIndex (llMeta level))
               let src = llSources level M.! LangId lang
@@ -573,7 +582,7 @@ main = do
             void (rpc "Emulation.clearDeviceMetricsOverride" (object []))
             void (rpc "Page.removeScriptToEvaluateOnNewDocument" (object ["identifier" .= mockId]))
             putStrLn "browser: dashboard authentication, disabled state, coverage, reversed requests, errors/retry, missing map, themes and mobile layout passed"
-          putStrLn ("browser: language routes, help, inventory, isolated drafts, themes and prover flows passed" ++ if skipLean then " (Lean prover sessions skipped in sandbox)" else " (all three provers)")
+          putStrLn ("browser: language routes, help, inventory, isolated drafts, themes and prover flows passed" ++ " (all three provers)")
           putStrLn (if isNothing existing then "browser: failure and retry passed" else "browser: verified existing service; lifecycle checks skipped")
 
 -- WCAG text contrast for semantic surfaces, diagnostics and syntax colors.
