@@ -10,7 +10,7 @@ Statement: `*-one : ∀ (x : ℕ) → x * 1 ≡ x`
    **Say:** Recursion on the second argument, just like addition.
 
 2. **Do:** Normalise `x * 1`.
-   **Say:** One is `suc zero`, so `x * 1` is `x * zero + x`, which computes to `zero + x`.
+   **Say:** One is `suc zero`, so `x * 1` is `x * zero + x`, and that shows up as `0 + x`.
 
 3. **Do:** Give `zero-+ x`.
    **Say:** And we proved that in Tutorial World. No induction here.
