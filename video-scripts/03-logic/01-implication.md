@@ -10,7 +10,7 @@ Statement: `modus-ponens : ∀ {A B : Set} → A → (A → B) → B`
    **Say:** Given `A`, and given `A` implies `B`, conclude `B`. That's modus ponens, the oldest rule there is.
 
 2. **Do:** Edit the clause to `modus-ponens a f = ?` and press Check.
-   **Say:** Name the two arguments on the left. Refine with an empty box would do this too, as a lambda.
+   **Say:** Name the two arguments on the left. Refine with an empty box would do this too, as `λ x x₁ → ?`, with names Agda makes up.
 
 3. **Do:** Give `f a`.
    **Say:** Apply the function to the argument. That's the whole proof.

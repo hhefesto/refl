@@ -1,6 +1,6 @@
 # Tutorial 8: sym and trans
 
-About 45 s. Agda.
+About 1 min 00 s. Agda.
 
 Statement: `flip-chain : ∀ {x y z : ℕ} → y ≡ x → y ≡ z → x ≡ z`
 
@@ -15,7 +15,7 @@ Statement: `flip-chain : ∀ {x y z : ℕ} → y ≡ x → y ≡ z → x ≡ z`
 3. **Do:** Refine with `trans`, filling `sym p` and `q`.
    **Say:** Flip `p` to get `x ≡ y`, then chain it with `q`. Refine opens a hole per argument.
 
-**Close.** Long chains of `trans` get unreadable fast. Next world has notation for exactly that.
+**Close.** Long chains of `trans` get unreadable fast, and we've already met the way out: the `begin` chain from the very first level. Next world, its brackets start carrying lemmas.
 
 **Finished proof:**
 

@@ -15,7 +15,6 @@ learning_goals:
   - "Know the limit: the sides have to meet by computing."
 hints:
   - text: "Press **Check** and read the type beside the hole. Select the hole, press **Goal** and read it again. What did the checker do between the two, and what does the second one say about the two sides?"
-    hidden: true
   - text: |-
       **Goal** shows `4 ≡ 4`: the same term on both sides, which is exactly what `refl : x ≡ x` proves.
 
@@ -24,7 +23,6 @@ hints:
       ```
 
       Type it into the editor and **Check**, or select the hole and **Give** `refl`.
-    hidden: true
 ---
 The statement is the one you just finished: `two-plus-two : 2 + 2 ≡ 4`. Last
 level you wrote out the walk between its two sides. This time, let the checker

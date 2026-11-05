@@ -284,17 +284,16 @@ commandsW lang supported unlocked canUse ed = do
   allowedSet f = ffor (sequenceA (M.fromList [ (c, f c) | c <- [minBound .. maxBound] ])) $ \mp c ->
     M.findWithDefault False c mp
 
--- | Progressive hints are available before checking. Revealed hints stay.
+-- | Every hint waits behind the button, and comes one at a time, so the puzzle
+-- stays a puzzle until the player asks. Revealed hints stay.
 hintsW :: Widget' t m => LevelLang -> m ()
 hintsW l = elClass "div" "hints" $ do
-  let visible = [ h | h <- llHints l, not (hHidden h) ]
-      hidden = [ h | h <- llHints l, hHidden h ]
-  forM_ visible $ \h -> elClass "div" "hint prose" (rawHtml (hHtml h))
-  when (not (null hidden)) $ mdo
+  let hints = llHints l
+  when (not (null hints)) $ mdo
     shown <- foldDyn (\_ n -> n + 1) (0 :: Int) clickE
-    dyn_ $ ffor shown $ \n -> forM_ (take n hidden) $ \h -> elClass "div" "hint prose revealed" (rawHtml (hHtml h))
+    dyn_ $ ffor shown $ \n -> forM_ (take n hints) $ \h -> elClass "div" "hint prose revealed" (rawHtml (hHtml h))
     clickE <- switchHold never =<< (dyn $ ffor shown $ \n ->
-      if n < length hidden
-        then do (b, _) <- el' "button" (text ("Need a hint? (" <> T.pack (show (length hidden - n)) <> " left)")); pure (domEvent Click b)
+      if n < length hints
+        then do (b, _) <- el' "button" (text ("Need a hint? (" <> T.pack (show (length hints - n)) <> " left)")); pure (domEvent Click b)
         else pure never)
     pure ()

@@ -12,7 +12,7 @@ Statement: `witness : ∃ (λ n → n + 1 ≡ 3)`
 2. **Do:** Give `2 , refl`.
    **Say:** The number is 2, and `2 + 1 ≡ 3` computes, so `refl`.
 
-**Close.** The pair contains the number. That's what "constructive proofs as data" means: the proof carries its witness around.
+**Close.** The pair contains the number. A proof of existence carries its witness around, and you can compute with it.
 
 **Finished proof:**
 

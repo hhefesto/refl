@@ -1,0 +1,1 @@
+`λ ()` is a function whose argument can't exist. Agda accepts it only when it can see that the argument's type has no possible values, such as `⊥` or `zero ≡ suc n`. It's the anonymous form of a clause with the absurd pattern `()`.

@@ -15,7 +15,7 @@ Statement: `suc-injective : ∀ {x y : ℕ} → suc x ≡ suc y → x ≡ y`
 3. **Do:** Mention the other way: `suc-injective refl = refl`.
    **Say:** You could also match on the proof itself. Writing `refl` on the left tells Agda the two sides unify.
 
-**Close.** That second trick is your first taste of dependent pattern matching, which is what World 4 is all about.
+**Close.** That second trick is your first taste of dependent pattern matching, which is what Equality World is all about.
 
 **Finished proof:**
 

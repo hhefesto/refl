@@ -17,7 +17,7 @@ Worlds 5 to 18 aren't here: their levels are outlines with no statements or solu
 | 5 | [rewrite](00-tutorial/05-rewrite.md) | 1 min 00 s |
 | 6 | [Refine and Normalise](00-tutorial/06-refine.md) | 1 min 00 s |
 | 7 | [Case split is induction](00-tutorial/07-induction.md) | 1 min 00 s |
-| 8 | [sym and trans](00-tutorial/08-sym-trans.md) | 45 s |
+| 8 | [sym and trans](00-tutorial/08-sym-trans.md) | 1 min 00 s |
 | 9 | [Reading: analog₁ (Timely Computation)](00-tutorial/09-reading-analog.md) | 1 min 00 s |
 
 ## Addition World
@@ -28,7 +28,7 @@ Worlds 5 to 18 aren't here: their levels are outlines with no statements or solu
 | 2 | [+-comm](01-addition/02-plus-comm.md) | 1 min 00 s |
 | 3 | [+-assoc](01-addition/03-plus-assoc.md) | 45 s |
 | 4 | [+-right-comm](01-addition/04-right-comm.md) | 1 min 00 s |
-| 5 | [+-swap](01-addition/05-plus-swap.md) | 45 s |
+| 5 | [+-swap](01-addition/05-plus-swap.md) | 1 min 00 s |
 | 6 | [suc is injective](01-addition/06-suc-injective.md) | 45 s |
 | 7 | [+-cancelʳ](01-addition/07-plus-cancel.md) | 45 s |
 | 8 | [Reading: a finite sum](01-addition/08-reading-sum.md) | 1 min 00 s |
@@ -52,27 +52,32 @@ Worlds 5 to 18 aren't here: their levels are outlines with no statements or solu
 | # | Level | Length |
 |---|---|---|
 | 1 | [Implication is a function](03-logic/01-implication.md) | 1 min 00 s |
-| 2 | [And is a pair](03-logic/02-conjunction.md) | 30 s |
+| 2 | [And is a pair](03-logic/02-conjunction.md) | 45 s |
 | 3 | [Or is a choice](03-logic/03-disjunction.md) | 45 s |
 | 4 | [From falsity, anything](03-logic/04-absurd.md) | 30 s |
 | 5 | [Negation is a function to ⊥](03-logic/05-negation.md) | 1 min 00 s |
 | 6 | [For all](03-logic/06-forall.md) | 45 s |
 | 7 | [There exists](03-logic/07-exists.md) | 45 s |
-| 8 | [Decidable equality](03-logic/08-decidable.md) | 1 min 00 s |
-| 9 | [If and only if](03-logic/09-iff.md) | 30 s |
-| 10 | [Reading: languages as predicates](03-logic/10-reading-languages.md) | 1 min 00 s |
+| 8 | [Impossible equations](03-logic/08-impossible.md) | 1 min 00 s |
+| 9 | [A decision with evidence](03-logic/09-dec-zero.md) | 1 min 00 s |
+| 10 | [Decidable equality](03-logic/10-decidable.md) | 1 min 00 s |
+| 11 | [If and only if](03-logic/11-iff.md) | 30 s |
+| 12 | [Reading: languages as predicates](03-logic/12-reading-languages.md) | 1 min 00 s |
 
 ## Equality World
 
 | # | Level | Length |
 |---|---|---|
-| 1 | [Pattern matching on refl is J](04-equality/01-j.md) | 45 s |
+| 1 | [Matching on refl](04-equality/01-match-refl.md) | 1 min 30 s |
 | 2 | [Function equality and ≗](04-equality/02-cong-app.md) | 45 s |
-| 3 | [with abstraction](04-equality/03-with.md) | 1 min 00 s |
-| 4 | [with … in eq](04-equality/04-with-in.md) | 45 s |
-| 5 | [The old inspect idiom](04-equality/05-inspect.md) | 45 s |
-| 6 | [Rewrite chains](04-equality/06-rewrite-chain.md) | 30 s |
-| 7 | [Pattern-matching lambdas](04-equality/07-pattern-lambda.md) | 30 s |
+| 3 | [Rewrite chains](04-equality/03-rewrite-chain.md) | 45 s |
+| 4 | [Pattern-matching lambdas](04-equality/04-pattern-lambda.md) | 30 s |
+| 5 | [with abstraction](04-equality/05-with.md) | 1 min 15 s |
+| 6 | [with … in eq](04-equality/06-with-in.md) | 45 s |
+| 7 | [The old inspect idiom](04-equality/07-inspect.md) | 45 s |
 | 8 | [subst and transport](04-equality/08-subst.md) | 1 min 00 s |
-| 9 | [Hedberg: decidable equality gives UIP](04-equality/09-hedberg.md) | 1 min 00 s |
-| 10 | [Reading: δ is symmetric (Matrix.lagda)](04-equality/10-reading-delta-sym.md) | 1 min 00 s |
+| 9 | [Pattern matching on refl is J](04-equality/09-j.md) | 1 min 00 s |
+| 10 | [Equations between proofs](04-equality/10-cancel.md) | 1 min 00 s |
+| 11 | [A canonical proof](04-equality/11-canon.md) | 1 min 15 s |
+| 12 | [Hedberg: decidable equality gives UIP](04-equality/12-hedberg.md) | 1 min 15 s |
+| 13 | [Reading: δ is symmetric](04-equality/13-reading-delta-sym.md) | 1 min 00 s |

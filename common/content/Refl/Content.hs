@@ -83,7 +83,7 @@ buildManifest langs g = Manifest
       , lLanguages = M.mapWithKey (\lang s -> levelLang l s (M.lookup lang (llTeaching l))) (llSources l)
       , lSkeleton = M.null (llSources l)
       }
-  hints hs = [ Hint (renderMarkdownOrText (hsText h)) (hsHidden h) | h <- hs ]
+  hints hs = [ Hint (renderMarkdownOrText (hsText h)) | h <- hs ]
   -- The level file is the source of the shared prose; a language page
   -- overrides it field by field (a Lean page with only hints keeps the
   -- level intro, for instance).

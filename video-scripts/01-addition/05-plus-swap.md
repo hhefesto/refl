@@ -1,6 +1,6 @@
 # Addition 5: +-swap
 
-About 45 s. Agda.
+About 1 min 00 s. Agda.
 
 Statement: `+-swap : ∀ (x y z : ℕ) → x + (y + z) ≡ y + (x + z)`
 
@@ -16,7 +16,7 @@ Statement: `+-swap : ∀ (x y z : ℕ) → x + (y + z) ≡ y + (x + z)`
    **Say:** Swap them under `+ z`.
 
 4. **Do:** Close with `+-assoc y x z`, then press Check.
-   **Say:** A wrong middle term gives an error right at that step, which is the reason to write them down.
+   **Say:** Writing the middle terms down turns one hard step into three easy ones, and a lemma that doesn't fit gives an error right at its step.
 
 **Close.** With these rearrangement lemmas you can move terms anywhere in a sum. Multiplication World uses them constantly.
 

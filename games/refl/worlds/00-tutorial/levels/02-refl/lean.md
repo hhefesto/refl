@@ -5,7 +5,6 @@ learning_goals:
   - "Know the limit: the sides have to meet by computing."
 hints:
   - text: "Put `change 4 = 4` on the line above `sorry`, then put the cursor on `sorry` and press **Goal**. Lean accepted the change, so the two goals are the same by computing. What does the new goal say about its two sides?"
-    hidden: true
   - text: |-
       The goal `4 = 4` has the same value on both sides, which is exactly what `Eq.refl` proves, and the tactic `rfl` hands it to the goal. The `change` was only there to show you; the proof needs just one indented word:
 
@@ -14,7 +13,6 @@ hints:
       ```
 
       Replace the block with that and press **Check**.
-    hidden: true
 example_explanation: |-
   The same one-word proof for a longer walk. Computing `(20 : MyNat) + 22`
   applies `m + succ n = succ (m + n)` twenty-two times, so last level's `change`

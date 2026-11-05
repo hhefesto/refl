@@ -5,9 +5,7 @@ learning_goals:
 hints:
   - text: "You have `h : x = y` and need `succ x = succ y`: apply `succ` to both sides of `h`."
   - text: "`exact congrArg succ h` does exactly that. Alternatively, `rw [h]` replaces `x` by `y` in the goal, leaving `succ y = succ y`, which `rw` closes by itself."
-    hidden: true
   - text: "Either `  exact congrArg succ h` or `  rw [h]` is the whole proof."
-    hidden: true
 example_explanation: |-
   1. Name the input equation `h`.
   2. `rw [h]` replaces `a` by `b` inside the addition.

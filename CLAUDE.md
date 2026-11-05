@@ -250,7 +250,7 @@ implementations).
   plain `refl` on public http, since browsers drop Secure cookies there);
   the WebSocket handshake needs that exact Origin and a cookie. Drafts are
   debounced 1 s and flushed on Check and on leaving (departure reads the live
-  textarea because reactive input processing can lag); hidden hints open at any
+  textarea because reactive input processing can lag); hints open at any
   time (user decision, 2026-09-18). The consumer is
   `~/src/enc` (input `github:hhefesto/refl`); production
   is xty at https://refl.hhefesto.dev (Cloudflare-proxied, since 2026-09-19).
@@ -283,7 +283,8 @@ implementations).
   assertions (`Check,Goal,Reset` for Lean, `Check,Goal,Give,Reset` elsewhere).
 - A lesson must not mention a command its language lacks (`teachingProblems`
   fails CI); a worked example is a different statement, type-checked with the
-  earned vocabulary. Hidden hints can be revealed in order before any Check.
+  earned vocabulary. Every hint waits behind the button and opens in order, at
+  any time, before any Check; there is no such thing as a hint shown up front.
 - The dropdown only rewrites the hash on a level page; the route owns the
   language, so a switch mounts the page once and opens one prover session.
 - The support page is answered in `App.hs` *before* the manifest, so it

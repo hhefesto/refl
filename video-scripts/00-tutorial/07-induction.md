@@ -16,7 +16,7 @@ Statement: `zero-+ : ∀ (x : ℕ) → zero + x ≡ x`
    **Say:** The base case computes.
 
 4. **Do:** In the `suc` clause, press Goal, then Give `cong suc (zero-+ x)`.
-   **Say:** The goal is `suc (zero + x) ≡ suc x`. I call the function I'm defining on the smaller number. That recursive call is the induction hypothesis.
+   **Say:** The goal is `suc (0 + x) ≡ suc x`. Agda prints `zero` as `0`. I call the function I'm defining on the smaller number. That recursive call is the induction hypothesis.
 
 **Close.** Induction is recursion, and the termination checker is the judge. `zero-+` is now in your inventory.
 

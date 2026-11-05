@@ -21,7 +21,6 @@ dictionary:
 | exists x, P x | `Σ A P`, `∃ P` | a witness and a proof |
 | decidable | `Dec A` | `yes a` or `no ¬a` |
 
-Everything is defined in `Refl.Logic`; open the inventory to read the
-definitions. This is exactly the setting of *Symbolic and Automatic
-Differentiation of Languages*: a language is a predicate on strings, union is
-`⊎`, intersection is `×`, and a proof of membership is a parse.
+Each level shows the definitions it needs. The last one uses this dictionary the way
+research papers do: a language is a predicate on strings, union is `⊎`, intersection
+is `×`, and a proof of membership is a parse.

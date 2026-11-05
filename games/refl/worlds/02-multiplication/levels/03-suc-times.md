@@ -11,15 +11,28 @@ unlocks:
       agda: "suc-*"
       lean: "succ_mul"
 hints:
-  - text: "Induction on `y`. Normalise both sides in the step: left is `suc (suc x * y + x)`, right is `suc (x * y + x + y)`."
-  - text: "Under `cong suc`, rewrite `suc x * y` with the induction hypothesis (`cong (_+ x) (suc-* x y)`), leaving `x * y + y + x ≡ x * y + x + y`, which is `+-right-comm`."
-  - text: "Step: `cong suc (trans (cong (_+ x) (suc-* x y)) (+-right-comm (x * y) y x))`."
-    hidden: true
+  - text: "**Case split** on `y` and read the `suc` clause's **Goal**: `suc (suc x * y + x) ≡ suc (x * y + x + y)`. Both sides start with `suc`, so `cong suc` gets you inside. Inside, `suc x * y` is what the recursive call talks about."
+  - text: "Under `cong suc`, the recursive call becomes `cong (_+ x) (suc-* x y)`, which leaves `x * y + y + x ≡ x * y + x + y`. Those are the same three terms in a different order, and you have a lemma for that."
+  - text: "`suc-* x zero = refl`, and `suc-* x (suc y) = cong suc (trans (cong (_+ x) (suc-* x y)) (+-right-comm (x * y) y x))`."
 ---
-`suc x * y ≡ x * y + y`. The step case is the first one where the
-induction hypothesis alone is not enough: after using it, the two sides
-are the same sum in a different order.
+`suc x * y ≡ x * y + y`. Multiplying by one more means adding one more copy of `y`.
+It's the partner of `suc-+`, and you will need it for commutativity in the next
+level.
+
+**Case split** on `y` and read the **Goal** in the `suc` clause. This goal is the
+longest so far, so go through it in order:
+
+1. Both sides begin with `suc`. Take that off first.
+2. On the left, there is a `suc x * y` inside a sum. The recursive call tells you
+   what that equals, but it only says so about `suc x * y` on its own. Use a section
+   to apply it inside the sum: `(_+ x)` means `λ w → w + x`.
+3. After that, compare the two sides. This is the first inductive step where the
+   induction hypothesis isn't enough: the two sides are the same sum in a different
+   order.
+
+Nesting `trans` and `cong` gets confusing here, so feel free to write the inner part
+as a `begin` block in parentheses. `≡-Reasoning` is already open in this level.
 
 <!-- @conclusion -->
-Write the step as a `begin` block if the nested `cong`/`trans` gets
-confusing; that is what the notation is for.
+This is what most inductive steps in arithmetic look like: use the hypothesis, then
+rearrange. `begin` blocks earn their keep from here on.

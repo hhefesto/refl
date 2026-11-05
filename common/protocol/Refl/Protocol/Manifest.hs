@@ -67,9 +67,9 @@ data LevelLang = LevelLang
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
 
+-- | A hint is shown only when the player asks for it, in order.
 data Hint = Hint
-  { hHtml   :: Text
-  , hHidden :: Bool
+  { hHtml :: Text
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (ToJSON, FromJSON)
 

@@ -16,11 +16,10 @@ m ^ zero  = 1
 m ^ suc n = m ^ n * m
 ```
 
-The proofs are the same shape as Addition World's, but now every inductive
-step rearranges a sum, so you will lean on `+-assoc`, `+-comm` and
-`+-right-comm` from your inventory — and on operator **sections** like
-`(_+ x)` and `(x *_)` inside `cong`.
+The proofs are the same shape as Addition World's, but now every inductive step
+rearranges a sum, so you will lean on `+-assoc`, `+-comm` and `+-right-comm` from
+your inventory — and on operator **sections** like `(_+ x)` and `(x *_)` inside
+`cong`.
 
-The reading level at the end is the shape of `*-distribˡ-sum` in the
-standard library's `Algebra.Properties.Semiring.Sum`, which Spectra2's matrix
-algebra is built on.
+The reading level at the end pulls a constant factor out of a finite sum, a lemma
+the standard library calls `*-distribˡ-sum`.

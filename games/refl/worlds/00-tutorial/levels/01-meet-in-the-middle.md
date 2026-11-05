@@ -32,11 +32,8 @@ unlocks:
       doc: "reasoning.md"
 hints:
   - text: "Take one step from the left. The rung above the first hole has already expanded both copies of `2` to `suc 1`; your step continues from there. Apply `m + suc n = suc (m + n)` to `suc 1 + suc 1`: that gives `suc (suc 1 + 1)`, which fills the first hole."
-    hidden: true
   - text: "Now take one step from the right, reading up from the bottom of the chain. `4` has already been expanded to the supplied `suc 3`; your step continues from there. Expanding `3` to `suc 2` gives `suc (suc 2)` for the second hole. Up and down describe your direction through the displayed chain; both walks unfold the numbers toward a common term."
-    hidden: true
   - text: "Compare the two middle lines: `suc (suc 1 + 1)` computes to `suc (suc 2)`. They are the same number, so the empty bracket between them checks. The holes may contain different expressions, provided they compute to the same term."
-    hidden: true
   - text: |-
       Fill the two holes with where each side landed:
 
@@ -52,7 +49,6 @@ hints:
       ```
 
       Select a hole and **Give** the term, or edit the definition and **Check**. `≡⟨⟩` asks the checker to verify that adjacent terms compute to the same thing; you do not supply a separate proof argument for that step.
-    hidden: true
 ---
 A natural number counts how many times we take a **successor**, starting at
 zero. In Agda the type of natural numbers is `ℕ`, its first constructor is

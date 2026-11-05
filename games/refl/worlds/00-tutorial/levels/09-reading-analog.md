@@ -7,30 +7,37 @@ learning_goals:
   - "A function returning a function can take the extra argument on the left of `=`."
   - "Two definitions that differ only in this way are equal by `refl`."
 hints:
-  - text: "`analog₁ δ h x̃` returns a function of `t`, written with a `λ`. `analog₁′` must be the same function, but with `t` as a fourth argument on the left of `=`: `analog₁′ δ h x̃ t = h (x̃ (t + δ))`."
-  - text: "Once `analog₁′` is defined that way, both sides of `analog-same` compute to `h (x̃ (t + δ))`, so the proof is `refl`. Give `refl` in the second hole."
-    hidden: true
+  - text: "`analog₁ δ h x̃` returns a function of `t`, written with a `λ`. The first hole is the body of that `λ`; copy the names from the statement."
+  - text: "The first hole is `h (x̃ (t + δ))`. Fill it and press **Check**: now the second hole's goal has the same term on both sides."
+  - text: "The second hole is `refl`."
 ---
-Every world ends with a **reading level**: a real definition from the code
-this game leads to, with something removed.
+Every world ends with a **reading level**: a real definition from published code,
+simplified, with something removed. These are the kind of definitions this game
+wants you to be able to read.
 
-From *Timely Computation* (ICFP 2023), simplified to `ℕ` and shifted forward
-instead of back, a one-input analog gate: given a delay `δ`, a function `h` on
-values, and an input signal `x̃` (a function of time), the output signal at
-time `t` is `h` applied to the input at time `t + δ`:
+This one comes from *Timely Computation*, Conal Elliott's ICFP 2023 paper on
+circuits and time. Simplified to `ℕ` and shifted forward instead of back, it is a
+one-input analog gate. Given a delay `δ`, a function `h` on values and an input
+signal `x̃` (a function of time), the output signal at time `t` is `h` applied to
+the input at time `t + δ`:
 
 ```agda
 analog₁ δ h x̃ = λ t → h (x̃ (t + δ))
 ```
 
-The type `ℕ → (ℕ → ℕ) → (ℕ → ℕ) → (ℕ → ℕ)` ends in a function type, and
-`→` associates to the right. So the same thing can be written with `t` as a
-fourth argument on the left of `=`. Define `analog₁′` that way, then prove
-the two agree.
+Now read its type, `ℕ → (ℕ → ℕ) → (ℕ → ℕ) → (ℕ → ℕ)`. It ends in a function type,
+and `→` associates to the right, so that last pair of parentheses changes nothing.
+This is the same type as a function of **four** arguments. So you can also write
+it with `t` on the left of `=`, as the first hole sets up.
+
+Fill the two holes: define `analog₁′` that way, then prove that the two agree. Do
+them in order, because until the first hole is filled, the second one's goal
+refers to it as `?0`.
 
 <!-- @conclusion -->
-This was the note in the study file for Timely Computation: `analog₁ δ h x̃ t
-= …` and `analog₁ δ h = λ x̃ → λ t → …` are identical. Now you have proved it.
+A function of three arguments that returns a function, and a function of four
+arguments: to the checker they are the same thing, and you have just proved it.
+Papers switch between the two without comment, and now you can follow them.
 
-**Tutorial World complete.** Addition World is next: `+-suc`, `+-comm`,
-`+-assoc`, and equational reasoning.
+**Tutorial World complete.** Addition World is next: `suc-+`, `+-comm`, `+-assoc`,
+and chains whose steps carry real lemmas.

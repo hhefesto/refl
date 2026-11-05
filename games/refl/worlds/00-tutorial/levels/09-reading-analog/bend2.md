@@ -5,9 +5,7 @@ learning_goals:
 hints:
   - text: "Two holes: first give `analog1_` a body, then prove the equation."
   - text: "`analog1_(d, h, xs, t)` should compute what `analog1(d, h, xs)(t)` computes: `h(xs(Refl.add(t, d)))`."
-    hidden: true
   - text: "With that body in place, the two sides of `analog_same` unfold to the same term, and `{==}` proves it."
-    hidden: true
 example_explanation: |-
   1. `shifted(k)` returns a lambda.
   2. The explicit version takes the lambda argument as its second parameter.

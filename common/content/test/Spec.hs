@@ -152,7 +152,7 @@ fixture = LoadedGame (GameMeta "Test" ["w"]) "" [world]
   (M.fromList [("agda/cmd-load", "Agda document"), ("lean/cmd-load", "Lean document")]) "."
  where
   world = LoadedWorld (WorldMeta "w" "World" [] M.empty) "" [level] "."
-  level = LoadedLevel (LevelMeta "l" 1 "Shared" ["Shared goal"] (UnlockSpec ["load"] [] []) [] False [HintSpec "Shared hint" False])
+  level = LoadedLevel (LevelMeta "l" 1 "Shared" ["Shared goal"] (UnlockSpec ["load"] [] []) [] False [HintSpec "Shared hint"])
     "Shared text" "Shared conclusion" (M.fromList [(lang, source lang) | lang <- langs]) "01-test.md"
     (M.fromList [(LangId "lean", leanPage), (LangId "agda", agdaPage)])
   langs = [LangId "agda", LangId "lean"]
@@ -161,7 +161,7 @@ fixture = LoadedGame (GameMeta "Test" ["w"]) "" [world]
   agdaPage = Teaching (TeachingMeta Nothing Nothing Nothing (Just "Example steps"))
     "" ""
     (Just (srcs {lsStatement = "another statement", lsSolution = "agda-example-proof"}))
-  leanPage = Teaching (TeachingMeta (Just "Title") (Just ["Goal"]) (Just [HintSpec "Clue" False, HintSpec "Next" True]) (Just "Example steps"))
+  leanPage = Teaching (TeachingMeta (Just "Title") (Just ["Goal"]) (Just [HintSpec "Clue", HintSpec "Next"]) (Just "Example steps"))
     "Lean only" "Conclusion"
     (Just (srcs {lsLang = LangId "lean", lsPrefix = "example declaration\n", lsStatement = "example declaration\n", lsSolution = "example-proof"}))
 

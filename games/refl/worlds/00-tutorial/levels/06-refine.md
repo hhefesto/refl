@@ -9,21 +9,27 @@ learning_goals:
 unlocks:
   commands: [refine, normalise, infer]
 hints:
-  - text: "Before proving anything, type `(x + 2) + 1` in the box and press **Normalise**. Then normalise `x + 3`. Same answer?"
-  - text: "If two sides normalise to the same thing, `refl` proves it. Try **Refine** with `refl` this time instead of Give — for `refl` they do the same; Refine matters when the expression has arguments you leave out."
-    hidden: true
+  - text: "Select the hole, type `(x + 2) + 1` in the box and press **Normalise**. Then do the same with `x + 3`. Do you get the same answer?"
+  - text: "Both give `suc (suc (suc x))`. If the two sides normalise to the same term, `refl` proves it. Try **Refine** with `refl` this time instead of Give; for `refl` they do the same, because it has no arguments to leave out."
 ---
 Two new commands.
 
-**Normalise** evaluates an expression as far as the definitions allow. It is
-how you find out whether `refl` will work: if both sides of `≡` normalise to
-the same term, it will.
+**Normalise** (`C-c C-n`) evaluates an expression as far as the definitions
+allow. Select the hole, type an expression in the box and press it. This is how
+you find out whether the checker will accept a proof by computation before you
+try one: if both sides of `≡` normalise to the same term, they are definitionally
+equal.
 
-**Refine** is Give's more forgiving sibling. Refine with `f` when the goal is
-`f ? ?`: Agda inserts `f` and creates holes for the arguments it could not
-figure out. Refine with a constructor to build a value piece by piece.
+**Refine** (`C-c C-r`) is Give's more forgiving sibling. Give demands a finished
+term. Refine with a function `f` writes `f ? ?`, with a new hole for each argument
+it could not work out. So you can build a proof from the outside in, one piece at
+a time.
+
+The statement here is `(x + 2) + 1 ≡ x + 3`. There is a variable in it, but notice
+where: every addition has a numeral on the right, and numerals are what addition
+looks at. Use **Normalise** on each side to see how far they get.
 
 <!-- @conclusion -->
 You have just seen why the definition of `_+_` matters: everything computed
 because the recursion is on the second argument and the numerals were on the
-right. When they are on the left, you need induction. Next level.
+right. When they are on the left, you need induction. That is the next level.

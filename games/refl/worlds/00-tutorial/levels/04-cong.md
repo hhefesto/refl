@@ -14,24 +14,31 @@ unlocks:
       bend2: "Equal.cong"
       doc: "cong.md"
 hints:
-  - text: "The hypothesis `x ≡ y` is an argument. The template names it `h`. Ask for the goal: `suc x ≡ suc y` with `h : x ≡ y` in the context."
-  - text: "You need to apply `suc` to both sides of `h`. The lemma for that is `cong`: `cong suc h : suc x ≡ suc y`."
-    hidden: true
+  - text: "Ask for the **Goal**. The context has `h : x ≡ y` and the goal is `suc x ≡ suc y`. How does the goal differ from `h`?"
+  - text: "It is `h` with `suc` applied to both sides, and that is what `cong` does. Its first argument is the function, its last is the equation: `cong suc h`."
 ---
-An implication `A → B` is a function type too, so a hypothesis is an argument.
-Here the hypothesis `x ≡ y` is called `h` in the template.
+An implication `A → B` is a function type too, so a hypothesis is just an
+argument. Here the hypothesis `x ≡ y` is called `h` in the template, and it will
+be in the context when you ask for the **Goal**.
 
-The braces in `∀ {x y : ℕ}` make `x` and `y` **implicit**: you do not write
-them on the left of `=`, Agda infers them from `h`.
+The braces in `∀ {x y : ℕ}` make `x` and `y` **implicit**: you do not write them
+on the left of `=`, because Agda works them out from `h`. They still show up in
+the context.
 
-New lemma, in your inventory from now on:
+This level also gives you your first real tool, a lemma that stays in your
+inventory from now on:
 
 ```agda
 cong : ∀ {A B : Set} (f : A → B) {x y : A} → x ≡ y → f x ≡ f y
 ```
 
-"If `x ≡ y` then `f x ≡ f y`". Read the type: the first explicit argument is
-the function, the last is the equation.
+Read the type from the left. You give it a function `f` and a proof that `x`
+equals `y`, and it returns a proof that `f x` equals `f y`: if two things are
+equal, applying the same function to both keeps them equal. The first explicit
+argument is the function and the last is the equation.
+
+Now compare your goal with your hypothesis. Which function has been applied to
+both sides?
 
 <!-- @conclusion -->
 `cong` is the workhorse of every inductive step you will ever write:

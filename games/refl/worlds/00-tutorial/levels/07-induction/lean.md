@@ -6,9 +6,7 @@ learning_goals:
 hints:
   - text: "`0 + x` does not compute (the variable is on the right). Induct on `x`."
   - text: "`induction x with` gives two goals. Base: `0 + 0 = 0` is `rfl`. Step: with `ih : 0 + n = n`, the goal `0 + succ n = succ n` unfolds by `add_succ` to `succ (0 + n) = succ n`."
-    hidden: true
   - text: "Step case: `rw [add_succ, ih]`. Full proof:\n\n```lean\n  induction x with\n  | zero => rfl\n  | succ n ih => rw [add_succ, ih]\n```"
-    hidden: true
 example_explanation: |-
   1. Define `copy` by zero/successor recursion.
   2. The zero branch computes.

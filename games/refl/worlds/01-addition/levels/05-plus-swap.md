@@ -11,16 +11,32 @@ unlocks:
       agda: "+-swap"
       lean: "add_left_comm"
 hints:
-  - text: "Plan: `x + (y + z)` → `(x + y) + z` → `(y + x) + z` → `y + (x + z)`."
-  - text: "`sym (+-assoc x y z)`, then `cong (_+ z) (+-comm x y)`, then `+-assoc y x z`."
-    hidden: true
+  - text: "`x` and `y` can't change places while `y` is tucked inside `y + z`. Use associativity to bring them next to each other first, then swap them, then put the parentheses back."
+  - text: "The intermediate terms are `x + (y + z)`, then `(x + y) + z`, then `(y + x) + z`, then `y + (x + z)`."
+  - text: "The three steps are `sym (+-assoc x y z)`, `cong (_+ z) (+-comm x y)` and `+-assoc y x z`."
 ---
-Same tools, no skeleton. Write the `begin … ∎` block yourself; check the
-file after each step to see whether Agda agrees with your intermediate
-terms (a wrong term is an error *at that step*, which is the point of
-writing them down).
+Same tools, no skeleton. The statement is `x + (y + z) ≡ y + (x + z)`, and this
+time you write the whole `begin … ∎` block yourself.
+
+Start by replacing the template with this, which is the shape of any chain:
+
+```agda
++-swap x y z =
+  begin
+    x + (y + z) ≡⟨ ? ⟩
+    y + (x + z) ∎
+```
+
+That has one step, and **Goal** on the hole shows the whole statement. Now grow
+it: add a line in the middle with the sum you think comes next, keep a `?` in each
+bracket, and **Check**. Each hole's **Goal** is now the equation for that one step,
+which is the whole point of writing the terms down: you can see straight away
+whether a step is one lemma or still too big.
+
+So the real work is the plan. Which sums would you pass through, so that each move
+from one to the next is exactly one lemma from your inventory? Copy symbols from
+the skeleton, or type `≡` as `\==`, `⟨` as `\<`, `⟩` as `\>` and `∎` as `\qed`.
 
 <!-- @conclusion -->
-Three rearrangement lemmas (`+-assoc`, `+-comm`, `+-right-comm`, `+-swap`)
-are enough to move terms anywhere in a sum. Multiplication World uses them
-constantly.
+Four rearrangement lemmas (`+-assoc`, `+-comm`, `+-right-comm`, `+-swap`) are enough
+to move terms anywhere in a sum. Multiplication World uses them constantly.

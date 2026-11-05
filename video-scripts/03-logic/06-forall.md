@@ -12,7 +12,7 @@ Statement: `∀-× : ∀ {P Q : ℕ → Set} → (∀ n → P n × Q n) → (∀
 2. **Do:** Give `(λ n → proj₁ (h n)) , (λ n → proj₂ (h n))`.
    **Say:** Build a pair of two functions. Each one calls `h` and takes the side it needs.
 
-**Close.** A predicate on numbers has the same shape as a language in the ICFP 2021 paper, and this lemma is `∀` distributing over intersection.
+**Close.** A predicate on strings is what theory of computation calls a language, and that's where this world's last level is going.
 
 **Finished proof:**
 

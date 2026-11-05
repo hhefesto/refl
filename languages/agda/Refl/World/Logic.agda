@@ -53,6 +53,19 @@ witness : ∃ (λ n → n + 1 ≡ 3)
 witness = 2 , refl
 
 
+-- Impossible equations
+zero≢suc : ∀ (n : ℕ) → zero ≢ suc n
+
+zero≢suc n = λ ()
+
+
+-- A decision with evidence
+is-zero : (n : ℕ) → Dec (n ≡ zero)
+
+is-zero zero = yes refl
+is-zero (suc n) = no (λ ())
+
+
 -- Decidable equality
 map-suc : ∀ {m n : ℕ} → Dec (m ≡ n) → Dec (suc m ≡ suc n)
 map-suc (yes p) = yes (cong suc p)

@@ -5,9 +5,7 @@ learning_goals:
 hints:
   - text: "You have `h : {x == y : Nat}` and need `{1n+x == 1n+y : Nat}`: apply successor to both sides."
   - text: "`Equal.cong(Nat, Nat, n => 1n+n, x, y, h)`: the function is the lambda `n => 1n+n`, the endpoints are `x` and `y`."
-    hidden: true
   - text: "Or rewrite: `%h : {1n+x == 1n+_ : Nat}` on one line (`_` marks the `y`), then `{==}` on the next."
-    hidden: true
 example_explanation: |-
   1. The law gives equality evidence `h`.
   2. Supply the shared surrounding function to `Equal.cong`.

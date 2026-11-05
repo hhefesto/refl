@@ -15,7 +15,7 @@ Statements: `cong-app : … f ≡ g → ∀ x → f x ≡ g x` and `≗-trans : 
 3. **Do:** Give `trans (p x) (q x)` for `≗-trans`.
    **Say:** It's a function, so it takes `x`, and then it's plain `trans`.
 
-**Close.** When you see `≗` in felix or Spectra2, this is what it means.
+**Close.** When you see `≗` in real Agda code, this is what it means.
 
 **Finished proof:**
 

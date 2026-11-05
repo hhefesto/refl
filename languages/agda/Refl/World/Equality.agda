@@ -9,10 +9,10 @@ open import Refl.Bool
 open import Refl.World.Logic using (_≟_)
 open ≡-Reasoning
 
--- Pattern matching on refl is J
-J : ∀ {A : Set} {x : A} (P : ∀ y → x ≡ y → Set) → P x refl → ∀ {y} (p : x ≡ y) → P y p
+-- Matching on refl
+cong′ : ∀ {A B : Set} (f : A → B) {x y : A} → x ≡ y → f x ≡ f y
 
-J P d refl = d
+cong′ f refl = refl
 
 
 -- Function equality and ≗
@@ -27,6 +27,18 @@ f ≗ g = ∀ x → f x ≡ g x
 cong-app refl x = refl
 
 ≗-trans p q x = trans (p x) (q x)
+
+
+-- Rewrite chains
+two-three : ∀ (x y : ℕ) → x ≡ 2 → y ≡ 3 → x + y ≡ 5
+
+two-three x y p q rewrite p | q = refl
+
+
+-- Pattern-matching lambdas
+sym′ : ∀ {A : Set} {x y : A} → x ≡ y → y ≡ x
+
+sym′ = λ { refl → refl }
 
 
 -- with abstraction
@@ -75,25 +87,25 @@ g-nonzero n h with n ≡ᵇ 0 | inspect (n ≡ᵇ_) 0
 ... | false | _ = refl
 
 
--- Rewrite chains
-two-three : ∀ (x y : ℕ) → x ≡ 2 → y ≡ 3 → x + y ≡ 5
-
-two-three x y p q rewrite p | q = refl
-
-
--- Pattern-matching lambdas
-sym′ : ∀ {A : Set} {x y : A} → x ≡ y → y ≡ x
-
-sym′ = λ { refl → refl }
-
-
 -- subst and transport
 trans′ : ∀ {x y z : ℕ} → x ≡ y → y ≡ z → x ≡ z
 
 trans′ {x} p q = subst (x ≡_) q p
 
 
--- Hedberg: decidable equality gives UIP
+-- Pattern matching on refl is J
+J : ∀ {A : Set} {x : A} (P : ∀ y → x ≡ y → Set) → P x refl → ∀ {y} (p : x ≡ y) → P y p
+
+J P d refl = d
+
+
+-- Equations between proofs
+trans-symˡ : ∀ {A : Set} {x y : A} (e : x ≡ y) → trans (sym e) e ≡ refl
+
+trans-symˡ refl = refl
+
+
+-- A canonical proof
 canon : ∀ {x y : ℕ} → x ≡ y → x ≡ y
 canon {x} {y} p with x ≟ y
 ... | yes q = q
@@ -104,15 +116,13 @@ canon-const {x} {y} p q with x ≟ y
 ... | yes _ = refl
 ... | no ¬q = ⊥-elim (¬q p)
 
-trans-symˡ : ∀ {A : Set} {x y : A} (e : x ≡ y) → trans (sym e) e ≡ refl
-
 canon-inv : ∀ {x y : ℕ} (p : x ≡ y) → trans (sym (canon refl)) (canon p) ≡ p
 
-≡-irrelevant : ∀ {x y : ℕ} (p q : x ≡ y) → p ≡ q
-
-trans-symˡ refl = refl
-
 canon-inv refl = trans-symˡ (canon refl)
+
+
+-- Hedberg: decidable equality gives UIP
+≡-irrelevant : ∀ {x y : ℕ} (p q : x ≡ y) → p ≡ q
 
 ≡-irrelevant p q =
   begin
@@ -122,7 +132,7 @@ canon-inv refl = trans-symˡ (canon refl)
     q                                    ∎
 
 
--- Reading: δ is symmetric (Matrix.lagda)
+-- Reading: δ is symmetric
 δ-sym : ∀ (i j : ℕ) → δ i j ≡ δ j i
 
 δ-sym i j with i ≟ j | j ≟ i

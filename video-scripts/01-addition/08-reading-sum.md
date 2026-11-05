@@ -4,7 +4,7 @@ About 1 min 00 s. Agda.
 
 Statement: `sumTo-zero : ∀ (n : ℕ) → sumTo (λ _ → zero) n ≡ zero`
 
-**Open.** Reading level. A real project, Spectra2, spends its first hundred lines proving facts about finite sums. They all look like this.
+**Open.** Reading level. Real proof libraries spend a lot of effort on facts about finite sums, and they all look like this.
 
 1. **Do:** Point at `sumTo`.
    **Say:** `sumTo f n` adds up `f 0` through `f (n - 1)`. It takes a function as an argument, and it's defined by recursion.

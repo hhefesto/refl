@@ -15,7 +15,7 @@ Statement: `*-comm : ∀ (x y : ℕ) → x * y ≡ y * x`
 3. **Do:** Give `trans (cong (_+ x) (*-comm x y)) (sym (suc-* y x))` for `suc`.
    **Say:** `suc-*` where it used `suc-+`, and `cong (_+ x)` where it used `cong suc`.
 
-**Close.** Two commutativity proofs, one program, over different operations. World 8 turns that observation into a structure you prove once.
+**Close.** Two commutativity proofs, one program, over different operations. That kind of repetition is what algebraic structures like semirings are for.
 
 **Finished proof:**
 

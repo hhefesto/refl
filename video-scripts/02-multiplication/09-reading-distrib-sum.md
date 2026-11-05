@@ -4,7 +4,7 @@ About 45 s. Agda.
 
 Statement: `sum-factor : ∀ (c : ℕ) (f : ℕ → ℕ) (n : ℕ) → sumTo (λ i → c * f i) n ≡ c * sumTo f n`
 
-**Open.** Reading level. Spectra2's completion-of-squares proof pulls constants out of weighted sums. Here's that lemma, in miniature.
+**Open.** Reading level. Pulling a constant out of a sum shows up in nearly every proof that does algebra with sums. Here's that lemma, in miniature.
 
 1. **Do:** Read the statement.
    **Say:** Sum of `c` times `f i` equals `c` times the sum of `f i`. High school algebra.

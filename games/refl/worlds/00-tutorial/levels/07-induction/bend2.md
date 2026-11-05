@@ -6,9 +6,7 @@ learning_goals:
 hints:
   - text: "`Refl.add(0n, x)` is stuck because `x` is on the right. Edit the `def` into a `match x:` with cases `0n` and `1n+p`."
   - text: "Case `0n`: `Refl.add(0n, 0n)` computes to `0n`, so `{==}`. Case `1n+p`: the goal is `{1n+Refl.add(0n, p) == 1n+p : Nat}`; `zero_add(p)` proves the inner equation."
-    hidden: true
   - text: "Rewrite with it, marking the right side `p`: `%zero_add(p) : {1n+Refl.add(0n, p) == 1n+_ : Nat}`, then `{==}`."
-    hidden: true
 example_explanation: |-
   1. Define `copy` by recursion.
   2. Its zero case computes.

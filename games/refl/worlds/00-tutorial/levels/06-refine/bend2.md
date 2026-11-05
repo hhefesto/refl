@@ -5,9 +5,7 @@ learning_goals:
 hints:
   - text: "Press **Check** and read the goal as Bend normalises it."
   - text: "Both `Refl.add(Refl.add(x, 2n), 1n)` and `Refl.add(x, 3n)` unfold to `3n+x`: the numeral on the right drives the recursion."
-    hidden: true
   - text: "`{==}` is the whole proof."
-    hidden: true
 example_explanation: |-
   1. Unfold each addition on the right numeral.
   2. Each side reduces to two successors of `n`.

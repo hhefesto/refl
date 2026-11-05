@@ -5,11 +5,8 @@ learning_goals:
   - "Use `conv` to rewrite one side of an equation at a time."
 hints:
   - text: "Take one step from the left. The first `change` in the `lhs` block has already expanded both copies of `2` to `succ 1`; the second is yours, and holds a `?_` until you fill it. The successor rule `m + succ n = succ (m + n)` applies twice to `succ 1 + succ 1` and then the zero rule `m + zero = m` finishes: `succ (succ 1 + 1)` → `succ (succ (succ 1 + zero))` → `succ (succ 2)`."
-    hidden: true
   - text: "Now take one step from the right. The first `change` in the `rhs` block has already peeled `4` down to `succ 3`; the second is yours, and holds a `?_` until you fill it. Expanding `3` to `succ 2` gives `succ (succ 2)`."
-    hidden: true
   - text: "Both sides must arrive at the *same* term, not merely at the same number: `conv` closes the goal only when the two sides read alike. So write `succ (succ 2)` into both of your `change` lines. This is where Lean is stricter than Agda's `≡⟨⟩` chain, whose two holes may be spelled differently."
-    hidden: true
   - text: |-
       Point each second `change` at the meeting point:
 
@@ -25,7 +22,6 @@ hints:
       ```
 
       Once both sides read the same term, `conv` finishes the goal by itself — there is nothing left to prove. Replace the editor block with this and press **Check**.
-    hidden: true
 example_explanation: |-
   This example asks about `3 + 1`, a different sum, so the endpoints meet
   by a different computation. On the left, `(3 : MyNat) + 1` is `3 + succ zero`, which

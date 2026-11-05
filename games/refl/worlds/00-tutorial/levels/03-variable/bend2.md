@@ -5,9 +5,7 @@ learning_goals:
 hints:
   - text: "The goal is `{x == x : Nat}` for an arbitrary `x` in the context."
   - text: "Nothing computes, and nothing has to: both sides are the same term, and `{==}` accepts that."
-    hidden: true
   - text: "**Give** `{==}`."
-    hidden: true
 example_explanation: |-
   1. Bind the arbitrary number in the law.
   2. Addition on the right zero computes.

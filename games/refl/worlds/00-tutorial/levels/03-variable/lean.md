@@ -5,9 +5,7 @@ learning_goals:
 hints:
   - text: "`x` is a hypothesis now: the goal is `x = x` for an arbitrary `x`."
   - text: "Nothing computes here, but nothing needs to: both sides are literally the same term, and `rfl` accepts that."
-    hidden: true
   - text: "The whole proof is `  rfl`."
-    hidden: true
 example_explanation: |-
   1. Introduce an arbitrary `n` in the declaration.
   2. Addition on the right zero computes to `n`.

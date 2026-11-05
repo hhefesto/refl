@@ -5,7 +5,6 @@ learning_goals:
   - "Know the limit: the sides have to meet by computing."
 hints:
   - text: "Press **Check** on the untouched `?goal` and read the type Bend reports for it. Compare it with the law as you wrote it. What did Bend do between the two, and what does the report say about the two sides?"
-    hidden: true
   - text: |-
       Bend reports `{4n == 4n : Nat}`: the same term on both sides, which is exactly what the reflexivity proof `{==}` proves.
 
@@ -15,7 +14,6 @@ hints:
       ```
 
       Select the hole and **Give** `{==}`, or edit the definition and **Check**.
-    hidden: true
 example_explanation: |-
   The same one-token proof for a longer walk. Computing `Refl.add(20n, 22n)`
   takes twenty-two steps, so last level's paths would need dozens of waypoints.

@@ -7,7 +7,7 @@ Statement: `+-comm : ∀ (x y : ℕ) → x + y ≡ y + x`
 **Open.** Commutativity. x plus y is y plus x. Everybody knows it. Almost nobody has proved it.
 
 1. **Do:** Case split on `y`, then press Goal in the `zero` clause.
-   **Say:** The goal computes to `x ≡ zero + x`. That's `zero-+`, pointing the wrong way.
+   **Say:** The goal computes to `x ≡ 0 + x`. That's `zero-+`, pointing the wrong way.
 
 2. **Do:** Give `sym (zero-+ x)`.
    **Say:** So flip it.

@@ -5,9 +5,7 @@ learning_goals:
 hints:
   - text: "The goal is `{Refl.add(x, 2n) == 5n : Nat}` and `h : {x == 3n : Nat}`. Mark where `3n` sits in the goal: `5n` is `2n+3n`."
   - text: "Write `%h : {Refl.add(x, 2n) == 2n+_ : Nat}` on its own line. The goal becomes `{Refl.add(x, 2n) == 2n+x : Nat}`, which computes to `{2n+x == 2n+x : Nat}`."
-    hidden: true
   - text: "Then `{==}` on the next line. Two lines, both indented under the `def`."
-    hidden: true
 example_explanation: |-
   1. View `5n` as `1n+4n`.
   2. The transport motive marks that `4n` endpoint with `_`, reducing the goal to `Refl.add(n, 1n) == 1n+n`.

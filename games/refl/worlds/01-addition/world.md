@@ -16,6 +16,7 @@ begin
   x + (z + y) ∎
 ```
 
-It is nothing but `trans` with the intermediate terms written down, and it is
-how every serious Agda development (Spectra2, `ana`, felix) writes
-its proofs.
+You met this chain in the Tutorial, where every step was pure computation and the
+brackets stayed empty. Here the brackets carry lemmas. It is nothing but `trans`
+with the intermediate terms written down, and it is how long Agda proofs are
+written in practice.

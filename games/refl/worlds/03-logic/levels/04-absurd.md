@@ -10,16 +10,30 @@ unlocks:
     - name: "()"
       doc: "absurd.md"
 hints:
-  - text: "Case split on the `⊥` argument: Agda writes `ex-falso ()` — a clause with no right-hand side, because there is no case."
-  - text: "For the second lemma, give `tt`, or let Refine find it."
-    hidden: true
+  - text: "Select the first hole, put `h` in the box and press **Case split**. Agda writes `ex-falso ()`, a clause with no `=` at all, because there is no case to handle."
+  - text: "Select the second hole and press **Refine** with an empty box. `⊤` has one constructor, so Agda writes `tt`."
 ---
-Two lemmas. `ex-falso : ⊥ → A`: case split on the hypothesis of type `⊥`;
-since `⊥` has no constructors Agda produces the **absurd pattern** `()`
-and the clause needs no right-hand side.
+Two opposite types, each with an unusual number of constructors:
 
-`trivial : ⊤`: the one proof is `tt`.
+```agda
+record ⊤ : Set where
+  constructor tt
+
+data ⊥ : Set where
+```
+
+`⊤` is truth: it has one proof, `tt`, and that proof says nothing. `⊥` is falsity: it has
+**no** constructors at all, so there's no way to build a proof of it.
+
+There are two lemmas in this level. `trivial : ⊤` is as easy as it looks. The interesting
+one is `ex-falso : ⊥ → A`, for *any* `A`: from a proof of falsity, conclude anything.
+
+How can a function return a value of a type it knows nothing about? It never has to.
+Think about what **Case split** does: it writes one clause per constructor. So what does
+it do for a type with no constructors? Try it on the hypothesis `h`. There's nothing to
+fill in afterwards, since the clause it writes has no right-hand side, and Agda marks it
+with the **absurd pattern** `()`.
 
 <!-- @conclusion -->
-`⊥-elim` in `Refl.Logic` is exactly `ex-falso`. You will use it whenever a
-hypothesis is impossible: `⊥-elim (¬p refl)`.
+`⊥-elim` in the library is exactly `ex-falso`. You will use it whenever a hypothesis is
+impossible, as in `⊥-elim (¬p refl)`.

@@ -5,9 +5,7 @@ learning_goals:
 hints:
   - text: "Both definitions are in the statement; unfold them in your head at `t`."
   - text: "`analog₁ δ h xs t` applies the lambda to `t` and gives `h (xs (t + δ))`; `analog₁' δ h xs t` is that expression by definition. Same term."
-    hidden: true
   - text: "`  rfl`."
-    hidden: true
 example_explanation: |-
   1. `shifted k` returns a lambda.
   2. `shifted'` names the lambda's argument explicitly.

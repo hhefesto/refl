@@ -19,7 +19,7 @@ two-plus-two-by-hand =
     4               ∎
 
 
--- refl
+-- Let the checker walk
 two-plus-two : 2 + 2 ≡ 4
 
 two-plus-two = refl

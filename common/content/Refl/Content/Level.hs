@@ -88,13 +88,11 @@ instance FromJSON SyntaxSpec where
     names <- M.fromList . concat <$> mapM (\l -> maybe [] (\v -> [(l, v)]) <$> o .:? K.fromText l) knownLanguages
     pure (SyntaxSpec name doc names)
 
-data HintSpec = HintSpec
-  { hsText   :: Text
-  , hsHidden :: Bool
-  } deriving (Eq, Show)
+newtype HintSpec = HintSpec { hsText :: Text }
+  deriving (Eq, Show)
 
 instance FromJSON HintSpec where
-  parseJSON = withObject "hint" $ \o -> HintSpec <$> o .: "text" <*> o .:? "hidden" .!= False
+  parseJSON = withObject "hint" $ \o -> HintSpec <$> o .: "text"
 
 -- | What the server keeps per level and language: fixed prefix (prelude +
 -- statement), the template, the model solution, and a language-supplied

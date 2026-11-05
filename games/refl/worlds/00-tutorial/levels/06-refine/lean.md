@@ -5,9 +5,7 @@ learning_goals:
 hints:
   - text: "Ask for the **Goal** and think about what `x + 3` unfolds to, step by step, by the definition of `+`."
   - text: "`+` recurses on its second argument, so `x + 3` is `succ (x + 2)`, which is `succ (succ (x + 1))`, and so on. `(x + 2) + 1` unfolds to the same."
-    hidden: true
   - text: "`  rfl` closes it: no rewriting needed."
-    hidden: true
 example_explanation: |-
   1. Expand the two additions on their numeric right arguments.
   2. Both sides become `succ (succ n)`.

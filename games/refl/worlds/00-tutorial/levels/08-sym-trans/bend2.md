@@ -5,9 +5,7 @@ learning_goals:
 hints:
   - text: "From `p : {y == x : Nat}` and `q : {y == z : Nat}` you need `{x == z : Nat}`: flip `p`, then chain with `q`."
   - text: "`Equal.sym(Nat, y, x, p)` has type `{x == y : Nat}`; the endpoints are the sides of `p` in order."
-    hidden: true
   - text: "`Equal.trans(Nat, x, y, z, Equal.sym(Nat, y, x, p), q)` is the whole proof; **Give** it."
-    hidden: true
 example_explanation: |-
   1. The first proof already runs from `a` to `b`.
   2. Reverse `q` to go from `b` to `c`.

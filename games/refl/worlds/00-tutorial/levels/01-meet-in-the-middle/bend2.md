@@ -5,11 +5,8 @@ learning_goals:
   - "Build separate left and right paths to a common middle."
 hints:
   - text: "Take one step from the left. The left path already shows one: `Refl.add(2n, 2n)` is `Refl.add(2n, Succ{1n})`, and the successor case gives `Succ{Refl.add(2n, 1n)}`. Your step continues from there — another successor step gives `Succ{Succ{Refl.add(2n, 0n)}}`, which fills `?left`."
-    hidden: true
   - text: "Now take one step from the right. The right path already shows one: `4n` expands to `Succ{3n}`. Your step continues from there — expanding `3n` once more gives `Succ{Succ{2n}}`, which fills `?right` and is the middle itself."
-    hidden: true
   - text: "Both paths must end at the same number. Read each nested `Refl.step` from the outside inward: the current endpoint, the step shown for you, your step, then `Refl.arrive(middle)`. Every adjacent pair must compute to the same number. You can add more steps to show smaller reductions."
-    hidden: true
   - text: |-
       Here are the two completed paths:
 
@@ -28,7 +25,6 @@ hints:
       ```
 
       Select each hole and **Give** its number expression, or edit and **Check**. Change either intermediate term to `3n` and the checker rejects that path, even if the other path is correct.
-    hidden: true
 example_explanation: |-
   The example proves the different sum `3n + 1n = 4n`. Its left path follows:
 

@@ -16,12 +16,11 @@ unlocks:
     - name: "sections"
       doc: "sections.md"
 hints:
-  - text: "No induction this time: rearrange with `+-assoc` and `+-comm`. Plan the chain first: `(x + y) + z` → `x + (y + z)` → `x + (z + y)` → `(x + z) + y`."
-  - text: "Each arrow is one `≡⟨ ⟩` step: `+-assoc x y z`, then `cong (x +_) (+-comm y z)`, then `sym (+-assoc x z y)`."
-  - text: "The template already has the skeleton; fill the three holes in the brackets."
-    hidden: true
+  - text: "Select each hole and press **Goal**. The first says `x + y + z ≡ x + (y + z)`, which is a lemma you have, word for word."
+  - text: "The second says `x + (y + z) ≡ x + (z + y)`. The `x +` stays put and only `y + z` changes: that's `+-comm y z`, under `cong (x +_)`. The third is the first one's shape, backwards."
+  - text: "The three holes are `+-assoc x y z`, `cong (x +_) (+-comm y z)` and `sym (+-assoc x z y)`."
 ---
-You met `≡-Reasoning` in the very first level, where every step was `refl`:
+You met `≡-Reasoning` in the very first level, where every step was computation:
 
 ```agda
 begin
@@ -30,15 +29,22 @@ begin
   c ∎
 ```
 
-with `p : a ≡ b` and `q : b ≡ c`. There the two sides of each step computed to
-the same term, so `refl` proved every one of them. Here they do not: the steps
-need real lemmas, and the brackets are where those lemmas go.
+Here `p : a ≡ b` and `q : b ≡ c`. In that first level the brackets stayed empty,
+because `≡⟨⟩` means "these compute to the same thing". Here they don't, so each
+step needs a real lemma, and the brackets are where it goes.
 
-The template gives you the chain with holes for the justifications.
-`cong (x +_) …` applies the section `(x +_)`, that is `λ y → x + y`, to
-both sides.
+The statement moves `z` past `y`: `(x + y) + z ≡ (x + z) + y`. There is no
+induction this time. You already know addition is associative and commutative, so
+it is only a matter of rearranging, and the template gives you the plan. Each line
+is a sum, each hole is the reason for one step, and **Goal** on a hole tells you
+exactly which equation that step needs.
+
+One step changes only part of a sum, which is where a new piece of notation comes
+in. A **section** is an operator with one side missing: `(x +_)` means
+`λ y → x + y`, the function that adds `x` on the left. So `cong (x +_) e` applies
+`e` underneath the `x +`.
 
 <!-- @conclusion -->
-From now on, every proof longer than one `trans` should be a `begin` block.
-It is also the shape of Spectra2's `≈ᴹ` reasoning kit (World 11) and of
-felix's `≈`-reasoning over setoids (World 15).
+From now on, every proof longer than one `trans` should be a `begin` block. Real
+Agda code is full of them, because the intermediate terms are what make a long
+proof readable afterwards.

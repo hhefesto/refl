@@ -5,9 +5,7 @@ learning_goals:
 hints:
   - text: "The goal is `x + 2 = 5` and `h : x = 3`. Make the goal about `3` instead of `x`."
   - text: "`rw [h]` turns the goal into `3 + 2 = 5`. `rw` then tries `rfl` on its own; if a goal remains, finish with `rfl`."
-    hidden: true
   - text: "The proof is two lines: `  rw [h]` then `  rfl` (the second is harmless if the first already closed the goal)."
-    hidden: true
 example_explanation: |-
   1. Rewrite `n` to `4`.
   2. The resulting equality is `4 + 1 = 5`.

@@ -4,7 +4,7 @@ About 1 min 00 s. Agda.
 
 Statement: `*-assoc : ∀ (x y z : ℕ) → (x * y) * z ≡ x * (y * z)`
 
-**Open.** The last of the ring laws, and the reason we proved distributivity first.
+**Open.** The last of the semiring laws, and the reason we proved distributivity first.
 
 1. **Do:** Case split on `z`, give `refl` for `zero`.
    **Say:** Base case computes.

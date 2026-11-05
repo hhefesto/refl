@@ -7,7 +7,7 @@ Statement: `⊎-comm : ∀ {A B : Set} → A ⊎ B → B ⊎ A`
 **Open.** Or is a choice. And unlike classical logic, a proof of "or" tells you which side is true.
 
 1. **Do:** Case split on `s`, then rename the variables to `a` and `b`.
-   **Say:** Two clauses, one per constructor: `inj₁` and `inj₂`.
+   **Say:** Two clauses, one per constructor. Agda calls the payload `x` in both, so I give them names that say which is which.
 
 2. **Do:** Give `inj₂ a` in the first clause.
    **Say:** What was on the left goes on the right.
