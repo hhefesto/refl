@@ -70,8 +70,11 @@ startAgda logf exe extraEnv cwd = do
     Right p -> Right p
 
 -- | Send one command and collect its responses (until the next prompt).
--- Times out with 'Left' after the given number of seconds; the caller should
--- then abort/kill the process.
+--
+-- After 'Left' the process is gone and the caller must start another. A
+-- process that misses the deadline is killed here: it would still finish the
+-- command, and its answer would then be read as the next command's, leaving
+-- every answer one behind for the rest of the session.
 sendCmd :: AgdaProc -> Int -> FilePath -> Cmd -> IO (Either Text [AgdaResponse])
 sendCmd p secs file cmd = withMVar (apLock p) $ \_ -> do
   let line = renderIOTCM file cmd
@@ -83,10 +86,11 @@ sendCmd p secs file cmd = withMVar (apLock p) $ \_ -> do
     Left (e :: SomeException) -> pure (Left ("agda stdin closed: " <> T.pack (show e)))
     Right () -> do
       res <- timeout (secs * 1000000) (readUntilPrompt p)
-      pure $ case res of
-        Nothing -> Left "agda timed out; retry the session"
-        Just (Left e) -> Left e
-        Just (Right rs) -> Right rs
+      case res of
+        Nothing -> do
+          stopProcess (apProc p)
+          pure (Left ("agda did not finish within " <> T.pack (show secs) <> " seconds"))
+        Just r' -> pure r'
 
 -- | Read lines until the stream's tail is a bare prompt. Each complete line
 -- (with a leading prompt stripped) is decoded as one response.

@@ -10,7 +10,7 @@ module Refl.Language.Agda
   , tidyMessage
   ) where
 
-import           Control.Exception            (SomeException, try, onException)
+import           Control.Exception            (SomeException, mask_, try, onException)
 import           Control.Monad                (void)
 import           Data.Char                    (isDigit)
 import           Data.Aeson                   (Value (Null))
@@ -46,7 +46,8 @@ agda = Language
   commands = [CmdLoad, CmdGoal, CmdGive, CmdRefine, CmdCase, CmdAuto, CmdInfer, CmdNormalise, CmdSolveAll]
 
 data St = St
-  { stProc   :: AgdaProc
+  { stProc   :: IORef AgdaProc
+  , stStart  :: IO (Either Text AgdaProc)
   , stDir    :: FilePath
   , stFile   :: FilePath
   , stLoaded :: IORef (Maybe (Text, [Hole]))   -- ^ last successfully loaded user text and its holes
@@ -63,19 +64,45 @@ start env src = do
     "name: refl-level\ninclude: .\ndepend: standard-library refl-support\n"
   writeFileUtf8 file (splice src "" (lsTemplate src))
   let extra = [("LC_ALL", "en_US.UTF-8")] ++ maybe [] (\d -> [("AGDA_DIR", d)]) (envAgdaDir env)
-  r <- startAgda (logMsg env) (envAgda env) extra dir `onException` removeDirectoryRecursive dir
+      launch = startAgda (logMsg env) (envAgda env) extra dir
+  r <- launch `onException` removeDirectoryRecursive dir
   case r of
     Left e -> removeDirectoryRecursive dir >> pure (Left e)
     Right p -> do
+      current <- newIORef p
       ref <- newIORef Nothing
-      let st = St p dir file ref
+      let st = St current launch dir file ref
       pure $ Right ProverSession
         { psCheck = check env src st
         , psHole  = hole env src st
         , psClose = do
-            stopAgda p
+            readIORef current >>= stopAgda
             void (try (removeDirectoryRecursive dir) :: IO (Either SomeException ()))
         }
+
+-- | One command to the session's Agda. A failed command leaves no usable
+-- process (see 'sendCmd'), so it is replaced at once and the player's retry has
+-- a prover. The new one has loaded nothing, and 'stLoaded' says so: the next
+-- hole command loads the file first.
+command :: Env -> St -> Int -> Cmd -> IO (Either Text [AgdaResponse])
+command env st secs cmd = do
+  p <- readIORef (stProc st)
+  r <- sendCmd p secs (stFile st) cmd
+  case r of
+    Right rs -> pure (Right rs)
+    Left e -> do
+      writeIORef (stLoaded st) Nothing
+      stopAgda p
+      -- An exception between the start and the write would orphan the new
+      -- process: psClose only stops the one it can see.
+      started <- mask_ $ do
+        new <- stStart st
+        either (const (pure ())) (writeIORef (stProc st)) new
+        pure new
+      logMsg env ("agda replaced after: " <> e)
+      pure $ Left $ e <> case started of
+        Right _ -> ". Agda was restarted; try again."
+        Left e' -> ". Agda could not be restarted: " <> e'
 
 -- ---------------------------------------------------------------------------
 -- Check
@@ -87,7 +114,7 @@ check env src st user = do
   writeIORef (stLoaded st) Nothing
   if not (null vs) then pure (rejected vs) else do
     writeFileUtf8 (stFile st) (splice src "" user)
-    r <- sendCmd (stProc st) 120 (stFile st) ALoad
+    r <- command env st 120 ALoad
     case r of
       Left e -> do
         logMsg env ("agda load failed: " <> e)
@@ -208,7 +235,7 @@ hole env src st user target op = do
  where
   notRejected (Rejected _) = False
   notRejected _            = True
-  send cmd = sendCmd (stProc st) 60 (stFile st) cmd
+  send = command env st 60
   run h = do
     let i = unHoleId (holeId h)
         sp = holeSpan h

@@ -4,6 +4,7 @@ import           Data.Aeson                    (decodeStrict, Value (Null), obje
 import qualified Data.ByteString.Char8         as BC
 import           Data.Maybe                    (mapMaybe)
 import qualified Data.Text                     as T
+import qualified AgdaProcessSpec
 import qualified AnalyticsSpec
 import           Test.Hspec
 
@@ -20,6 +21,7 @@ import           Refl.Server.Identity
 
 main :: IO ()
 main = hspec $ do
+  AgdaProcessSpec.spec
   AnalyticsSpec.spec
   describe "anonymous identity boundary" $ do
     let secure = cookiePolicy "https://refl.example"

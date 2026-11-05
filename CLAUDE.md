@@ -46,6 +46,12 @@ implementations).
   1-based code points, end exclusive. `Cmd_auto` is `Cmd_autoOne` in 2.8.
 - In batch mode an unsolved hole is an error; in interaction mode it is a
   goal in `AllGoalsWarnings`. `refl-check-levels` uses interaction mode.
+- Agda cannot abandon a command: past the deadline it still finishes and
+  answers, and that answer would be read as the next command's, every answer
+  one behind from then on. So `sendCmd` kills on a timeout and
+  `Refl.Language.Agda.command` starts another process; the next hole command
+  loads the file first. `spec` must be `-threaded`, because `stopAgda`'s
+  `timeout` cannot fire around `waitForProcess` otherwise.
 - `~/.agda/libraries` on this machine is stale; the flake generates its own
   `AGDA_DIR`. Agda needs `LC_ALL=en_US.UTF-8` and `LOCALE_ARCHIVE` in the
   sandbox.
