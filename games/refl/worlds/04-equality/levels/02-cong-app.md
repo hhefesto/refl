@@ -8,10 +8,13 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "cong-app"
+      bend2: "Equality.cong_app"
       agda: "cong-app"
       lean: "congrFun"
     - name: "≗-trans"
+      bend2: "Equality.pointwise_trans"
       agda: "≗-trans"
+      lean: "pointwise_of_eq"
 hints:
   - text: "`cong-app`: **Case split** on `e`, as in the last level. `f` and `g` become the same function."
   - text: "`≗-trans`: the goal is `f x ≡ h x`, and in the context `p` and `q` are functions. `p x : f x ≡ g x` and `q x : g x ≡ h x`. Chain them."

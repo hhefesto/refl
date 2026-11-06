@@ -8,6 +8,7 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "+-cancelʳ"
+      bend2: "Addition.add_right_cancel"
       agda: "+-cancelʳ"
       lean: "add_right_cancel"
       doc: "plus-cancel.md"

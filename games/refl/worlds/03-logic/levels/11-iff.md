@@ -8,6 +8,7 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "×-swap-⇔"
+      bend2: "Logic.and_swap_iff"
       agda: "×-swap-⇔"
       lean: "And.comm"
 hints:

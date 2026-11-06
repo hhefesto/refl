@@ -8,6 +8,7 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "+-swap"
+      bend2: "Addition.add_left_comm"
       agda: "+-swap"
       lean: "add_left_comm"
 hints:

@@ -1,5 +1,5 @@
 {-# OPTIONS --safe --without-K #-}
--- Propositions as types: the connectives World 3 is about.
+-- Propositions as types: the connectives Logic World is about.
 module Refl.Logic where
 
 open import Refl.Eq

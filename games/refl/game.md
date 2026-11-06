@@ -27,12 +27,12 @@ statement with a hole in it; you fill the hole until the type checker says
 value, and the checker can see it". Each language spells that proof differently.
 
 The game starts from nothing (its own natural numbers, its own equality) and
-ends where the real code lives: Conal Elliott's
+is headed where the real code lives: Conal Elliott's
 [`felix`](https://github.com/conal/felix) library, the [ICFP 2021
 language-derivatives development](https://github.com/conal/paper-2021-language-derivatives),
 and the specifications in [`ana`](https://github.com/hhefesto/ana) and
-[Spectra](https://xpsoasis.org). Pick a language in the top-right corner — Agda
-first; Lean 4 and Bend 2 are available throughout Tutorial World.
+[Spectra](https://xpsoasis.org). Pick a language in the top-right corner: Agda,
+Lean 4 or Bend 2. Every playable world is written in all three.
 
 Click a world on the map to begin. Solved levels unlock lemmas, commands and
 syntax into your **Inventory**.

@@ -8,6 +8,8 @@ learning_goals:
 unlocks:
   syntax:
     - name: "inspect / [_]"
+      bend2: "Saw{…}"
+      lean: "generalize"
       doc: "inspect.md"
 hints:
   - text: "It's the last level's proof in old clothes. Write `g-nonzero n h with n ≡ᵇ 0 | inspect (n ≡ᵇ_) 0`, then a clause for each result. `(n ≡ᵇ_)` is the function and `0` its argument."

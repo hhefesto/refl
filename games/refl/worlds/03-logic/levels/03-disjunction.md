@@ -8,6 +8,7 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "⊎-comm"
+      bend2: "Logic.or_swap"
       agda: "⊎-comm"
       lean: "Or.symm"
 hints:

@@ -1,0 +1,1 @@
+`Decidable A` is `isTrue a` with a proof, or `isFalse na` with a refutation. `dec_eq m n : Decidable (m = n)` is the one you proved. Lean has its own as `decEq`, for any type with a `DecidableEq` instance.

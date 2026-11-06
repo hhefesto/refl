@@ -8,6 +8,7 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "+-comm"
+      bend2: "Addition.add_comm"
       agda: "+-comm"
       lean: "add_comm"
       doc: "plus-comm.md"

@@ -9,6 +9,7 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "_≟_"
+      bend2: "Logic.dec_eq"
       agda: "_≟_"
       lean: "decEq"
       doc: "deceq.md"

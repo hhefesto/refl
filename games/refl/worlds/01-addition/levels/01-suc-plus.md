@@ -8,6 +8,7 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "suc-+"
+      bend2: "Addition.succ_add"
       agda: "suc-+"
       lean: "succ_add"
       doc: "suc-plus.md"

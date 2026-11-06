@@ -8,6 +8,7 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "^-two"
+      bend2: "Multiplication.pow_two"
       agda: "^-two"
       lean: "pow_two"
 hints:

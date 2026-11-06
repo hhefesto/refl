@@ -8,10 +8,11 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "subst"
+      bend2: "Refl.subst"
       agda: "subst"
       lean: "Eq.subst"
       doc: "subst.md"
-forbids: ["trans"]
+forbids: ["trans", "Eq.trans", "rw", "cases", "Equal.trans"]
 hints:
   - text: "You hold `p : x ≡ y` and want `x ≡ z`. Think of `p` as `P y`, and the goal as `P z`, for a `P` that leaves the `x ≡` alone and varies what comes after it. You move along `q : y ≡ z`."
   - text: "The motive is the section `(x ≡_)`, that is, `λ w → x ≡ w`. To name the implicit `x`, write it in braces on the left: `trans′ {x} p q = ?`."

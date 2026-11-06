@@ -23,6 +23,8 @@ data Opts = Opts
   , optLang    :: Maybe String
   , optWorld   :: Maybe String
   , optEmit    :: Maybe FilePath
+  , optEmitLean :: Maybe FilePath
+  , optEmitBend :: Maybe FilePath
   , optAgda    :: Maybe FilePath
   , optAgdaDir :: Maybe FilePath
   , optLean    :: Maybe FilePath
@@ -62,9 +64,10 @@ main = do
       let g = case optWorld o of
             Nothing -> g0
             Just w -> g0 { lgWorlds = filter ((== T.pack w) . wmId . lwMeta) (lgWorlds g0) }
-      forM_ (optEmit o) $ \dir -> do
-        paths <- emitWorldModules g0 dir
-        forM_ paths (putStrLn . ("wrote " ++))
+      forM_ [(optEmit o, emitWorldModules), (optEmitLean o, emitLeanWorldModules), (optEmitBend o, emitBendWorldModules)] $ \(dest, emit) ->
+        forM_ dest $ \dir -> do
+          paths <- emit g0 dir
+          forM_ paths (putStrLn . ("wrote " ++))
       when (optEmit o == Nothing || optLang o /= Nothing || True) $ do
         outcomes <- checkGame env (LangId . T.pack <$> optLang o) (map (LangId . T.pack) (optSkip o)) g
         forM_ outcomes $ \oc -> do
@@ -79,6 +82,8 @@ main = do
     <*> optional (strOption (long "lang" <> metavar "LANG"))
     <*> optional (strOption (long "world" <> metavar "WORLD" <> help "Only this world id"))
     <*> optional (strOption (long "emit-world-modules" <> metavar "DIR" <> help "Write Refl/World/*.agda under DIR"))
+    <*> optional (strOption (long "emit-lean-world-modules" <> metavar "DIR" <> help "Write Refl/World/*.lean under DIR"))
+    <*> optional (strOption (long "emit-bend-world-modules" <> metavar "DIR" <> help "Write *.bend for each world under DIR"))
     <*> optional (strOption (long "agda"))
     <*> optional (strOption (long "agda-dir"))
     <*> optional (strOption (long "lean"))

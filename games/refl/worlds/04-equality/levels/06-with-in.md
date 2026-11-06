@@ -8,6 +8,8 @@ learning_goals:
 unlocks:
   syntax:
     - name: "with … in eq"
+      bend2: "an equation about the test"
+      lean: "cases h : e"
       doc: "with-in.md"
 hints:
   - text: "`f n` is stuck on `n ≡ᵇ 0`, so write `f-nonzero n h with n ≡ᵇ 0 in eq` and two clauses, `... | true = ?` and `... | false = ?`. The `in eq` is what keeps the fact you'll need."

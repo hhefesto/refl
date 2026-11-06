@@ -6,8 +6,9 @@ options:
   agda: ["--safe", "--without-K"]
   lean: []
 ---
-The classic: `+-comm`, `+-assoc` and friends, proved by induction, plus the
-notation that keeps such proofs readable — **equational reasoning**:
+The classic: commutativity, associativity and friends, proved by induction, plus a way of
+writing proofs that keeps them readable: a **chain of equations**, naming every term it passes
+through. In Agda it looks like this:
 
 ```agda
 begin
@@ -16,7 +17,6 @@ begin
   x + (z + y) ∎
 ```
 
-You met this chain in the Tutorial, where every step was pure computation and the
-brackets stayed empty. Here the brackets carry lemmas. It is nothing but `trans`
-with the intermediate terms written down, and it is how long Agda proofs are
-written in practice.
+Lean writes the same chain with `calc`, and Bend with nested `Equal.trans`. It is nothing but
+transitivity with the intermediate terms written down, and it is how long proofs are written in
+practice. The lessons show each language's own spelling.

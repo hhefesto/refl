@@ -8,6 +8,8 @@ learning_goals:
 unlocks:
   syntax:
     - name: "λ"
+      bend2: "x => e"
+      lean: "fun"
       doc: "lambda.md"
 hints:
   - text: "Select the hole and press **Refine** with the box empty. Agda writes `λ x x₁ → ?`. Then press **Check** and ask for the new hole's **Goal**: it wants a `B`, with `x : A` and `x₁ : A → B` in the context."

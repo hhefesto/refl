@@ -1,6 +1,6 @@
 {-# OPTIONS --safe --without-K #-}
 -- Propositional equality and the small toolkit around it. Level-monomorphic
--- on purpose: universe levels are World 7's topic.
+-- on purpose.
 module Refl.Eq where
 
 infix 4 _≡_

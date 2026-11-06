@@ -9,6 +9,7 @@ learning_goals:
 unlocks:
   syntax:
     - name: "λ ()"
+      bend2: "Logic.zero_ne_succ"
       lean: "nofun"
       doc: "absurd-lambda.md"
 hints:

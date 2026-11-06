@@ -8,6 +8,7 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "suc-*"
+      bend2: "Multiplication.succ_mul"
       agda: "suc-*"
       lean: "succ_mul"
 hints:

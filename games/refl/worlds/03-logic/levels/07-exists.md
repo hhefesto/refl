@@ -8,6 +8,8 @@ learning_goals:
 unlocks:
   syntax:
     - name: "Σ / ∃"
+      bend2: "exs"
+      lean: "∃"
       doc: "sigma.md"
 hints:
   - text: "Select the hole and press **Refine** with an empty box to get `? , ?`. The first hole wants a number. Which `n` makes `n + 1 ≡ 3`?"

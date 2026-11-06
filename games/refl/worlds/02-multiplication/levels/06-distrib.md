@@ -7,6 +7,7 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "*-distribˡ-+"
+      bend2: "Multiplication.mul_add"
       agda: "*-distribˡ-+"
       lean: "mul_add"
       doc: "distrib.md"

@@ -6,7 +6,7 @@ learning_goals:
   - "`refl` is a constructor, so a proof of an equation can be case split."
   - "Matching a proof against `refl` makes the two sides the same."
   - "Your first lemma from the inventory, proved from nothing."
-forbids: ["cong"]
+forbids: ["cong", "congrArg", "rw", "Equal.cong"]
 hints:
   - text: "Select the hole, put `p` in the box and press **Case split**. Agda writes `cong′ f refl = ?`."
   - text: "Ask for the **Goal** again. It was `f x ≡ f y`, and now it's `f x ≡ f x`, because `y` has become `x`. What proves a thing equal to itself?"

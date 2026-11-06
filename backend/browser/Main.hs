@@ -398,7 +398,7 @@ main = do
           tab "agda"
           wait "Agda draft isolated" "document.querySelector('textarea').value.includes('λ → ℕ 😀') && !document.querySelector('textarea').value.includes('Bend draft')"
           -- An unavailable translation must never mount another language's editor.
-          run "location.hash='#/w/addition/l/1/lean'; true"
+          run "location.hash='#/w/order/l/1/lean'; true"
           wait "unavailable language" "Boolean(document.querySelector('.unavailable')) && !document.querySelector('textarea') && document.querySelector('#language').value === 'lean'"
           routeLang "bend2" 1
           -- Reflexivity is documented only in the follow-up lesson. Test its

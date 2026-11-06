@@ -8,6 +8,7 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "contraposition"
+      bend2: "Logic.contraposition"
       agda: "contraposition"
       lean: "mt"
 hints:

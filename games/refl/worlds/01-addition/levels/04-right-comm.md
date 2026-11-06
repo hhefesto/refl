@@ -9,11 +9,14 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "+-right-comm"
+      bend2: "Addition.add_right_comm"
       agda: "+-right-comm"
       lean: "add_right_comm"
       doc: "plus-right-comm.md"
   syntax:
     - name: "sections"
+      bend2: "n => Refl.add(x, n)"
+      lean: "(x + ·)"
       doc: "sections.md"
 hints:
   - text: "Select each hole and press **Goal**. The first says `x + y + z ≡ x + (y + z)`, which is a lemma you have, word for word."

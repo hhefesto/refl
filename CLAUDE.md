@@ -192,6 +192,30 @@ implementations).
   (`parse_term_tup`/`parse_term_ns` in `bend2/bend.ts`). Annotations nest:
   `{{e : T1} : T2}` checks both layers.
 
+- What each prover prints, which lessons quote and CI does not check. Agda: Goal
+  prints `zero` as `0`; a split on a pair names the parts `(proj₃ , proj₄)`, on a
+  sum `x` in both clauses; Refine on a function writes `λ x x₁ → ?`; after
+  `rewrite h`, Goal has computed (`5 ≡ 5`), while the hole list may not; stuck
+  decisions print as `(δ i i | i ≟ i) ≡ 1`; Hedberg's chain unfolds `canon` into
+  something long, so that lesson points at the hole list instead. Lean: `succ x`
+  prints as `x.succ`; the base case of `induction` says `zero` while a lemma says
+  `0`, so `rw` won't match and `exact` will; `⋯` is an elided proof; Goal does not
+  compute. Bend: `A & B` prints as `Sigma<&1, &1, A, _ => B>`, `A | B` as
+  `Either<&1, &1, A, B>`; Goal computes.
+- Bend 2.0.4, as the levels use it: `match` takes a parameter or a field only ("a
+  match cannot scrutinize a computed value"), so what Agda writes with `with` is a
+  helper with the decision as a parameter; several scrutinees go in binder order;
+  there is no pattern for `{==}`; `%E@p : P` names the equation, and `P` binds `_`
+  (the second endpoint) and `E`, which is J; a constructor from a module carries
+  its alias (`Refl.Yes{…}`); functions aren't Data, so they can't be used twice,
+  which is why Bend's finite sums are over a `+List<Nat>` and why Logic's `∀` level
+  pairs two functions instead of splitting one. There is no K: UIP needs Hedberg, as
+  in Agda. In Lean UIP is `rfl`, by proof irrelevance, and levels 10–12 of Equality
+  World say so.
+- The video scripts' Open, steps and Close are written by hand. `runghc
+  video-scripts/Regen.hs` derives each heading, length and finished proof from the
+  level, and the README's tables, and fails if a level has no script.
+
 ## Rules
 
 - Every Agda level runs `--safe`; `Refl.Nat`/`Refl.Eq`/`Refl.Logic` are the
@@ -226,9 +250,17 @@ implementations).
   `2 + 2 ≡ 4`. Their Agda lemmas must differ (`two-plus-two-by-hand` and
   `two-plus-two`) because `renderWorldModule` harvests every level's statement
   and solution into one `Refl/World/Tutorial.agda` with no exclusion flag.
-  Lean and Bend are not harvested, so both keep `two_plus_two…` freely.
-- After adding Agda levels: `refl-check-levels games/refl --emit-world-modules
-  languages/agda`, then check `nix build .#agdaSupport`.
+  Lean and Bend are harvested the same way, into `languages/lean/Refl/World/`
+  and `languages/bend2/`.
+- A Lean import brings in all of a module, so a level importing its own world
+  would clash with its own theorem. World modules are therefore namespaced, and a
+  level says `open Refl.World.Addition (add_comm)`, which is Agda's `using`. Bend
+  has `import ./Addition.bend as Addition`, and the generator strips the
+  `Addition.` prefix inside that file. A lemma's `bend2:` name in the front matter
+  is the prefixed one, since forbidding works by token.
+- After adding levels: `refl-check-levels games/refl --emit-world-modules
+  languages/agda --emit-lean-world-modules languages/lean --emit-bend-world-modules
+  languages/bend2`, then check `nix build .#agdaSupport .#leanSupport .#bendSupport`.
 - `nix flake check` must stay green: protocol round-trips, content specs,
   backend spec, every level's solution Solved and template Unsolved (and
   every worked example), the smoke test, the security suite (HTTP/WebSocket

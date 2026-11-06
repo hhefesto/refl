@@ -8,8 +8,10 @@ learning_goals:
 unlocks:
   syntax:
     - name: "λ { … }"
+      bend2: "e =>"
+      lean: "fun | rfl"
       doc: "pattern-lambda.md"
-forbids: ["sym"]
+forbids: ["sym", "Eq.symm", "Equal.sym"]
 hints:
   - text: "Replace the hole with `λ { refl → ? }` and press **Check**. The new hole's **Goal** is `x ≡ x`."
   - text: "Matching against `refl` has made `y` into `x`, so the goal is a thing equal to itself. `sym′ = λ { refl → refl }`."

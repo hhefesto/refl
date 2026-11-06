@@ -1,10 +1,12 @@
 # Video scripts
 
-One short script per playable level, for recording YouTube videos. Each has an opening line, what to do and say at each step, a closing line and the finished proof. They use Agda, the language every playable world has; Tutorial World also runs in Lean 4 and Bend 2.
+One short script per playable level, for recording YouTube videos. Each has an opening line, what to do and say at each step, a closing line and the finished proof. They use Agda; every playable world also runs in Lean 4 and Bend 2.
 
 Lengths are estimates from the word count plus a few seconds per step. The finished proofs are copied from each level's solution, so they are the ones `check-levels` runs.
 
 Worlds 5 to 18 aren't here: their levels are outlines with no statements or solutions yet, so there is nothing to play on camera.
+
+Run `runghc video-scripts/Regen.hs` from the repository root after changing a level. It rewrites each script's heading, length and finished proof, and this table. The rest of a script is written by hand.
 
 ## Tutorial World
 

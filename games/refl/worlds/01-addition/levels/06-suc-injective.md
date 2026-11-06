@@ -8,6 +8,7 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "suc-injective"
+      bend2: "Addition.succ_inj"
       agda: "suc-injective"
       lean: "succ_inj"
       doc: "suc-injective.md"

@@ -1,0 +1,1 @@
+`nofun` is a function whose argument cannot exist. Lean accepts it only when it can see that the argument has no possible values, such as `False` or `zero = succ n`. In tactics, `intro h` and `cases h` do the same job.

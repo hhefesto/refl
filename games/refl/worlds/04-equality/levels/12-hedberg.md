@@ -9,6 +9,7 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "≡-irrelevant"
+      bend2: "Equality.eq_irrelevant"
       agda: "≡-irrelevant"
       lean: "Subsingleton.elim"
       doc: "uip.md"

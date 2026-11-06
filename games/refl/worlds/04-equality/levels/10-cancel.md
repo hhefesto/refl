@@ -8,7 +8,9 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "trans-symˡ"
+      bend2: "Equality.trans_sym"
       agda: "trans-symˡ"
+      lean: "trans_symm"
       doc: "trans-sym.md"
 hints:
   - text: "The goal is an equation between proofs, but the method hasn't changed. **Case split** on `e`."

@@ -8,6 +8,7 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "+-assoc"
+      bend2: "Addition.add_assoc"
       agda: "+-assoc"
       lean: "add_assoc"
       doc: "plus-assoc.md"

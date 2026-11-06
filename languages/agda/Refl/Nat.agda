@@ -1,6 +1,6 @@
 {-# OPTIONS --safe --without-K #-}
 -- The game's own natural numbers. Deliberately not the standard library's,
--- so that every lemma about them has to be proved in a level (NNG4's MyNat).
+-- so that every lemma about them has to be proved in a level.
 -- BUILTIN NATURAL only lets you write numerals like 3 for suc (suc (suc zero)).
 module Refl.Nat where
 

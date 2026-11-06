@@ -8,6 +8,7 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "×-comm"
+      bend2: "Logic.and_swap"
       agda: "×-comm"
       lean: "And.symm"
       doc: "and-comm.md"

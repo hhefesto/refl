@@ -174,8 +174,8 @@ template is what they start from (`.lean` and `.bend` siblings use the same
 four markers with their own comment syntax; a Bend template is a `def` whose
 body is a loud hole `?goal`); the solution is stripped from the manifest
 and checked by `refl-check-levels`. Front matter declares `unlocks` (commands,
-lemmas with per-language names, syntax), `forbids`, and `hints` (with
-`hidden: true` for the ones revealed on request). Lemma names unlocked by
+lemmas with per-language names, syntax), `forbids`, and `hints` (revealed on
+request, one at a time). Lemma names unlocked by
 later levels are automatically forbidden in earlier ones.
 
 Docs live per language under `docs/agda/`, `docs/lean/`, `docs/bend2/`: a
@@ -200,18 +200,19 @@ offer, or an example that restates the exercise.
 The client has a dark and a light theme (button in the header; the choice is
 remembered in the browser when storage allows).
 
-After adding Agda levels, regenerate the world support modules so later
-levels can `open import Refl.World.<World>`:
+After adding levels, regenerate the world support modules so later levels can
+import what earlier ones proved:
 
 ```sh
-cabal run refl-check-levels -- games/refl --emit-world-modules languages/agda
+cabal run refl-check-levels -- games/refl --emit-world-modules languages/agda \
+  --emit-lean-world-modules languages/lean --emit-bend-world-modules languages/bend2
 ```
 
 ## Status
 
-Worlds 0–4 (Tutorial, Addition, Multiplication, Logic, Equality: 46 levels)
-are fully playable in Agda; the Tutorial is also playable in Lean 4 and in
-Bend 2. Worlds 5–18 are planned with learning goals per level (see the map).
+Worlds 0–4 (Tutorial, Addition, Multiplication, Logic, Equality: 51 levels)
+are fully playable in Agda, Lean 4 and Bend 2. Worlds 5–18 are planned with
+learning goals per level (see the map).
 
 ## Private dashboard
 

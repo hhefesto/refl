@@ -7,6 +7,7 @@ learning_goals:
 unlocks:
   lemmas:
     - name: "one-*"
+      bend2: "Multiplication.one_mul"
       agda: "one-*"
       lean: "one_mul"
 hints:

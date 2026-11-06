@@ -8,6 +8,8 @@ learning_goals:
 unlocks:
   syntax:
     - name: "()"
+      bend2: "match e:"
+      lean: "cases h"
       doc: "absurd.md"
 hints:
   - text: "Select the first hole, put `h` in the box and press **Case split**. Agda writes `ex-falso ()`, a clause with no `=` at all, because there is no case to handle."

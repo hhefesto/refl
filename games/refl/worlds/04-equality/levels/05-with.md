@@ -8,11 +8,14 @@ learning_goals:
 unlocks:
   syntax:
     - name: "with"
+      bend2: "a helper for the decision"
+      lean: "match"
       doc: "with.md"
   lemmas:
     - name: "δ-diag"
+      bend2: "Equality.delta_diag"
       agda: "δ-diag"
-      lean: ""
+      lean: "delta_diag"
 hints:
   - text: "Press **Goal**: `(δ i i | i ≟ i) ≡ 1`. `δ` is stuck until `i ≟ i` is known. Edit the template to two lines: `δ-diag i with i ≟ i` and `... | d = ?`. Then **Check**, and **Case split** on `d`."
   - text: "You get `... | yes x = ?` and `... | no x = ?`. In the `yes` clause the goal is `1 ≡ 1`. In the `no` clause it's `0 ≡ 1`, which is false, so the case must be impossible. Read `x`'s type: `i ≡ i → ⊥`. Can you get a contradiction out of that?"
